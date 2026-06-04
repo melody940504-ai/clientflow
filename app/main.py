@@ -196,15 +196,25 @@ def register(email: str = Form(...), password: str = Form(...)):
 @app.post("/login")
 def login(email: str = Form(...), password: str = Form(...)):
     with get_db() as db:
-        user = db.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
-    if not user or not verify_password(password, user["password_hash"]):
-        return redirect("/?error=invalid")
+        # 先把郵箱整理好
+        clean_email = email.strip().lower()
+        user = db.execute("SELECT * FROM users WHERE email = ?", (clean_email,)).fetchone()
+    
+    # 邏輯 1：如果帳號不存在
+    if not user:
+        return redirect("/?error=no_account")
+        
+    # 邏輯 2：如果帳號存在，但密碼錯誤
+    if not verify_password(password, user["password_hash"]):
+        return redirect("/?error=wrong_password")
+    
+    # 登入成功
     response = redirect("/dashboard")
     response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
     return response
 
 
-@app.post("/logout")
+@app.get("/logout")
 def logout():
     response = redirect("/")
     response.delete_cookie("session")

@@ -6,7 +6,17 @@
     <p class="eyebrow">Short-form video delivery dashboard</p>
     <h1>{% if mode == 'register' %}Create your workspace{% else %}Welcome back{% endif %}</h1>
     <p class="muted">Track clients, projects, video versions, approvals, and revision notes without storing heavy video files.</p>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    {% if error %}
+      <p class="error">
+        {% if error == 'no_account' %}
+          此郵箱未註冊，請先創建帳戶！
+        {% elif error == 'wrong_password' %}
+          密碼錯誤，請重新輸入。
+        {% else %}
+          登入失敗，請檢查資料。
+        {% endif %}
+      </p>
+    {% endif %}
     <form class="stack" method="post" action="/{% if mode == 'register' %}register{% else %}login{% endif %}">
       <label>Email<input type="email" name="email" required placeholder="studio@example.com"></label>
       <label>Password<input type="password" name="password" required minlength="6" placeholder="At least 6 characters"></label>
