@@ -193,23 +193,26 @@ def register(email: str = Form(...), password: str = Form(...)):
     return response
 
 
+from fastapi import Request, Form
+from fastapi.responses import RedirectResponse
+import logging
+
+# 加入這行來設定記錄器，這樣我們能在 Render 的 Logs 看到後端發生什麼
+logger = logging.getLogger("uvicorn.error")
+
 @app.post("/login")
-def login(email: str = Form(...), password: str = Form(...)):
+def login(request: Request, email: str = Form(...), password: str = Form(...)):
+    logger.info(f"Login attempt for: {email}") # 這行會出現在 Logs
     with get_db() as db:
-        # 先把郵箱整理好
-        clean_email = email.strip().lower()
-        user = db.execute("SELECT * FROM users WHERE email = ?", (clean_email,)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
     
-    # 邏輯 1：如果帳號不存在
     if not user:
-        return redirect("/?error=no_account")
+        return RedirectResponse(url="/?error=no_account", status_code=303)
         
-    # 邏輯 2：如果帳號存在，但密碼錯誤
     if not verify_password(password, user["password_hash"]):
-        return redirect("/?error=wrong_password")
+        return RedirectResponse(url="/?error=wrong_password", status_code=303)
     
-    # 登入成功
-    response = redirect("/dashboard")
+    response = RedirectResponse(url="/dashboard", status_code=303)
     response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
     return response
 
