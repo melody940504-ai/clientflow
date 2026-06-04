@@ -1,0 +1,720 @@
+from __future__ import annotations
+
+import hashlib
+import secrets
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+from fastapi import FastAPI, Form, Request, Response, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from itsdangerous import BadSignature, URLSafeSerializer
+
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "clientflow.db"
+SECRET_KEY = "change-this-secret-before-deployment"
+serializer = URLSafeSerializer(SECRET_KEY, salt="clientflow-session")
+
+app = FastAPI(title="ClientFlow MVP")
+
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
+CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
+
+# ==========================================
+# 📬 【新增】Email 自動通知模擬引擎
+# ==========================================
+def send_activity_email(to_email: str, subject: str, project_name: str, action_text: str, link_url: str):
+    """
+    模擬系統外發郵件。在終端機列印出高質感的郵件日誌，展示商業工作流。
+    """
+    border = "=" * 60
+    print(f"\n{border}")
+    print(f"📬 [SMTP SIMULATOR] EMAIL SENT SUCCESSFULLY!")
+    print(f"{border}")
+    print(f"From: notification@clientflow.com")
+    print(f"To: {to_email}")
+    print(f"Subject: {subject}")
+    print(f"Project: {project_name}")
+    print(f"Message: {action_text}")
+    print(f"Action Link: {link_url}")
+    print(f"{border}\n")
+
+
+import os
+import sqlite3
+
+# 🎯 取得當前這個 main.py 檔案所在的資料夾絕對路徑
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 🎯 不論是在本機 Windows 還是雲端 Linux，都能精準拼出正確的資料庫絕對路徑
+DB_PATH = os.path.join(BASE_DIR, "database.db")
+
+def get_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    with get_db() as db:
+        db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'owner', -- 'owner', 'editor', 'client'
+                client_reference_id INTEGER,       -- 如果是 client 角色，對應到哪個 client
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,          -- 屬於哪個 studio owner
+                name TEXT NOT NULL,
+                email TEXT,
+                contact TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'Shorts',
+                status TEXT NOT NULL DEFAULT 'Awaiting Review',
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(client_id) REFERENCES clients(id)
+            );
+            CREATE TABLE IF NOT EXISTS video_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,          -- 建立此版本的 studio user id
+                project_id INTEGER NOT NULL,
+                version_label TEXT NOT NULL,       -- 例如 V1, V2, V3
+                video_url TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Awaiting Review', -- 'Awaiting Review', 'Approved', 'Revision Requested'
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_version_id INTEGER NOT NULL,
+                author_role TEXT NOT NULL,         -- 'studio', 'client'
+                author_name TEXT NOT NULL,
+                body TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'comment', -- 'comment', 'approve', 'reject'
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(video_version_id) REFERENCES video_versions(id)
+            );
+            """
+        )
+
+
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+    return f"{salt}${digest}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        salt, digest = stored.split("$", 1)
+    except ValueError:
+        return False
+    return hashlib.sha256((salt + password).encode("utf-8")).hexdigest() == digest
+
+
+def get_current_user(request: Request) -> Optional[sqlite3.Row]:
+    token = request.cookies.get("session")
+    if not token:
+        return None
+    try:
+        user_id = serializer.loads(token)
+    except BadSignature:
+        return None
+    with get_db() as db:
+        return db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+
+def require_user(request: Request) -> sqlite3.Row:
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401)
+    return user
+
+
+def redirect(path: str):
+    return RedirectResponse(path, status_code=303)
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    user = get_current_user(request)
+    if user:
+        return redirect("/dashboard")
+    return templates.TemplateResponse("login.html", {"request": request, "mode": "login", "error": None})
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "mode": "register", "error": None})
+
+
+@app.post("/register")
+def register(email: str = Form(...), password: str = Form(...)):
+    if len(password) < 6:
+        return redirect("/register?error=password-too-short")
+    try:
+        with get_db() as db:
+            cur = db.execute(
+                "INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, 'owner', ?)",
+                (email.strip().lower(), hash_password(password), datetime.utcnow().isoformat()),
+            )
+            user_id = cur.lastrowid
+    except sqlite3.IntegrityError:
+        return redirect("/register?error=email-exists")
+    response = redirect("/dashboard")
+    response.set_cookie("session", serializer.dumps(user_id), httponly=True, samesite="lax")
+    return response
+
+
+@app.post("/login")
+def login(email: str = Form(...), password: str = Form(...)):
+    with get_db() as db:
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+    if not user or not verify_password(password, user["password_hash"]):
+        return redirect("/?error=invalid")
+    response = redirect("/dashboard")
+    response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
+    return response
+
+
+@app.post("/logout")
+def logout():
+    response = redirect("/")
+    response.delete_cookie("session")
+    return response
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, status: str = "all", category: str = "all", client_id: str = "all"):
+    user = require_user(request)
+    
+    with get_db() as db:
+        if user["role"] == "client":
+            # 客戶視角：只能看自己的專案
+            clients = db.execute("SELECT * FROM clients WHERE id = ?", (user["client_reference_id"],)).fetchall()
+            query = """
+                SELECT p.*, c.name AS client_name,
+                    (SELECT COUNT(*) FROM video_versions v WHERE v.project_id = p.id) AS version_count,
+                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count
+                FROM projects p
+                JOIN clients c ON p.client_id = c.id
+                WHERE p.client_id = ?
+            """
+            params = [user["client_reference_id"]]
+        else:
+            # 工作室老闆視角：看所有
+            clients = db.execute("SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC", (user["id"],)).fetchall()
+            query = """
+                SELECT p.*, c.name AS client_name,
+                    (SELECT COUNT(*) FROM video_versions v WHERE v.project_id = p.id) AS version_count,
+                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count
+                FROM projects p
+                JOIN clients c ON p.client_id = c.id
+                WHERE p.user_id = ?
+            """
+            params = [user["id"]]
+
+        if status != "all":
+            query += " AND p.status = ?"
+            params.append(status)
+        if category != "all":
+            query += " AND p.category = ?"
+            params.append(category)
+        if client_id != "all" and user["role"] != "client":
+            query += " AND p.client_id = ?"
+            params.append(client_id)
+            
+        query += " ORDER BY p.created_at DESC"
+        projects = db.execute(query, params).fetchall()
+        
+        # 統計數據卡片
+        target_id = user["client_reference_id"] if user["role"] == "client" else user["id"]
+        col = "client_id" if user["role"] == "client" else "user_id"
+        stats = db.execute(
+            f"""
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status='Awaiting Review' THEN 1 ELSE 0 END) AS awaiting,
+                SUM(CASE WHEN status='In Revision' THEN 1 ELSE 0 END) AS revision,
+                SUM(CASE WHEN status='Approved' THEN 1 ELSE 0 END) AS approved,
+                SUM(CASE WHEN status='Published' THEN 1 ELSE 0 END) AS published
+            FROM projects WHERE {col} = ?
+            """,
+            (target_id,),
+        ).fetchone()
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "clients": clients,
+            "projects": projects,
+            "stats": stats,
+            "status_options": STATUS_OPTIONS,
+            "category_options": CATEGORY_OPTIONS,
+            "selected_status": status,
+            "selected_category": category,
+            "selected_client_id": client_id,
+        },
+    )
+
+
+@app.post("/clients")
+def create_client(request: Request, name: str = Form(...), email: str = Form(""), contact: str = Form(""), notes: str = Form("")):
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only studio owners can create clients.")
+        
+    email_clean = email.strip().lower()
+    # 自動為客戶生成一組登入憑證 (密碼隨機)
+    client_password = secrets.token_hex(4) # 例如: a1b2c3d4
+    
+    with get_db() as db:
+        cur = db.execute(
+            "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user["id"], name.strip(), email_clean, contact.strip(), notes.strip(), datetime.utcnow().isoformat()),
+        )
+        client_id = cur.lastrowid
+        
+        # 建立一個角色為 client 的新使用者系統帳號
+        login_email = email_clean if email_clean else f"client_{client_id}@clientflow.local"
+        db.execute(
+            "INSERT INTO users (email, password_hash, role, client_reference_id, created_at) VALUES (?, ?, 'client', ?, ?)",
+            (login_email, hash_password(client_password), client_id, datetime.utcnow().isoformat()),
+        )
+        
+    # 注意：這裡我們簡單地把生成的密碼附加在備註裡，以便你在後台查看測試
+    with get_db() as db:
+        generated_notes = f"[系統生成帳密] 帳號: {login_email} | 密碼: {client_password}\n" + notes.strip()
+        db.execute("UPDATE clients SET notes=? WHERE id=?", (generated_notes, client_id))
+        
+    return redirect("/dashboard")
+
+
+@app.post("/projects")
+def create_project(
+    request: Request,
+    client_id: int = Form(...),
+    name: str = Form(...),
+    category: str = Form("Shorts"),
+    status: str = Form("Awaiting Review"),
+    notes: str = Form(""),
+):
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403)
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO projects (user_id, client_id, name, category, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user["id"], client_id, name.strip(), category, status, notes.strip(), datetime.utcnow().isoformat()),
+        )
+    return redirect("/dashboard")
+
+
+@app.get("/projects/{project_id}", response_class=HTMLResponse)
+def project_detail(request: Request, project_id: int):
+    user = require_user(request)
+    with get_db() as db:
+        if user["role"] == "client":
+            project = db.execute(
+                "SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=? AND p.client_id=?",
+                (project_id, user["client_reference_id"]),
+            ).fetchone()
+        else:
+            project = db.execute(
+                "SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=? AND p.user_id=?",
+                (project_id, user["id"]),
+            ).fetchone()
+            
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+            
+        # 撈取版本時間軸（由新到舊）
+        versions = db.execute(
+            "SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC",
+            (project_id,),
+        ).fetchall()
+        
+        # 撈取所有歷史決策、上傳紀錄與留言 (聯集查詢：實現完整事件流)
+        comments = db.execute(
+            """
+            -- 1. 撈取客戶的審核與留言
+            SELECT 
+                cm.author_name, 
+                cm.author_role, 
+                cm.body, 
+                cm.type, 
+                cm.created_at, 
+                vv.version_label
+            FROM comments cm 
+            JOIN video_versions vv ON cm.video_version_id = vv.id
+            WHERE vv.project_id = ?
+            
+            UNION ALL
+            
+            -- 2. 撈取工作室上傳新影片版本的事件
+            SELECT 
+                'Studio' AS author_name,
+                'studio' AS author_role,
+                'Uploaded ' || version_label AS body,
+                'upload' AS type,
+                created_at,
+                version_label
+            FROM video_versions
+            WHERE project_id = ?
+            
+            UNION ALL
+            
+            -- 3. 撈取專案最初建立的事件
+            SELECT 
+                'System' AS author_name,
+                'system' AS author_role,
+                'Project Created' AS body,
+                'create' AS type,
+                created_at,
+                '' AS version_label
+            FROM projects
+            WHERE id = ?
+            
+            ORDER BY created_at DESC
+            """,
+            (project_id, project_id, project_id),
+        ).fetchall()
+        
+        # 📂 【新增附件與 Brief 解析邏輯】
+        attachments = []
+        raw_notes = project["notes"] or ""
+        display_notes = raw_notes
+        
+        if "||" in raw_notes:
+            parts = raw_notes.split("||")
+            display_notes = parts[0].strip()  # 第一部分是原本的備註文字
+            for att in parts[1:]:
+                if "::" in att:
+                    title, url = att.split("::", 1)
+                    attachments.append({"title": title.strip(), "url": url.strip()})
+        
+    return templates.TemplateResponse(
+        "project.html",
+        {
+            "request": request,
+            "user": user,
+            "project": project,
+            "display_notes": display_notes,  # 傳遞乾淨的備註文字給前端
+            "attachments": attachments,      # 傳遞解析好的附件清單給前端
+            "versions": versions,
+            "comments": comments,
+            "status_options": STATUS_OPTIONS,
+            "is_public_link": False          # 代表是後台登入模式
+        },
+    )
+
+
+@app.post("/projects/{project_id}/versions")
+def create_version(
+    request: Request,
+    project_id: int,
+    version_label: str = Form(...),
+    video_url: str = Form(...),
+    notes: str = Form(""),
+):
+    if not version_label or not version_label.strip():
+        raise HTTPException(status_code=400, detail="版本標籤不能全為空白鍵！")
+    if not video_url or not video_url.strip():
+        raise HTTPException(status_code=400, detail="影片 URL 不能全為空白鍵！")
+        
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Clients cannot upload versions.")
+        
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO video_versions (user_id, project_id, version_label, video_url, status, notes, created_at) VALUES (?, ?, ?, ?, 'Awaiting Review', ?, ?)",
+            (user["id"], project_id, version_label.strip(), video_url.strip(), notes.strip(), datetime.utcnow().isoformat()),
+        )
+        db.execute("UPDATE projects SET status='Awaiting Review' WHERE id=?", (project_id,))
+        
+        # 📬 【補齊 Email 通知情境 A】: 撈取客戶 Email 並模擬發送
+        project_info = db.execute(
+            "SELECT p.name AS p_name, c.email AS c_email FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=?",
+            (project_id,)
+        ).fetchone()
+        
+        if project_info and project_info["c_email"]:
+            public_review_url = f"{request.base_url}review/{project_id}"
+            send_activity_email(
+                to_email=project_info["c_email"],
+                subject=f"🎬 [ClientFlow] New Version {version_label} Uploaded for '{project_info['p_name']}'",
+                project_name=project_info["p_name"],
+                action_text=f"Studio has uploaded a new iteration ({version_label}). Please click the link below to review.",
+                link_url=public_review_url
+            )
+            
+    return redirect(f"/projects/{project_id}")
+
+
+@app.post("/versions/{version_id}/action")
+def version_decision(
+    request: Request,
+    version_id: int,
+    action_type: str = Form(...), # 'comment', 'approve', 'reject'
+    body: str = Form(...),
+):
+    user = get_current_user(request)
+
+    if not body or not body.strip():
+        raise HTTPException(status_code=400, detail="評論內容不能全為空白鍵！")
+    
+    if user:
+        author_role = "client" if user["role"] == "client" else "studio"
+        author_name = user["email"].split("@")[0]
+    else:
+        author_role = "client"
+        author_name = "Anonymous Client"
+
+    with get_db() as db:
+        version = db.execute("SELECT * FROM video_versions WHERE id=?", (version_id,)).fetchone()
+        if not version:
+            raise HTTPException(status_code=404)
+        
+        if version["status"] == "Approved":
+            raise HTTPException(status_code=400, detail="This version has been approved and locked.")
+
+        now = datetime.utcnow().isoformat()
+                
+        @app.post("/versions/{version_id}/action")
+        def version_decision(
+            request: Request,
+            version_id: int,
+            action_type: str = Form(...), # 'comment', 'approve', 'reject'
+            body: str = Form(...),
+            video_time: Optional[str] = Form(None), # 💡 接收當前影片秒數 (例如: "83")
+            time_str: Optional[str] = Form(None),   # 💡 接收格式化時間 (例如: "01:23")
+        ):
+            user = get_current_user(request)
+            
+            if user:
+                author_role = "client" if user["role"] == "client" else "studio"
+                author_name = user["email"].split("@")[0]
+            else:
+                author_role = "client"
+                author_name = "Anonymous Client"
+
+            with get_db() as db:
+                version = db.execute("SELECT * FROM video_versions WHERE id=?", (version_id,)).fetchone()
+                if not version:
+                    raise HTTPException(status_code=404)
+                
+                if version["status"] == "Approved":
+                    raise HTTPException(status_code=400, detail="This version has been approved and locked.")
+
+                now = datetime.utcnow().isoformat()
+                
+                # 🎯 【核心邏輯固化】：解析時間戳記，將其包裝進 body 與 type 中
+                final_body = body.strip()
+                final_type = action_type
+                
+                if time_str and time_str.strip() and video_time:
+                    # 留言內容包裝成: "⏱️ [01:23] 這裡顏色要調亮"
+                    final_body = f"⏱️ [{time_str.strip()}] {final_body}"
+                    # 如果是正常留言，將類型標記為 "timestamp_83"，方便前端做點擊跳轉
+                    if action_type == "comment":
+                        final_type = f"timestamp_{video_time}"
+                
+                # 1. 寫入決策/留言紀錄
+                db.execute(
+                    "INSERT INTO comments (video_version_id, author_role, author_name, body, type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    (version_id, author_role, author_name, final_body, final_type, now),
+                )
+                
+                if action_type == "approve":
+                    db.execute("UPDATE video_versions SET status='Approved' WHERE id=?", (version_id,))
+                    db.execute("UPDATE projects SET status='Approved' WHERE id=?", (version['project_id'],))
+                elif action_type == "reject":
+                    db.execute("UPDATE video_versions SET status='Revision Requested' WHERE id=?", (version_id,))
+                    db.execute("UPDATE projects SET status='In Revision' WHERE id=?", (version['project_id'],))
+            
+                # 📬 Email 通知
+                studio_info = db.execute(
+                    "SELECT p.name AS p_name, u.email AS u_email FROM projects p JOIN users u ON p.user_id=u.id WHERE p.id=?",
+                    (version["project_id"],)
+                ).fetchone()
+                
+                if studio_info:
+                    project_url = f"{request.base_url}projects/{version['project_id']}"
+                    status_emojis = {"approve": "✅ Approved", "reject": "❌ Change Requested", "comment": "💬 New Comment"}
+                    action_display = status_emojis.get(action_type, action_type)
+                    
+                    send_activity_email(
+                        to_email=studio_info["u_email"],
+                        subject=f"📊 [ClientFlow] Project Activity Update: {action_display}",
+                        project_name=studio_info["p_name"],
+                        action_text=f"Client ({author_name}) has submitted an action [{action_display}] on {version['version_label']}.\nFeedback: \"{final_body}\"",
+                        link_url=project_url
+                    )
+
+            if not user:
+                return redirect(f"/review/{version['project_id']}")
+            return redirect(f"/projects/{version['project_id']}")
+        
+        if action_type == "approve":
+            db.execute("UPDATE video_versions SET status='Approved' WHERE id=?", (version_id,))
+            db.execute("UPDATE projects SET status='Approved' WHERE id=?", (version['project_id'],))
+        elif action_type == "reject":
+            db.execute("UPDATE video_versions SET status='Revision Requested' WHERE id=?", (version_id,))
+            db.execute("UPDATE projects SET status='In Revision' WHERE id=?", (version['project_id'],))
+    
+        # 📬 【移到 with 內部，確保 db 連線依然有效
+        studio_info = db.execute(
+            "SELECT p.name AS p_name, u.email AS u_email FROM projects p JOIN users u ON p.user_id=u.id WHERE p.id=?",
+            (version["project_id"],)
+        ).fetchone()
+        
+        if studio_info:
+            project_url = f"{request.base_url}projects/{version['project_id']}"
+            status_emojis = {"approve": "✅ Approved", "reject": "❌ Change Requested", "comment": "💬 New Comment"}
+            action_display = status_emojis.get(action_type, action_type)
+            
+            send_activity_email(
+                to_email=studio_info["u_email"],
+                subject=f"📊 [ClientFlow] Project Activity Update: {action_display}",
+                project_name=studio_info["p_name"],
+                action_text=f"Client ({author_name}) has submitted an action [{action_display}] on {version['version_label']}.\nFeedback: \"{body.strip()}\"",
+                link_url=project_url
+            )
+
+    if not user:
+        return redirect(f"/review/{version['project_id']}")
+    return redirect(f"/projects/{version['project_id']}")
+
+
+# ==========================================
+# 客戶免登入公開審片連結路由 (Frame.io 模式)
+# ==========================================
+
+@app.get("/review/{project_id}", response_class=HTMLResponse)
+def public_review_page(request: Request, project_id: int):
+    with get_db() as db:
+        project = db.execute("SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=?", (project_id,)).fetchone()
+        if not project: raise HTTPException(status_code=404, detail="Review link invalid or expired")
+        versions = db.execute("SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
+        comments = db.execute(
+            """SELECT cm.author_name, cm.author_role, cm.body, cm.type, cm.created_at, vv.version_label
+               FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = ?
+               UNION ALL
+               SELECT 'Studio' AS author_name, 'studio' AS author_role, 'Uploaded ' || version_label AS body, 'upload' AS type, created_at, version_label
+               FROM video_versions WHERE project_id = ?
+               UNION ALL
+               SELECT 'System' AS author_name, 'system' AS author_role, 'Project Created' AS body, 'create' AS type, created_at, '' AS version_label
+               FROM projects WHERE id = ?
+               ORDER BY created_at DESC""", (project_id, project_id, project_id)
+        ).fetchall()
+
+        # 📂 公開頁面同步解析附件
+        attachments = []
+        raw_notes = project["notes"] or ""
+        display_notes = raw_notes
+        if "||" in raw_notes:
+            parts = raw_notes.split("||")
+            display_notes = parts[0].strip()
+            for att in parts[1:]:
+                if "::" in att:
+                    title, url = att.split("::", 1)
+                    attachments.append({"title": title.strip(), "url": url.strip()})
+
+    return templates.TemplateResponse(
+        "project.html",
+        {
+            "request": request,
+            "user": {"role": "client", "email": "Public Reviewer"},
+            "project": project,
+            "display_notes": display_notes,
+            "attachments": attachments,
+            "versions": versions,
+            "comments": comments,
+            "status_options": STATUS_OPTIONS,
+            "is_public_link": True
+        },
+    )
+
+
+# ==========================================
+# 專案最終交付結案路由
+# ==========================================
+@app.post("/projects/{project_id}/deliver")
+def deliver_project(project_id: int, request: Request):
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can mark final delivery.")
+        
+    with get_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not project:
+            raise HTTPException(status_code=404)
+            
+        # 將專案狀態更新為 Published (代表最終交付結案)
+        db.execute("UPDATE projects SET status='Published' WHERE id=?", (project_id,))
+        
+        # 📬 【加分功能】：同時自動觸發一封結案信通知客戶前來下載最終成片！
+        client_info = db.execute("SELECT email FROM clients WHERE id=?", (project["client_id"],)).fetchone()
+        if client_info and client_info["email"]:
+            send_activity_email(
+                to_email=client_info["email"],
+                subject=f"🎉 [ClientFlow] Final Delivery Completed for '{project['name']}'!",
+                project_name=project["name"],
+                action_text="Studio has marked this project as Final Delivered! All approved master files have been successfully dispatched and archived.",
+                link_url=f"{request.base_url}review/{project_id}"
+            )
+            
+    return redirect(f"/projects/{project_id}")
+
+
+# ==========================================
+# 📂 專案附件上傳路由
+# ==========================================
+@app.post("/projects/{project_id}/attachments")
+def add_project_attachment(project_id: int, request: Request, file_title: str = Form(...), file_url: str = Form(...)):
+    
+    if not file_title or not file_title.strip():
+       raise HTTPException(status_code=400, detail="檔案名稱不能全為空白鍵！")
+
+    user = require_user(request)
+    if user["role"] != "owner": raise HTTPException(status_code=403)
+    
+    with get_db() as db:
+        project = db.execute("SELECT notes FROM projects WHERE id=?", (project_id,)).fetchone()
+        current_notes = project["notes"] or ""
+        
+        # 使用字串大聯集追加包裝： 原本備註 || 檔案名稱 :: 網址
+        new_notes = f"{current_notes} || {file_title.strip()} :: {file_url.strip()}"
+        db.execute("UPDATE projects SET notes=? WHERE id=?", (new_notes, project_id))
+        
+    return redirect(f"/projects/{project_id}")

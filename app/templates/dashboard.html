@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ClientFlow MVP - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+        }
+    </script>
+    <style>
+        /* 🎨 頂級淺色模式美化 */
+        .light-theme body {
+            background-color: #f8fafc !important; /* 降低刺眼感，改用優雅灰白 */
+            color: #0f172a !important;
+        }
+        .light-theme nav {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border-color: #e2e8f0 !important;
+        }
+        .light-theme .bg-card-fix {
+            background-color: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            color: #0f172a !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+        }
+        .light-theme .text-white-fix {
+            color: #0f172a !important;
+        }
+        .light-theme .text-gray-400-fix {
+            color: #475569 !important;
+        }
+        .light-theme .input-fix {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        .light-theme .input-fix::placeholder {
+            color: #94a3b8 !important;
+        }
+        .light-theme .bg-inner-card {
+            background-color: #f1f5f9 !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        /* 🏷️ 修正三：拯救 OWNER PORTAL 標籤，讓它在淺色模式下優雅變色 */
+        .light-theme nav span.tracking-wider {
+            background-color: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #64748b !important; /* 質感的石墨色 */
+        }
+
+        /* 🌓 修正一：修正切換按鈕在淺色模式下的隱形黑字問題 */
+        .light-theme #theme-toggle {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        .light-theme #theme-toggle:hover {
+            background-color: #f1f5f9 !important;
+        }
+
+        /* 🏃‍♂️ 修正二：翻修原本醜醜的 Logout 按鈕，改成高對比清爽紅框質感 */
+        .light-theme a[href="/logout"] {
+            background-color: #fef2f2 !important; /* 優雅淡紅底 */
+            border-color: #fee2e2 !important;
+            color: #ef4444 !important; /* 明確的警示紅字 */
+        }
+        .light-theme a[href="/logout"]:hover {
+            background-color: #fee2e2 !important;
+            border-color: #fca5a5 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200">
+    
+    <nav class="border-b border-gray-900 bg-gray-950/50 backdrop-blur px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <span class="text-xl font-black bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">ClientFlow MVP</span>
+            <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full font-bold border border-gray-700 tracking-wider uppercase">Owner Portal</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="theme-toggle" class="text-xs px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center gap-1.5 shadow-sm">
+                🌓 Toggle Theme
+            </button>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-400-fix font-mono">{{ user.email }}</span>
+                <a href="/logout" class="text-xs px-3 py-1.5 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-6 space-y-8">
+        
+        <!-- 📊 數據看版區塊 -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-5 rounded-2xl shadow-sm">
+                <p class="text-xs font-semibold text-gray-400-fix">Total Projects</p>
+                <p class="text-3xl font-black text-white-fix mt-1">{{ stats.total }}</p>
+            </div>
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-5 rounded-2xl shadow-sm border-l-4 border-l-amber-500/50">
+                <p class="text-xs font-semibold text-amber-500">Awaiting Review</p>
+                <p class="text-3xl font-black text-amber-500 mt-1">{{ stats.awaiting }}</p>
+            </div>
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-5 rounded-2xl shadow-sm border-l-4 border-l-blue-500/50">
+                <p class="text-xs font-semibold text-blue-400">In Revision</p>
+                <p class="text-3xl font-black text-blue-400 mt-1">{{ stats.revision }}</p>
+            </div>
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500/50">
+                <p class="text-xs font-semibold text-emerald-400">Approved</p>
+                <p class="text-3xl font-black text-emerald-400 mt-1">{{ stats.approved }}</p>
+            </div>
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-5 rounded-2xl shadow-sm border-l-4 border-l-purple-500/50 col-span-2 md:col-span-1">
+                <p class="text-xs font-semibold text-purple-400">Published</p>
+                <p class="text-3xl font-black text-purple-400 mt-1">{{ stats.published }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 👥 Add Client -->
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">✨ Add Client</h3>
+                    <form action="/clients" method="post" class="space-y-3 m-0">
+                        <input type="text" name="name" required placeholder="Client Name (Required)" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                        <input type="email" name="email" required placeholder="Client Email" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                        <input type="text" name="contact_info" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                        <textarea name="notes" placeholder="Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-indigo-600/10 mt-2">
+                            Save Client & Generate Pass
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 📁 Add Project -->
+            <div class="bg-card-fix bg-gray-900/40 border border-gray-800 p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">🚀 Add Project</h3>
+                    <form action="/projects" method="post" class="space-y-3 m-0">
+                        <!-- 🔒 解決下拉選單問題 -->
+                        <select name="client_id" required class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-gray-300 cursor-pointer">
+                            <option value="" class="bg-gray-900 text-gray-500">Select Client</option>
+                            {% for c in clients %}
+                            <option value="{{ c.id }}" class="bg-gray-900 text-gray-100">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="text" name="name" required placeholder="Project Title" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                        <div class="grid grid-cols-2 gap-3">
+                            <select name="type" class="input-fix w-full bg-gray-900 dark:bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white-fix">
+                                <option value="Shorts" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Shorts</option>
+                                <option value="MV" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">MV</option>
+                                <option value="Commercial" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Commercial</option>
+                            </select>
+                            <select name="status" class="input-fix w-full bg-gray-900 dark:bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white-fix">
+                                <option value="Awaiting Review" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Awaiting Review</option>
+                                <option value="In Revision" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">In Revision</option>
+                            </select>
+                        </div>
+                        <textarea name="notes" placeholder="Project Scope / Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
+                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-purple-600/10 mt-2">
+                            Create Project
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 📂 專案列表 -->
+        <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <h3 class="text-base font-bold text-white-fix">Active Workspace Projects</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for p in projects %}
+                <a href="/projects/{{ p.id }}" class="bg-inner-card bg-gray-950/40 hover:bg-gray-900/60 border border-gray-900 hover:border-gray-700 p-5 rounded-xl transition flex flex-col justify-between space-y-4 group">
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-white-fix group-hover:text-indigo-400 transition">{{ p.name }}</h4>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded border 
+                                {% if p.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
+                                {% elif p.status == 'In Revision' %} bg-blue-500/10 border-blue-500/30 text-blue-400
+                                {% elif p.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
+                                {% else %} bg-gray-500/10 border-gray-500/30 text-gray-400 {% endif %}">
+                                {{ p.status }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-400-fix">Client: <span class="font-semibold">{{ p.client_name }}</span></p>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] text-gray-500 pt-2 border-t border-gray-900/60">
+                        <span class="bg-gray-900 px-2 py-0.5 rounded text-gray-400 border border-gray-800">{{ p.type }}</span>
+                        <span>Manage Workspace ↗</span>
+                    </div>
+                </a>
+                {% else %}
+                <p class="text-sm text-gray-500 py-4 col-span-full text-center">No active projects found. Create your first one above!</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 🔑 憑證管理區 -->
+        <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-5 shadow-sm">
+            <p class="text-xs font-bold text-amber-500 flex items-center gap-1.5 mb-3">🔑 測試專用：客戶端登入憑證密碼列表</p>
+            <div class="divide-y divide-gray-900/60 text-xs font-mono text-gray-400-fix">
+                {% for c in clients %}
+                <div class="py-2 flex justify-between items-center">
+                    <span><strong>{{ c.name }}</strong>：[系統生成帳密] 帳號: <span class="text-indigo-400">{{ c.email }}</span></span>
+                    <span class="bg-gray-950 px-2 py-0.5 rounded border border-gray-800 text-gray-300">密碼: {{ c.raw_password }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const btn = document.getElementById('theme-toggle');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                document.documentElement.classList.toggle('light-theme');
+                if (document.documentElement.classList.contains('light-theme')) {
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

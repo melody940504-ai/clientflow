@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or 'ClientFlow' }}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="logo">CF</span>
+      <span>ClientFlow</span>
+    </a>
+    <div class="top-actions">
+      <button class="theme-toggle" type="button" id="themeToggle">Toggle theme</button>
+      {% if user %}
+      <form action="/logout" method="post">
+        <button class="ghost" type="submit">Logout</button>
+      </form>
+      {% endif %}
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

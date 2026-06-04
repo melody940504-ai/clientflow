@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ project.name }} - Project Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+        }
+    </script>
+    <style>
+        .light-theme body {
+            background-color: #f3f4f6 !important;
+            color: #1f2937 !important;
+        }
+        .light-theme nav {
+            background-color: rgba(255, 255, 255, 0.85) !important;
+            border-color: #e5e7eb !important;
+        }
+        .light-theme .bg-card-fix {
+            background-color: #ffffff !important;
+            border-color: #e5e7eb !important;
+            color: #1f2937 !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+        }
+        .light-theme .text-white-fix {
+            color: #111827 !important;
+        }
+        .light-theme .text-gray-400-fix {
+            color: #4b5563 !important;
+        }
+        .light-theme .input-fix {
+            background-color: #ffffff !important;
+            border-color: #d1d5db !important;
+            color: #111827 !important;
+        }
+        .light-theme .input-fix::placeholder {
+            color: #9ca3af !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200">
+    
+    <div id="toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center"></div>
+
+    <nav class="border-b border-gray-800 bg-gray-900/50 backdrop-blur px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            {% if not is_public_link %}
+            <a href="/dashboard" class="text-sm text-gray-400-fix hover:text-indigo-400 transition">← Dashboard</a>
+            <span class="text-gray-600">/</span>
+            {% endif %}
+            <span class="text-lg font-bold text-white-fix">{{ project.name }}</span>
+            <span class="text-xs bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full text-indigo-400 font-medium">{{ project.client_name }}</span>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <button id="theme-toggle" class="text-sm px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
+                🌓 Toggle Theme
+            </button>
+
+            <div class="flex items-center gap-3">
+                {% if user.role == 'owner' and project.status == 'Approved' %}
+                <form action="/projects/{{ project.id }}/deliver" method="post" class="m-0">
+                    <button type="submit" class="text-xs px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition transform hover:scale-105">
+                        📦 Mark as Final Delivery
+                    </button>
+                </form>
+                {% endif %}
+
+                <span class="text-xs font-bold px-3 py-1 rounded-full border
+                    {% if project.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
+                    {% elif project.status == 'In Revision' %} bg-blue-500/10 border-blue-500/30 text-blue-400
+                    {% elif project.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
+                    {% elif project.status == 'Published' %} bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/40 text-amber-500 shadow-sm shadow-amber-500/10
+                    {% else %} bg-gray-500/10 border-gray-500/30 text-gray-400 {% endif %}">
+                    {% if project.status == 'Published' %} 👑 Delivered {% else %} Status: {{ project.status }} {% endif %}
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        <div class="md:col-span-2 space-y-6">
+            
+            <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-5 rounded-2xl space-y-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-white-fix flex items-center gap-1.5">📁 Project Brief & Attachments</h3>
+                    <span class="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ attachments|length }} files</span>
+                </div>
+
+                {% if display_notes %}
+                <p class="text-xs text-gray-400-fix bg-gray-950/10 p-3 rounded-xl border border-gray-800/40">
+                    <strong class="text-white-fix block mb-1">Project Notes / Scope:</strong>
+                    {{ display_notes }}
+                </p>
+                {% endif %}
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {% for att in attachments %}
+                    <a href="{{ att.url }}" target="_blank" class="flex items-center justify-between p-3 bg-gray-900/50 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl transition group">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <span class="text-base">📄</span>
+                            <span class="text-xs text-gray-200 group-hover:text-indigo-400 font-medium truncate">{{ att.title }}</span>
+                        </div>
+                        <span class="text-[10px] text-gray-500 font-mono">Download ↗</span>
+                    </a>
+                    {% else %}
+                    <p class="text-xs text-gray-500 text-center py-2 col-span-2">No attachments uploaded yet.</p>
+                    {% endfor %}
+                </div>
+
+                {% if project.status != 'Published' and user.role == 'owner' %}
+                <form action="/projects/{{ project.id }}/attachments" method="post" class="border-t border-gray-800/50 pt-3 flex gap-2">
+                    <input type="text" name="file_title" required pattern="\s*\S+.*" title="請輸入有效的檔案名稱，不能全為空白" placeholder="File Name (e.g., Script.pdf, Logo)" class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white">
+                    <input type="url" name="file_url" required pattern="https?://.+" title="請輸入有效的 URL" placeholder="File URL (e.g., Notion, Drive, Dropbox)" class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white">
+                    <button type="submit" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-1.5 rounded-xl text-xs font-semibold transition">
+                        📎 Attach
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            {% if project.status == 'Published' %}
+            <div class="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-2xl p-6 flex items-center gap-4 shadow-md">
+                <span class="text-3xl">👑</span>
+                <div>
+                    <h3 class="text-base font-bold text-amber-400">Final Master Delivered & Archived</h3>
+                    <p class="text-xs text-gray-400-fix mt-0.5">本專案已完成最終交付並歸檔結案。歷史版本與事件流已轉為唯讀的鐵證狀態。</p>
+                </div>
+            </div>
+            {% elif user.role == 'owner' %}
+            <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-5 rounded-2xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-white-fix">Upload New Version</h3>
+                    <button type="button" onclick="copyReviewLink()" class="text-xs px-3 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 border border-purple-800/50 rounded-lg transition flex items-center gap-1 font-medium">
+                        🔗 Copy Public Review Link
+                    </button>
+                </div>
+                <form action="/projects/{{ project.id }}/versions" method="post" class="grid grid-cols-3 gap-3">
+                    <input type="text" name="version_label" required pattern="\s*\S+.*" title="請輸入有效的版本標籤，不能全為空白" placeholder="Version Label (e.g. V1, V2)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                    <input type="url" name="video_url" required placeholder="Video URL (e.g. YouTube, Drive)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                    <textarea name="notes" placeholder="Optional notes or description..." class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-10 focus:outline-none focus:border-indigo-500 text-white"></textarea>
+                    <button type="submit" class="col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2 transition text-sm">
+                        ➕ Upload Version
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            <div class="space-y-6">
+                <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">🎬 Video Versions Timeline</h2>
+                
+                {% for v in versions %}
+                <div class="bg-card-fix bg-gray-800/40 border border-gray-800 rounded-2xl p-6 space-y-4">
+                    <div class="flex justify-between items-start">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-xl font-bold text-white-fix">{{ v.version_label }}</h3>
+                                <span class="text-xs px-2.5 py-0.5 rounded-full border 
+                                    {% if v.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-400
+                                    {% elif v.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
+                                    {% else %} bg-rose-500/10 border-rose-500/30 text-rose-400 {% endif %}">
+                                    {{ v.status }}
+                                </span>
+                            </div>
+                            <p class="text-xs text-gray-500">Pushed on {{ v.created_at[:10] }}</p>
+                        </div>
+                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="text-sm px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95">
+                            ▶ Play Video
+                        </button>
+                    </div>
+
+                    {% if v.notes %}
+                    <p class="text-sm text-gray-300 bg-gray-950/20 p-3 rounded-xl border border-gray-800/50 text-white-fix">{{ v.notes }}</p>
+                    {% endif %}
+
+                    <div class="border-t border-gray-800/60 pt-4 space-y-3">
+                        {% if v.status == 'Approved' %}
+                        <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-lg">🔒</span>
+                                <div>
+                                    <p class="text-sm font-semibold text-emerald-400">Version Approved & Locked</p>
+                                    <p class="text-xs text-gray-400-fix">此版本已通過審核，工作流已鎖定以防意外篡改。</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-mono bg-emerald-950/40 text-emerald-400 px-2.5 py-1 rounded border border-emerald-800/30">Immutable Log</span>
+                        </div>
+                        {% else %}
+                        <p class="text-xs font-semibold text-gray-400-fix">Review & Actions:</p>
+                        <form action="/versions/{{ v.id }}/action" method="post" class="space-y-3" onsubmit="return validateComment(this)">
+                            <textarea name="body" required placeholder="Type feedback or approval notes here..." class="input-fix w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-16 focus:outline-none focus:border-indigo-500 text-white"></textarea>
+                            
+                            <div class="flex gap-2 justify-end">
+                                <button type="submit" name="action_type" value="comment" class="text-xs px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 font-medium rounded-xl transition text-white-fix">
+                                    💬 Leave Comment
+                                </button>
+                                {% if user.role == 'client' %}
+                                <button type="submit" name="action_type" value="reject" class="text-xs px-4 py-2 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition">
+                                    ❌ Request Change (Reject)
+                                </button>
+                                <button type="submit" name="action_type" value="approve" class="text-xs px-4 py-2 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 font-medium rounded-xl border border-emerald-900/40 transition">
+                                    ✔ Approve & Signoff
+                                </button>
+                                {% endif %}
+                            </div>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 text-center py-8 bg-gray-800/10 rounded-2xl border border-gray-800 border-dashed">No versions uploaded yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
+            <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-6 max-h-[650px] overflow-y-auto relative">
+                
+                <div class="absolute left-9 top-8 bottom-8 w-0.5 bg-gray-700/50"></div>
+
+                <div class="space-y-6 relative">
+                    {% for c in comments %}
+                    <div class="flex items-start gap-4 group">
+                        
+                        <div class="flex items-center justify-center w-6 h-6 rounded-full shrink-0 z-10 text-[10px] font-bold mt-1 shadow-sm
+                            {% if c.type == 'approve' %} bg-emerald-500 text-white
+                            {% elif c.type == 'reject' %} bg-rose-500 text-white
+                            {% elif c.type == 'upload' %} bg-blue-500 text-white
+                            {% elif c.type == 'create' %} bg-indigo-500 text-white
+                            {% else %} bg-gray-600 text-gray-200 {% endif %}">
+                            {% if c.type == 'approve' %} ✓
+                            {% elif c.type == 'reject' %} ✗
+                            {% elif c.type == 'upload' %} ↑
+                            {% elif c.type == 'create' %} ✦
+                            {% else %} 💬 {% endif %}
+                        </div>
+
+                        <div class="flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700">
+                            <div class="flex justify-between items-baseline">
+                                <span class="text-xs font-bold text-white-fix capitalize">
+                                    {{ c.author_name }} 
+                                    <span class="text-[10px] text-gray-500 font-normal">({{ c.author_role }})</span>
+                                </span>
+                                <span class="text-[10px] text-gray-500 font-mono">{{ c.created_at[:10] }} {{ c.created_at[11:16] }}</span>
+                            </div>
+                            
+                            {% if c.type.startswith('timestamp_') %}
+                            <p class="text-sm text-indigo-400 font-medium cursor-pointer hover:text-indigo-300 transition inline-block bg-indigo-950/30 border border-indigo-900/40 px-2.5 py-0.5 rounded-xl shadow-sm mt-0.5" 
+                               onclick="openVideoModalWithTime('{{ v.video_url if v else project.id }}', '{{ c.type.split('_')[1] }}')">
+                                {{ c.body }} ↩
+                            </p>
+                            {% else %}
+                            <p class="text-sm {% if c.type == 'approve' %} text-emerald-400 font-medium
+                                              {% elif c.type == 'reject' %} text-rose-400 font-medium
+                                              {% else %} text-gray-300 {% endif %}">
+                                {{ c.body }}
+                            </p>
+                            {% endif %}
+
+                            {% if c.version_label %}
+                            <div class="text-[10px] flex justify-end">
+                                <span class="bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ c.version_label }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-gray-500 text-center py-4">No activity yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="video-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 md:p-8 cursor-pointer" onclick="closeVideoModal()">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 shadow-2xl cursor-default transform scale-95 opacity-0 transition-all duration-300" id="modal-card" onclick="event.stopPropagation()">
+            
+            <div class="md:col-span-2 bg-black flex items-center justify-center relative aspect-video md:aspect-auto">
+                <button onclick="closeVideoModal()" class="absolute top-4 left-4 text-white bg-gray-800/80 hover:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold transition z-50 md:hidden">✕</button>
+                <div id="player-container" class="w-full h-full min-h-[300px] md:h-full"></div>
+            </div>
+
+            <div class="p-5 border-t md:border-t-0 md:border-l border-gray-800 flex flex-col justify-between bg-gray-900/40">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-sm font-bold text-white-fix flex items-center gap-1.5">🎬 Live Timeline Marker</h4>
+                        <button type="button" onclick="closeVideoModal()" class="text-gray-400 hover:text-white w-7 h-7 bg-gray-800 rounded-full hidden md:flex items-center justify-center font-bold text-xs">✕</button>
+                    </div>
+                    <p class="text-xs text-gray-400-fix mb-4">影片暫停時，系統會自動固化當前的時間戳記。</p>
+                    
+                    <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-xl p-3 flex items-center justify-between mb-4">
+                        <span class="text-xs font-semibold text-indigo-400">Current Stamp</span>
+                        <span id="live-timestamp" class="text-sm font-mono font-bold text-indigo-300 bg-indigo-950/50 px-2.5 py-0.5 rounded border border-indigo-800/40">00:00</span>
+                    </div>
+                </div>
+
+                {% if project.status == 'Approved' or project.status == 'Published' %}
+                <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-center space-y-1">
+                    <p class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
+                    <p class="text-[11px] text-gray-500">此版本已通過客戶審核簽核，時間軸已全面封存轉為唯讀狀態。</p>
+                </div>
+                {% else %}
+                <form id="modal-comment-form" method="post" class="space-y-3 m-0" onsubmit="return validateComment(this)">
+                    <input type="hidden" name="action_type" value="comment">
+                    <input type="hidden" id="modal-video-time" name="video_time" value="0">
+                    <input type="hidden" id="modal-time-str" name="time_str" value="00:00">
+
+                    <textarea name="body" required id="modal-textarea" placeholder="按下暫停，並在此輸入針對該秒數的修改意見..." class="input-fix w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs h-20 focus:outline-none focus:border-indigo-500 text-white placeholder-gray-600"></textarea>
+                    
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl py-2 transition text-xs shadow-md">
+                        💬 Submit Timestamped Comment
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const btn = document.getElementById('theme-toggle');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                document.documentElement.classList.toggle('light-theme');
+                if (document.documentElement.classList.contains('light-theme')) {
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = "bg-gray-800 text-white border border-gray-700 dark:bg-white dark:text-gray-900 px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 transform -translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto text-sm font-medium";
+            toast.innerHTML = `<span>🔗</span> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('-translate-y-2', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        let player = null;
+        let timeUpdateTimer = null;
+
+        // 非同步加載 YouTube 官方 IFrame API
+        if (!document.getElementById('yt-api-script')) {
+            const tag = document.createElement('script');
+            tag.id = 'yt-api-script';
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        }
+
+        function getYouTubeId(url) {
+            let videoId = "";
+            if (url.includes("youtube.com/watch?v=")) {
+                videoId = url.split("watch?v=")[1].split("&")[0];
+            } else if (url.includes("youtu.be/")) {
+                videoId = url.split("youtu.be/")[1].split("?")[0];
+            } else if (url.includes("youtube.com/embed/")) {
+                videoId = url.split("embed/")[1].split("?")[0];
+            }
+            return videoId;
+        }
+
+        function formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        // 🎬 打開內嵌播放器（高防禦力非同步加載版本）
+        function openVideoModal(url, actionFormUrl, startTime = 0) {
+            if (!url) {
+                showToast("⚠️ 此版本沒有合法的影片連結！");
+                return;
+            }
+
+            const videoId = getYouTubeId(url);
+            
+            if (actionFormUrl && document.getElementById('modal-comment-form')) {
+                document.getElementById('modal-comment-form').action = actionFormUrl;
+            }
+
+            const modal = document.getElementById('video-modal');
+            const card = document.getElementById('modal-card');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                card.classList.remove('opacity-0', 'scale-95');
+            }, 50);
+
+            if (videoId) {
+                document.getElementById('player-container').innerHTML = "<div id='yt-player' class='w-full h-full aspect-video'></div>";
+                
+                // 防延遲異步阻攔：如果 YT 物件還沒準備好，等 300ms 再調用
+                if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+                    setTimeout(() => { openVideoModal(url, actionFormUrl, startTime); }, 300);
+                    return;
+                }
+
+                try {
+                    player = new YT.Player('yt-player', {
+                        videoId: videoId,
+                        playerVars: { 
+                            'autoplay': 1, 
+                            'controls': 1,
+                            'start': startTime
+                        },
+                        events: {
+                            'onStateChange': onPlayerStateChange
+                        }
+                    });
+                } catch (e) {
+                    document.getElementById('player-container').innerHTML = `<iframe class='w-full h-full aspect-video' src='https://www.youtube.com/embed/${videoId}?autoplay=1&start=${startTime}' frameborder='0' allowfullscreen></iframe>`;
+                }
+            } else {
+                let embedUrl = url.replace("/view", "/preview").replace("/edit", "/preview");
+                document.getElementById('player-container').innerHTML = `<iframe class='w-full h-full aspect-video' src='${embedUrl}' frameborder='0' allowfullscreen></iframe>`;
+                if (document.getElementById('live-timestamp')) {
+                    document.getElementById('live-timestamp').innerText = "僅限 YT 戳記";
+                }
+            }
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PAUSED || event.data == YT.PlayerState.ENDED) {
+                stopTimeUpdater();
+                captureTimestamp();
+            } else if (event.data == YT.PlayerState.PLAYING) {
+                startTimeUpdater();
+            }
+        }
+
+        function startTimeUpdater() {
+            stopTimeUpdater();
+            timeUpdateTimer = setInterval(() => {
+                if (player && player.getCurrentTime) {
+                    captureTimestamp();
+                }
+            }, 500);
+        }
+
+        function stopTimeUpdater() {
+            if (timeUpdateTimer) {
+                clearInterval(timeUpdateTimer);
+                timeUpdateTimer = null;
+            }
+        }
+
+        function captureTimestamp() {
+            if (player && player.getCurrentTime) {
+                const currentTime = Math.floor(player.getCurrentTime());
+                const timeStr = formatTime(currentTime);
+                
+                if (document.getElementById('live-timestamp')) {
+                    document.getElementById('live-timestamp').innerText = timeStr;
+                }
+                if (document.getElementById('modal-video-time')) {
+                    document.getElementById('modal-video-time').value = currentTime;
+                    document.getElementById('modal-time-str').value = timeStr;
+                }
+            }
+        }
+
+        function openVideoModalWithTime(url, seconds) {
+            let targetUrl = url;
+            if (!url.includes("http")) {
+                const firstPlayBtn = document.querySelector('button[onclick*="openVideoModal"]');
+                if (firstPlayBtn) {
+                    const attr = firstPlayBtn.getAttribute('onclick');
+                    targetUrl = attr.split("'")[1];
+                    const formUrl = attr.split("'")[3];
+                    openVideoModal(targetUrl, formUrl, parseInt(seconds));
+                    return;
+                }
+            }
+            openVideoModal(targetUrl, null, parseInt(seconds));
+        }
+
+        function closeVideoModal() {
+            stopTimeUpdater();
+            const modal = document.getElementById('video-modal');
+            const card = document.getElementById('modal-card');
+            
+            card.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.getElementById('player-container').innerHTML = "";
+                player = null;
+            }, 300);
+        }
+
+        function copyReviewLink() {
+            const publicUrl = window.location.origin + "/review/{{ project.id }}";
+            navigator.clipboard.writeText(publicUrl).then(() => {
+                showToast("客審連結已成功複製到剪貼簿！");
+            }).catch(err => {
+                console.error("無法複製連結: ", err);
+            });
+        }
+
+        function validateComment(formElement) {
+            const textarea = formElement.querySelector('textarea[name="body"]');
+            if (textarea && textarea.value.trim() === "") {
+                showToast("⚠️ 評論內容不能全為空白鍵！");
+                textarea.classList.add('border-rose-500');
+                setTimeout(() => { textarea.classList.remove('border-rose-500'); }, 2000);
+                return false;
+            }
+            return true;
+        }
+    </script>
+</body>
+</html>
