@@ -6,16 +6,16 @@
     <p class="eyebrow">Short-form video delivery dashboard</p>
     <h1>{% if mode == 'register' %}Create your workspace{% else %}Welcome back{% endif %}</h1>
     <p class="muted">Track clients, projects, video versions, approvals, and revision notes without storing heavy video files.</p>
-    {% if error %}
-      <p class="error">
-        {% if error == 'no_account' %}
-          此郵箱未註冊，請先創建帳戶！
-        {% elif error == 'wrong_password' %}
-          密碼錯誤，請重新輸入。
-        {% else %}
-          登入失敗，請檢查資料。
-        {% endif %}
-      </p>
+    {% if request.query_params.get('error') %}
+        <div style="background-color: #ffcccc; color: #cc0000; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
+            {% if request.query_params.get('error') == 'no_account' %}
+                此郵箱未註冊，請先創建帳戶！
+            {% elif request.query_params.get('error') == 'wrong_password' %}
+                密碼錯誤，請重新輸入。
+            {% else %}
+                登入失敗，請檢查資料。
+            {% endif %}
+        </div>
     {% endif %}
     <form class="stack" method="post" action="/login">
       <label>Email
@@ -33,9 +33,10 @@
     </p>
   </div>
 </section>
-{% endblock %}
+
 <script>
 document.querySelector('button[type="submit"]').addEventListener('click', function(e) {
     console.log("按鈕被按下了！");
 });
 </script>
+{% endblock %}
