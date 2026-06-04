@@ -12,6 +12,8 @@
                 此郵箱未註冊，請先創建帳戶！
             {% elif request.query_params.get('error') == 'wrong_password' %}
                 密碼錯誤，請重新輸入。
+            {% elif request.query_params.get('error') == 'email-exists' %}
+               此郵箱已註冊，請直接登入。
             {% else %}
                 登入失敗，請檢查資料。
             {% endif %}

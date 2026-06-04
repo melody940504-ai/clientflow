@@ -15,8 +15,7 @@
     <div class="top-actions">
       <button class="theme-toggle" type="button" id="themeToggle">Toggle theme</button>
       {% if user %}
-      <a href="/logout" class="ghost" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
-      <form id="logout-form" action="/logout" method="post" style="display: none;"></form>
+      <a href="/logout" class="ghost">Logout</a>
       {% endif %}
     </div>
   </header>
