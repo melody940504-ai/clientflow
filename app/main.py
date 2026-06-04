@@ -185,9 +185,11 @@ def register(email: str = Form(...), password: str = Form(...)):
                 "INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, 'owner', ?)",
                 (email.strip().lower(), hash_password(password), datetime.utcnow().isoformat()),
             )
+            db.commit()  # <--- 這行一定要加，沒有它就等於沒寫資料
             user_id = cur.lastrowid
     except sqlite3.IntegrityError:
         return redirect("/register?error=email-exists")
+    
     response = redirect("/dashboard")
     response.set_cookie("session", serializer.dumps(user_id), httponly=True, samesite="lax")
     return response
