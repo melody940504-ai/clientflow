@@ -99,13 +99,17 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {% for att in attachments %}
-                    <a href="{{ att.url }}" target="_blank" class="flex items-center justify-between p-3 bg-gray-900/50 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl transition group">
+                    <button
+                        type="button"
+                        onclick="openAttachmentModal('{{ att.title }}', '{{ att.url }}')"
+                        class="w-full flex items-center justify-between p-3 bg-gray-900/50 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl transition group text-left"
+                    >
                         <div class="flex items-center gap-2 overflow-hidden">
                             <span class="text-base">📄</span>
                             <span class="text-xs text-gray-200 group-hover:text-indigo-400 font-medium truncate">{{ att.title }}</span>
                         </div>
                         <span class="text-[10px] text-gray-500 font-mono">Download ↗</span>
-                    </a>
+                    </button>
                     {% else %}
                     <p class="text-xs text-gray-500 text-center py-2 col-span-2">No attachments uploaded yet.</p>
                     {% endfor %}
@@ -343,6 +347,35 @@
         </div>
     </div>
 
+    <div
+    id="attachmentModal"
+    class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6"
+>
+    <div class="bg-gray-900 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+
+        <div class="flex justify-between items-center p-4 border-b border-gray-800">
+            <h3 id="attachmentTitle" class="text-white font-bold">
+                Attachment Preview
+            </h3>
+
+            <button
+                onclick="closeAttachmentModal()"
+                class="text-gray-400 hover:text-white"
+            >
+                ✕
+            </button>
+        </div>
+
+        <div class="flex-1 bg-black">
+            <iframe
+                id="attachmentFrame"
+                class="w-full h-full"
+            ></iframe>
+        </div>
+
+    </div>
+    </div>
+
     <script>
         const btn = document.getElementById('theme-toggle');
         if (btn) {
@@ -544,6 +577,25 @@
             }
             return true;
         }
+    
+
+    function openAttachmentModal(title, url) {
+
+        document.getElementById("attachmentTitle").textContent = title;
+        
+        document.getElementById("attachmentFrame").src = url;
+
+        document.getElementById("attachmentModal")
+            .classList.remove("hidden");
+        }
+
+    function closeAttachmentModal() {
+
+        document.getElementById("attachmentFrame").src = "";
+
+        document.getElementById("attachmentModal")
+            .classList.add("hidden");
+    }
     </script>
 </body>
 </html>
