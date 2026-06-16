@@ -38,23 +38,63 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
 
 # ==========================================
-# 📬 【新增】Email 自動通知模擬引擎
+# 📬 Email 自動通知模擬引擎
 # ==========================================
-def send_activity_email(to_email: str, subject: str, project_name: str, action_text: str, link_url: str):
-    """
-    模擬系統外發郵件。在終端機列印出高質感的郵件日誌，展示商業工作流。
-    """
-    border = "=" * 60
-    print(f"\n{border}")
-    print(f"📬 [SMTP SIMULATOR] EMAIL SENT SUCCESSFULLY!")
-    print(f"{border}")
-    print(f"From: notification@clientflow.com")
-    print(f"To: {to_email}")
-    print(f"Subject: {subject}")
-    print(f"Project: {project_name}")
-    print(f"Message: {action_text}")
-    print(f"Action Link: {link_url}")
-    print(f"{border}\n")
+def send_activity_email(
+    to_email: str,
+    subject: str,
+    project_name: str,
+    action_text: str,
+    link_url: str
+):
+    try:
+
+        TEST_EMAIL = "melody940504@gmail.com"
+
+        resend.Emails.send({
+            "from": "ClientFlow <onboarding@resend.dev>",
+            "to": [TEST_EMAIL],
+            "subject": subject,
+            "html": f"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+
+                <h2 style="color:#4f46e5;">
+                    🎬 ClientFlow Notification
+                </h2>
+
+                <p>
+                    <strong>Project:</strong>
+                    {project_name}
+                </p>
+
+                <p>
+                    {action_text}
+                </p>
+
+                <p style="margin-top:24px">
+                    <a
+                        href="{link_url}"
+                        style="
+                            background:#4f46e5;
+                            color:white;
+                            padding:12px 20px;
+                            text-decoration:none;
+                            border-radius:8px;
+                            display:inline-block;
+                        "
+                    >
+                        Open Project
+                    </a>
+                </p>
+
+            </div>
+            """
+        })
+
+        print(f"📬 Email sent successfully → {TEST_EMAIL}")
+
+    except Exception as e:
+        print(f"❌ Email failed: {e}")
 
 # 🎯 取得當前這個 main.py 檔案所在的資料夾絕對路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
