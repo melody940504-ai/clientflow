@@ -357,28 +357,51 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
 
 
 @app.post("/clients")
-def create_client(request: Request, name: str = Form(...), email: str = Form(""), contact: str = Form(""), notes: str = Form("")):
+def create_client(
+    request: Request,
+    name: str = Form(""),
+    email: str = Form(""),
+    contact: str = Form(""),
+    notes: str = Form("")
+):
     user = require_user(request)
+
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only studio owners can create clients.")
+
+    if not name or not name.strip():
+        return redirect("/dashboard?error=Client+name+is+required.")
+
+    if not email or not email.strip():
+        return redirect("/dashboard?error=Client+email+is+required.")
 
     email_clean = email.strip().lower()
     client_password = secrets.token_hex(4)
 
     with get_db() as db:
-        generated_notes = ""  # 先佔位，等 client_id 出來再更新
-
         cur = db.execute(
             "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-            (user["id"], name.strip(), email_clean, contact.strip(), notes.strip(), datetime.utcnow().isoformat()),
+            (
+                user["id"],
+                name.strip(),
+                email_clean,
+                contact.strip(),
+                notes.strip(),
+                datetime.utcnow().isoformat(),
+            ),
         )
         client_id = cur.fetchone()["id"]
 
-        login_email = email_clean if email_clean else f"client_{client_id}@clientflow.local"
+        login_email = email_clean
 
         db.execute(
             "INSERT INTO users (email, password_hash, role, client_reference_id, created_at) VALUES (?, ?, 'client', ?, ?)",
-            (login_email, hash_password(client_password), client_id, datetime.utcnow().isoformat()),
+            (
+                login_email,
+                hash_password(client_password),
+                client_id,
+                datetime.utcnow().isoformat(),
+            ),
         )
 
         generated_notes = (
@@ -388,7 +411,7 @@ def create_client(request: Request, name: str = Form(...), email: str = Form("")
 
         db.execute(
             "UPDATE clients SET notes=? WHERE id=?",
-            (generated_notes, client_id)
+            (generated_notes, client_id),
         )
 
     return redirect("/dashboard")
@@ -409,7 +432,7 @@ def create_project(
         raise HTTPException(status_code=403)
 
     if not client_id or not client_id.strip():
-        raise HTTPException(status_code=400, detail="Please select a client.")
+        return redirect("/dashboard?error=Please+select+a+client.")
 
     try:
         client_id_int = int(client_id)
@@ -417,7 +440,7 @@ def create_project(
         raise HTTPException(status_code=400, detail="Invalid client selected.")
 
     if not name or not name.strip():
-        raise HTTPException(status_code=400, detail="Project title is required.")
+        return redirect("/dashboard?error=Project+title+is+required.")
 
     with get_db() as db:
         db.execute(
