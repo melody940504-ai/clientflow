@@ -325,6 +325,21 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             (target_id,),
         ).fetchone()
 
+    # 從 clients.notes 解析測試用客戶密碼，供 dashboard.html 顯示 c.raw_password
+    parsed_clients = []
+    for c in clients:
+        c_dict = dict(c)
+        raw_password = ""
+
+        notes_text = c_dict.get("notes") or ""
+        if "密碼:" in notes_text:
+            raw_password = notes_text.split("密碼:", 1)[1].split("\n", 1)[0].strip()
+
+        c_dict["raw_password"] = raw_password
+        parsed_clients.append(c_dict)
+
+    clients = parsed_clients
+
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -347,30 +362,36 @@ def create_client(request: Request, name: str = Form(...), email: str = Form("")
     user = require_user(request)
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only studio owners can create clients.")
-        
+
     email_clean = email.strip().lower()
-    # 自動為客戶生成一組登入憑證 (密碼隨機)
-    client_password = secrets.token_hex(4) # 例如: a1b2c3d4
-    
+    client_password = secrets.token_hex(4)
+
     with get_db() as db:
+        generated_notes = ""  # 先佔位，等 client_id 出來再更新
+
         cur = db.execute(
             "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
             (user["id"], name.strip(), email_clean, contact.strip(), notes.strip(), datetime.utcnow().isoformat()),
         )
         client_id = cur.fetchone()["id"]
 
-        # 建立一個角色為 client 的新使用者系統帳號
         login_email = email_clean if email_clean else f"client_{client_id}@clientflow.local"
+
         db.execute(
             "INSERT INTO users (email, password_hash, role, client_reference_id, created_at) VALUES (?, ?, 'client', ?, ?)",
             (login_email, hash_password(client_password), client_id, datetime.utcnow().isoformat()),
         )
-        
-    # 注意：這裡我們簡單地把生成的密碼附加在備註裡，以便你在後台查看測試
-    with get_db() as db:
-        generated_notes = f"[系統生成帳密] 帳號: {login_email} | 密碼: {client_password}\n" + notes.strip()
-        db.execute("UPDATE clients SET notes=? WHERE id=?", (generated_notes, client_id))
-        
+
+        generated_notes = (
+            f"[系統生成帳密] 帳號: {login_email} | 密碼: {client_password}\n"
+            f"{notes.strip()}"
+        )
+
+        db.execute(
+            "UPDATE clients SET notes=? WHERE id=?",
+            (generated_notes, client_id)
+        )
+
     return redirect("/dashboard")
 
 
