@@ -96,6 +96,79 @@ def send_activity_email(
     except Exception as e:
         print(f"❌ Email failed: {e}")
 
+def send_client_invitation_email(
+    to_email: str,
+    client_name: str,
+    login_email: str,
+    temporary_password: str,
+    login_url: str,
+):
+    try:
+        TEST_EMAIL = "melody940504@gmail.com"
+
+        resend.Emails.send({
+            "from": "ClientFlow <onboarding@resend.dev>",
+            "to": [TEST_EMAIL],
+            "subject": "You have been invited to ClientFlow",
+            "html": f"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+
+                <h2 style="color:#4f46e5;">
+                    Welcome to ClientFlow
+                </h2>
+
+                <p>
+                    Hi {client_name},
+                </p>
+
+                <p>
+                    You have been invited to review projects on ClientFlow.
+                </p>
+
+                <div style="
+                    background:#f5f5f5;
+                    padding:16px;
+                    border-radius:8px;
+                    margin:20px 0;
+                    color:#111827;
+                ">
+                    <p><strong>Login Email:</strong> {login_email}</p>
+                    <p><strong>Temporary Password:</strong> {temporary_password}</p>
+                </div>
+
+                <p>
+                    Use the button below to access your client portal.
+                </p>
+
+                <p style="margin-top:24px">
+                    <a
+                        href="{login_url}"
+                        style="
+                            background:#4f46e5;
+                            color:white;
+                            padding:12px 20px;
+                            text-decoration:none;
+                            border-radius:8px;
+                            display:inline-block;
+                        "
+                    >
+                        Open Client Portal
+                    </a>
+                </p>
+
+                <p style="font-size:12px;color:#6b7280;margin-top:24px;">
+                    This is a test invitation sent by ClientFlow.
+                </p>
+
+            </div>
+            """
+        })
+
+        print(f"📬 Client invitation email sent successfully → {TEST_EMAIL}")
+
+    except Exception as e:
+        print(f"❌ Client invitation email failed: {e}")
+
 # 🎯 取得當前這個 main.py 檔案所在的資料夾絕對路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -460,7 +533,15 @@ def create_client(
 
         db.execute(
             "UPDATE clients SET notes=? WHERE id=?",
-            (generated_notes, client_id),
+            (generated_notes, client_id)
+        )
+
+        send_client_invitation_email(
+            to_email=login_email,
+            client_name=name.strip(),
+            login_email=login_email,
+            temporary_password=client_password,
+            login_url="https://clientflow-q250.onrender.com",
         )
 
     return redirect("/dashboard")
