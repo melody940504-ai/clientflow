@@ -622,7 +622,7 @@ def version_decision(
     user = get_current_user(request)
 
     if not body or not body.strip():
-        raise HTTPException(status_code=400, detail="Comment content cannot be entirely composed of spaces!")
+        return redirect(f"/projects/{version['project_id']}?error=Comment+cannot+be+empty.")
 
     if user:
         author_role = "client" if user["role"] == "client" else "studio"
@@ -811,7 +811,7 @@ async def add_project_attachment(
     file: UploadFile = File(...),
 ):
     if not file_title or not file_title.strip():
-        raise HTTPException(status_code=400, detail="File name cannot be empty.")
+        return redirect(f"/projects/{project_id}?error=File+name+cannot+be+empty.")
 
     user = require_user(request)
     if user["role"] != "owner":
@@ -826,7 +826,7 @@ async def add_project_attachment(
 
     allowed_extensions = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".zip"}
     if extension not in allowed_extensions:
-        raise HTTPException(status_code=400, detail="Unsupported file type.")
+        return redirect(f"/projects/{project_id}?error=Supported+formats:+PDF,+DOCX,+PNG,+JPG,+ZIP.")
 
     storage_path = f"projects/{project_id}/{uuid.uuid4().hex}{extension}"
     upload_url = f"{SUPABASE_URL}/storage/v1/object/attachments/{storage_path}"
