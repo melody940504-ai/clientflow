@@ -521,9 +521,9 @@ def create_version(
     notes: str = Form(""),
 ):
     if not version_label or not version_label.strip():
-        raise HTTPException(status_code=400, detail="版本標籤不能全為空白鍵！")
+        raise HTTPException(status_code=400, detail="Version labels cannot be entirely composed of spaces!")
     if not video_url or not video_url.strip():
-        raise HTTPException(status_code=400, detail="影片 URL 不能全為空白鍵！")
+        raise HTTPException(status_code=400, detail="Video URL cannot be entirely composed of spaces!")
         
     user = require_user(request)
     if user["role"] != "owner":
@@ -567,7 +567,7 @@ def version_decision(
     user = get_current_user(request)
 
     if not body or not body.strip():
-        raise HTTPException(status_code=400, detail="評論內容不能全為空白鍵！")
+        raise HTTPException(status_code=400, detail="Comment content cannot be entirely composed of spaces!")
 
     if user:
         author_role = "client" if user["role"] == "client" else "studio"

@@ -518,7 +518,7 @@
                 let embedUrl = url.replace("/view", "/preview").replace("/edit", "/preview");
                 document.getElementById('player-container').innerHTML = `<iframe class='w-full h-full aspect-video' src='${embedUrl}' frameborder='0' allowfullscreen></iframe>`;
                 if (document.getElementById('live-timestamp')) {
-                    document.getElementById('live-timestamp').innerText = "僅限 YT 戳記";
+                    document.getElementById('live-timestamp').innerText = "YT stamp only";
                 }
             }
         }
@@ -594,16 +594,16 @@
         function copyReviewLink() {
             const publicUrl = window.location.origin + "/review/{{ project.id }}";
             navigator.clipboard.writeText(publicUrl).then(() => {
-                showToast("客審連結已成功複製到剪貼簿！");
+                showToast("The client review link has been successfully copied to the clipboard!");
             }).catch(err => {
-                console.error("無法複製連結: ", err);
+                console.error("Failed to copy link: ", err);
             });
         }
 
         function validateComment(formElement) {
             const textarea = formElement.querySelector('textarea[name="body"]');
             if (textarea && textarea.value.trim() === "") {
-                showToast("⚠️ 評論內容不能全為空白鍵！");
+                showToast("⚠️ The comment content cannot be all whitespace!");
                 textarea.classList.add('border-rose-500');
                 setTimeout(() => { textarea.classList.remove('border-rose-500'); }, 2000);
                 return false;
