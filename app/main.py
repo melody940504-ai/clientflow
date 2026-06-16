@@ -540,14 +540,16 @@ def create_version(
 def version_decision(
     request: Request,
     version_id: int,
-    action_type: str = Form(...), # 'comment', 'approve', 'reject'
+    action_type: str = Form(...),
     body: str = Form(...),
+    video_time: Optional[str] = Form(None),
+    time_str: Optional[str] = Form(None),
 ):
     user = get_current_user(request)
 
     if not body or not body.strip():
         raise HTTPException(status_code=400, detail="評論內容不能全為空白鍵！")
-    
+
     if user:
         author_role = "client" if user["role"] == "client" else "studio"
         author_name = user["email"].split("@")[0]
@@ -556,118 +558,90 @@ def version_decision(
         author_name = "Anonymous Client"
 
     with get_db() as db:
-        version = db.execute("SELECT * FROM video_versions WHERE id=?", (version_id,)).fetchone()
+        version = db.execute(
+            "SELECT * FROM video_versions WHERE id = ?",
+            (version_id,)
+        ).fetchone()
+
         if not version:
             raise HTTPException(status_code=404)
-        
+
         if version["status"] == "Approved":
             raise HTTPException(status_code=400, detail="This version has been approved and locked.")
 
+        final_body = body.strip()
+        final_type = action_type
+
+        if time_str and time_str.strip() and video_time:
+            final_body = f"⏱️ [{time_str.strip()}] {final_body}"
+            if action_type == "comment":
+                final_type = f"timestamp_{video_time}"
+
         now = datetime.utcnow().isoformat()
-                
-        @app.post("/versions/{version_id}/action")
-        def version_decision(
-            request: Request,
-            version_id: int,
-            action_type: str = Form(...), # 'comment', 'approve', 'reject'
-            body: str = Form(...),
-            video_time: Optional[str] = Form(None), # 💡 接收當前影片秒數 (例如: "83")
-            time_str: Optional[str] = Form(None),   # 💡 接收格式化時間 (例如: "01:23")
-        ):
-            user = get_current_user(request)
-            
-            if user:
-                author_role = "client" if user["role"] == "client" else "studio"
-                author_name = user["email"].split("@")[0]
-            else:
-                author_role = "client"
-                author_name = "Anonymous Client"
 
-            with get_db() as db:
-                version = db.execute("SELECT * FROM video_versions WHERE id=?", (version_id,)).fetchone()
-                if not version:
-                    raise HTTPException(status_code=404)
-                
-                if version["status"] == "Approved":
-                    raise HTTPException(status_code=400, detail="This version has been approved and locked.")
+        db.execute(
+            """
+            INSERT INTO comments
+            (video_version_id, author_role, author_name, body, type, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (version_id, author_role, author_name, final_body, final_type, now),
+        )
 
-                now = datetime.utcnow().isoformat()
-                
-                # 🎯 【核心邏輯固化】：解析時間戳記，將其包裝進 body 與 type 中
-                final_body = body.strip()
-                final_type = action_type
-                
-                if time_str and time_str.strip() and video_time:
-                    # 留言內容包裝成: "⏱️ [01:23] 這裡顏色要調亮"
-                    final_body = f"⏱️ [{time_str.strip()}] {final_body}"
-                    # 如果是正常留言，將類型標記為 "timestamp_83"，方便前端做點擊跳轉
-                    if action_type == "comment":
-                        final_type = f"timestamp_{video_time}"
-                
-                # 1. 寫入決策/留言紀錄
-                db.execute(
-                    "INSERT INTO comments (video_version_id, author_role, author_name, body, type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                    (version_id, author_role, author_name, final_body, final_type, now),
-                )
-                
-                if action_type == "approve":
-                    db.execute("UPDATE video_versions SET status='Approved' WHERE id=?", (version_id,))
-                    db.execute("UPDATE projects SET status='Approved' WHERE id=?", (version['project_id'],))
-                elif action_type == "reject":
-                    db.execute("UPDATE video_versions SET status='Revision Requested' WHERE id=?", (version_id,))
-                    db.execute("UPDATE projects SET status='In Revision' WHERE id=?", (version['project_id'],))
-            
-                # 📬 Email 通知
-                studio_info = db.execute(
-                    "SELECT p.name AS p_name, u.email AS u_email FROM projects p JOIN users u ON p.user_id=u.id WHERE p.id=?",
-                    (version["project_id"],)
-                ).fetchone()
-                
-                if studio_info:
-                    project_url = f"{request.base_url}projects/{version['project_id']}"
-                    status_emojis = {"approve": "✅ Approved", "reject": "❌ Change Requested", "comment": "💬 New Comment"}
-                    action_display = status_emojis.get(action_type, action_type)
-                    
-                    send_activity_email(
-                        to_email=studio_info["u_email"],
-                        subject=f"📊 [ClientFlow] Project Activity Update: {action_display}",
-                        project_name=studio_info["p_name"],
-                        action_text=f"Client ({author_name}) has submitted an action [{action_display}] on {version['version_label']}.\nFeedback: \"{final_body}\"",
-                        link_url=project_url
-                    )
-
-            if not user:
-                return redirect(f"/review/{version['project_id']}")
-            return redirect(f"/projects/{version['project_id']}")
-        
         if action_type == "approve":
-            db.execute("UPDATE video_versions SET status='Approved' WHERE id=?", (version_id,))
-            db.execute("UPDATE projects SET status='Approved' WHERE id=?", (version['project_id'],))
+            db.execute(
+                "UPDATE video_versions SET status = 'Approved' WHERE id = ?",
+                (version_id,)
+            )
+            db.execute(
+                "UPDATE projects SET status = 'Approved' WHERE id = ?",
+                (version["project_id"],)
+            )
+
         elif action_type == "reject":
-            db.execute("UPDATE video_versions SET status='Revision Requested' WHERE id=?", (version_id,))
-            db.execute("UPDATE projects SET status='In Revision' WHERE id=?", (version['project_id'],))
-    
-        # 📬 【移到 with 內部，確保 db 連線依然有效
+            db.execute(
+                "UPDATE video_versions SET status = 'Revision Requested' WHERE id = ?",
+                (version_id,)
+            )
+            db.execute(
+                "UPDATE projects SET status = 'In Revision' WHERE id = ?",
+                (version["project_id"],)
+            )
+
         studio_info = db.execute(
-            "SELECT p.name AS p_name, u.email AS u_email FROM projects p JOIN users u ON p.user_id=u.id WHERE p.id=?",
+            """
+            SELECT p.name AS p_name, u.email AS u_email
+            FROM projects p
+            JOIN users u ON p.user_id = u.id
+            WHERE p.id = ?
+            """,
             (version["project_id"],)
         ).fetchone()
-        
+
         if studio_info:
             project_url = f"{request.base_url}projects/{version['project_id']}"
-            status_emojis = {"approve": "✅ Approved", "reject": "❌ Change Requested", "comment": "💬 New Comment"}
+            status_emojis = {
+                "approve": "✅ Approved",
+                "reject": "❌ Change Requested",
+                "comment": "💬 New Comment",
+            }
             action_display = status_emojis.get(action_type, action_type)
-            
+
             send_activity_email(
                 to_email=studio_info["u_email"],
                 subject=f"📊 [ClientFlow] Project Activity Update: {action_display}",
                 project_name=studio_info["p_name"],
-                action_text=f"Client ({author_name}) has submitted an action [{action_display}] on {version['version_label']}.\nFeedback: \"{body.strip()}\"",
-                link_url=project_url
+                action_text=(
+                    f"Client ({author_name}) has submitted an action "
+                    f"[{action_display}] on {version['version_label']}.\n"
+                    f"Feedback: \"{final_body}\""
+                ),
+                link_url=project_url,
             )
 
     if not user:
         return redirect(f"/review/{version['project_id']}")
+
     return redirect(f"/projects/{version['project_id']}")
 
 
