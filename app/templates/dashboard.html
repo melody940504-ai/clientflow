@@ -131,7 +131,7 @@
             <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
                 <div>
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">✨ Add Client</h3>
-                    <form action="/clients" method="post" class="space-y-3 m-0">
+                    <form action="/clients" method="post" novalidate class="space-y-3 m-0">
                         <input type="text" name="name" required placeholder="Client Name (Required)" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <input type="email" name="email" required placeholder="Client Email" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <input type="text" name="contact" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
@@ -147,7 +147,7 @@
             <div class="bg-card-fix bg-gray-900/40 border border-gray-800 p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
                 <div>
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">🚀 Add Project</h3>
-                    <form action="/projects" method="post" class="space-y-3 m-0">
+                    <form action="/projects" method="post" novalidate class="space-y-3 m-0">
                         <!-- 🔒 解決下拉選單問題 -->
                         <select name="client_id" required class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-gray-300 cursor-pointer">
                             <option value="" class="bg-gray-900 text-gray-500">Select Client</option>

@@ -19,7 +19,7 @@
             {% endif %}
         </div>
     {% endif %}
-    <form class="stack" method="post" action="{% if mode == 'register' %}/register{% else %}/login{% endif %}">
+    <form class="stack" method="post" action="{% if mode == 'register' %}/register{% else %}/login{% endif %}" novalidate>
       <label>Email
         <input type="email" name="email" id="email" required placeholder="studio@example.com" autocomplete="email">
       </label>
