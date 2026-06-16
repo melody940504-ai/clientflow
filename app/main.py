@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
 
 import os
+import resend
 import uuid
 import httpx
 import psycopg2
@@ -396,20 +397,42 @@ def create_client(request: Request, name: str = Form(...), email: str = Form("")
 @app.post("/projects")
 def create_project(
     request: Request,
-    client_id: int = Form(...),
-    name: str = Form(...),
+    client_id: str = Form(""),
+    name: str = Form(""),
     category: str = Form("Shorts"),
     status: str = Form("Awaiting Review"),
     notes: str = Form(""),
 ):
     user = require_user(request)
+
     if user["role"] != "owner":
         raise HTTPException(status_code=403)
+
+    if not client_id or not client_id.strip():
+        raise HTTPException(status_code=400, detail="Please select a client.")
+
+    try:
+        client_id_int = int(client_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid client selected.")
+
+    if not name or not name.strip():
+        raise HTTPException(status_code=400, detail="Project title is required.")
+
     with get_db() as db:
         db.execute(
             "INSERT INTO projects (user_id, client_id, name, category, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user["id"], client_id, name.strip(), category, status, notes.strip(), datetime.utcnow().isoformat()),
+            (
+                user["id"],
+                client_id_int,
+                name.strip(),
+                category,
+                status,
+                notes.strip(),
+                datetime.utcnow().isoformat(),
+            ),
         )
+
     return redirect("/dashboard")
 
 
