@@ -35,6 +35,7 @@ STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+resend.api_key = os.getenv("RESEND_API_KEY")
 
 # ==========================================
 # 📬 【新增】Email 自動通知模擬引擎
