@@ -328,8 +328,8 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
         raw_password = ""
 
         notes_text = c_dict.get("notes") or ""
-        if "密碼:" in notes_text:
-            raw_password = notes_text.split("密碼:", 1)[1].split("\n", 1)[0].strip()
+        if "Password:" in notes_text:
+            raw_password = notes_text.split("Password:", 1)[1].split("\n", 1)[0].strip()
 
         c_dict["raw_password"] = raw_password
         parsed_clients.append(c_dict)
@@ -379,7 +379,7 @@ def create_client(request: Request, name: str = Form(...), email: str = Form("")
         )
 
         generated_notes = (
-            f"[系統生成帳密] 帳號: {login_email} | 密碼: {client_password}\n"
+            f"[System-generated credentials] Account: {login_email} | Password: {client_password}\n"
             f"{notes.strip()}"
         )
 

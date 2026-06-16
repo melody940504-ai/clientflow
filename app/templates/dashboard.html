@@ -224,12 +224,12 @@
         {% if user.role != 'client' %}
         <!-- 🔑 憑證管理區 -->
         <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-5 shadow-sm">
-            <p class="text-xs font-bold text-amber-500 flex items-center gap-1.5 mb-3">🔑 測試專用：客戶端登入憑證密碼列表</p>
+            <p class="text-xs font-bold text-amber-500 flex items-center gap-1.5 mb-3">🔑 For testing purposes only: List of client login credentials and passwords</p>
             <div class="divide-y divide-gray-900/60 text-xs font-mono text-gray-400-fix">
                 {% for c in clients %}
                 <div class="py-2 flex justify-between items-center">
-                    <span><strong>{{ c.name }}</strong>：[系統生成帳密] 帳號: <span class="text-indigo-400">{{ c.email }}</span></span>
-                    <span class="bg-gray-950 px-2 py-0.5 rounded border border-gray-800 text-gray-300">密碼: {{ c.raw_password }}</span>
+                    <span><strong>{{ c.name }}</strong>：[System-generated credentials] Account: <span class="text-indigo-400">{{ c.email }}</span></span>
+                    <span class="bg-gray-950 px-2 py-0.5 rounded border border-gray-800 text-gray-300">Password: {{ c.raw_password }}</span>
                 </div>
                 {% endfor %}
             </div>

@@ -131,13 +131,33 @@
                         class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white"
                     >
 
-                    <input
-                        type="file"
-                        name="file"
-                        required
-                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
-                        class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white"
-                    >
+                    <div class="flex-1 flex items-center gap-2">
+
+                        <label
+                            for="fileUpload"
+                            class="input-fix cursor-pointer border border-gray-700 px-4 py-1.5 rounded-xl text-xs font-semibold transition"
+                        >
+                            Choose File
+                        </label>
+
+                        <span
+                            id="selectedFileName"
+                            class="text-xs text-gray-400-fix truncate"
+                        >
+                            No file selected
+                        </span>
+
+                        <input
+                            id="fileUpload"
+                            type="file"
+                            name="file"
+                            required
+                            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
+                            class="hidden"
+                            onchange="updateFileName(this)"
+                        >
+
+                    </div>
 
                     <button
                     type="submit"
@@ -210,7 +230,7 @@
                                 <span class="text-lg">🔒</span>
                                 <div>
                                     <p class="text-sm font-semibold text-emerald-400">Version Approved & Locked</p>
-                                    <p class="text-xs text-gray-400-fix">此版本已通過審核，工作流已鎖定以防意外篡改。</p>
+                                    <p class="text-xs text-gray-400-fix">This version has been approved, and the workflow has been locked to prevent accidental tampering.</p>
                                 </div>
                             </div>
                             <span class="text-xs font-mono bg-emerald-950/40 text-emerald-400 px-2.5 py-1 rounded border border-emerald-800/30">Immutable Log</span>
@@ -317,7 +337,7 @@
                         <h4 class="text-sm font-bold text-white-fix flex items-center gap-1.5">🎬 Live Timeline Marker</h4>
                         <button type="button" onclick="closeVideoModal()" class="text-gray-400 hover:text-white w-7 h-7 bg-gray-800 rounded-full hidden md:flex items-center justify-center font-bold text-xs">✕</button>
                     </div>
-                    <p class="text-xs text-gray-400-fix mb-4">影片暫停時，系統會自動固化當前的時間戳記。</p>
+                    <p class="text-xs text-gray-400-fix mb-4">When the video is paused, the system will automatically capture the current timestamp.</p>
                     
                     <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-xl p-3 flex items-center justify-between mb-4">
                         <span class="text-xs font-semibold text-indigo-400">Current Stamp</span>
@@ -328,7 +348,7 @@
                 {% if project.status == 'Approved' or project.status == 'Published' %}
                 <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-center space-y-1">
                     <p class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
-                    <p class="text-[11px] text-gray-500">此版本已通過客戶審核簽核，時間軸已全面封存轉為唯讀狀態。</p>
+                    <p class="text-[11px] text-gray-500">This version has been approved by the client, and the timeline has been fully secured for read-only access.</p>
                 </div>
                 {% else %}
                 <form id="modal-comment-form" method="post" class="space-y-3 m-0" onsubmit="return validateComment(this)">
@@ -336,7 +356,7 @@
                     <input type="hidden" id="modal-video-time" name="video_time" value="0">
                     <input type="hidden" id="modal-time-str" name="time_str" value="00:00">
 
-                    <textarea name="body" required id="modal-textarea" placeholder="按下暫停，並在此輸入針對該秒數的修改意見..." class="input-fix w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs h-20 focus:outline-none focus:border-indigo-500 text-white placeholder-gray-600"></textarea>
+                    <textarea name="body" required id="modal-textarea" placeholder="Press pause and enter your suggested changes for that number of seconds here..." class="input-fix w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs h-20 focus:outline-none focus:border-indigo-500 text-white placeholder-gray-600"></textarea>
                     
                     <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl py-2 transition text-xs shadow-md">
                         💬 Submit Timestamped Comment
@@ -375,12 +395,6 @@
 
             </div>
 
-            <button
-                onclick="closeAttachmentModal()"
-                class="text-gray-400 hover:text-white"
-            >
-                ✕
-            </button>
         </div>
 
         <div class="flex-1 bg-black">
@@ -457,7 +471,7 @@
         // 🎬 打開內嵌播放器（高防禦力非同步加載版本）
         function openVideoModal(url, actionFormUrl, startTime = 0) {
             if (!url) {
-                showToast("⚠️ 此版本沒有合法的影片連結！");
+                showToast("⚠️ This version does not contain any legitimate video links!");
                 return;
             }
 
@@ -614,6 +628,16 @@
 
         document.getElementById("attachmentModal")
             .classList.add("hidden");
+    }
+
+    function updateFileName(input) {
+
+    const fileName =
+        input.files.length > 0
+            ? input.files[0].name
+            : "No file selected";
+
+    document.getElementById("selectedFileName").textContent = fileName;
     }
     </script>
 </body>
