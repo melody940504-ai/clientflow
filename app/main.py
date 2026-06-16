@@ -13,6 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
 
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "clientflow.db"
 SECRET_KEY = "change-this-secret-before-deployment"
@@ -23,6 +27,7 @@ app = FastAPI(title="ClientFlow MVP")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
+DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 
@@ -733,3 +738,17 @@ def add_project_attachment(project_id: int, request: Request, file_title: str = 
         db.execute("UPDATE projects SET notes=? WHERE id=?", (new_notes, project_id))
         
     return redirect(f"/projects/{project_id}")
+
+@app.get("/db-test")
+def db_test():
+    if not DATABASE_URL:
+        return {"ok": False, "error": "DATABASE_URL not set"}
+
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    cur = conn.cursor()
+    cur.execute("SELECT NOW() AS now")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    return {"ok": True, "now": str(row["now"])}
