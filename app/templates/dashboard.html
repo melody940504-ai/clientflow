@@ -117,6 +117,7 @@
             </div>
         </div>
 
+        {% if user.role != 'client' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- 👥 Add Client -->
             <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
@@ -125,7 +126,7 @@
                     <form action="/clients" method="post" class="space-y-3 m-0">
                         <input type="text" name="name" required placeholder="Client Name (Required)" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <input type="email" name="email" required placeholder="Client Email" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                        <input type="text" name="contact_info" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                        <input type="text" name="contact" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <textarea name="notes" placeholder="Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
                         <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-indigo-600/10 mt-2">
                             Save Client & Generate Pass
@@ -166,6 +167,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- 📂 專案列表 -->
         <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
@@ -197,6 +199,7 @@
             </div>
         </div>
 
+        {% if user.role != 'client' %}
         <!-- 🔑 憑證管理區 -->
         <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-5 shadow-sm">
             <p class="text-xs font-bold text-amber-500 flex items-center gap-1.5 mb-3">🔑 測試專用：客戶端登入憑證密碼列表</p>
@@ -209,6 +212,7 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
     </main>
 
     <script>
