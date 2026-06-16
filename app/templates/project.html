@@ -174,7 +174,7 @@
                 <span class="text-3xl">👑</span>
                 <div>
                     <h3 class="text-base font-bold text-amber-400">Final Master Delivered & Archived</h3>
-                    <p class="text-xs text-gray-400-fix mt-0.5">本專案已完成最終交付並歸檔結案。歷史版本與事件流已轉為唯讀的鐵證狀態。</p>
+                    <p class="text-xs text-gray-400-fix mt-0.5">This project has been finalized, delivered, and archived. Historical versions and event streams have been converted to read-only, irrefutable evidence.</p>
                 </div>
             </div>
             {% elif user.role == 'owner' %}
@@ -186,7 +186,7 @@
                     </button>
                 </div>
                 <form action="/projects/{{ project.id }}/versions" method="post" class="grid grid-cols-3 gap-3">
-                    <input type="text" name="version_label" required pattern="\s*\S+.*" title="請輸入有效的版本標籤，不能全為空白" placeholder="Version Label (e.g. V1, V2)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                    <input type="text" name="version_label" required pattern="\s*\S+.*" title="Please enter a valid version label, cannot be all whitespace" placeholder="Version Label (e.g. V1, V2)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                     <input type="url" name="video_url" required placeholder="Video URL (e.g. YouTube, Drive)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                     <textarea name="notes" placeholder="Optional notes or description..." class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-10 focus:outline-none focus:border-indigo-500 text-white"></textarea>
                     <button type="submit" class="col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2 transition text-sm">
@@ -383,7 +383,7 @@
                 <a
                     id="attachmentDownloadBtn"
                     href="#"
-                    target="_blank"
+                    download
                     class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs text-white"
                 >
                     Download

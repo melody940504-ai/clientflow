@@ -9,13 +9,13 @@
     {% if request.query_params.get('error') %}
         <div style="background-color: #ffcccc; color: #cc0000; padding: 10px; margin-bottom: 20px; border-radius: 5px;">
             {% if request.query_params.get('error') == 'no_account' %}
-                此郵箱未註冊，請先創建帳戶！
+                This email address is not registered. Please create an account first!
             {% elif request.query_params.get('error') == 'wrong_password' %}
-                密碼錯誤，請重新輸入。
+                Incorrect password. Please try again.
             {% elif request.query_params.get('error') == 'email-exists' %}
-               此郵箱已註冊，請直接登入。
+                This email address is already registered. Please log in directly.
             {% else %}
-                登入失敗，請檢查資料。
+                Login failed. Please check your information.
             {% endif %}
         </div>
     {% endif %}
@@ -40,7 +40,7 @@
 
 <script>
 document.querySelector('button[type="submit"]').addEventListener('click', function(e) {
-    console.log("按鈕被按下了！");
+    console.log("Button clicked!");
 });
 </script>
 {% endblock %}

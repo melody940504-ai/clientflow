@@ -330,7 +330,9 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
         notes_text = c_dict.get("notes") or ""
         if "Password:" in notes_text:
             raw_password = notes_text.split("Password:", 1)[1].split("\n", 1)[0].strip()
-
+        elif "密碼:" in notes_text:
+            raw_password = notes_text.split("密碼:", 1)[1].split("\n", 1)[0].strip()
+        
         c_dict["raw_password"] = raw_password
         parsed_clients.append(c_dict)
 
