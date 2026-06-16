@@ -217,12 +217,24 @@
                         class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
                     >
 
-                    <input
-                        type="file"
-                        name="video_file"
-                        accept="video/mp4,video/webm,video/quicktime"
-                        class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
-                    >
+                    <div class="input-fix col-span-3 md:col-span-1 flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm">
+                        <label for="videoFileUpload" class="cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-1 rounded-lg text-xs text-white-fix">
+                            Choose Video
+                        </label>
+
+                        <span id="selectedVideoFileName" class="text-xs text-gray-400-fix truncate">
+                            No video selected
+                        </span>
+
+                        <input
+                            id="videoFileUpload"
+                            type="file"
+                            name="video_file"
+                            accept="video/mp4,video/webm,video/quicktime"
+                            class="hidden"
+                            onchange="updateVideoFileName(this)"
+                        >
+                    </div>
 
                     <textarea
                         name="notes"
@@ -685,6 +697,16 @@
             : "No file selected";
 
     document.getElementById("selectedFileName").textContent = fileName;
+    }
+
+    function updateVideoFileName(input) {
+    
+    const fileName =
+        input.files.length > 0
+            ? input.files[0].name
+            : "No video selected";
+
+    document.getElementById("selectedVideoFileName").textContent = fileName;
     }
     </script>
 </body>
