@@ -194,13 +194,49 @@
                         🔗 Copy Public Review Link
                     </button>
                 </div>
-                <form action="/projects/{{ project.id }}/versions" method="post" novalidate class="grid grid-cols-3 gap-3">
-                    <input type="text" name="version_label" required pattern="\s*\S+.*" title="Please enter a valid version label, cannot be all whitespace" placeholder="Version Label (e.g. V1, V2)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                    <input type="url" name="video_url" required placeholder="Video URL (e.g. YouTube, Drive)" class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                    <textarea name="notes" placeholder="Optional notes or description..." class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-10 focus:outline-none focus:border-indigo-500 text-white"></textarea>
-                    <button type="submit" class="col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2 transition text-sm">
+                <form
+                    action="/projects/{{ project.id }}/versions"
+                    method="post"
+                    enctype="multipart/form-data"
+                    novalidate
+                    class="grid grid-cols-3 gap-3"
+                >
+
+                    <input
+                        type="text"
+                        name="version_label"
+                        required
+                        placeholder="Version Label (e.g. V1, V2)"
+                        class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                    >
+
+                    <input
+                        type="url" 
+                        name="video_url"
+                        placeholder="Video URL (YouTube, Drive, Vimeo)"
+                        class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                    >
+
+                    <input
+                        type="file"
+                        name="video_file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                    >
+
+                    <textarea
+                        name="notes"
+                        placeholder="Optional notes or description..."
+                        class="input-fix col-span-3 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-20 text-white"
+                    ></textarea>
+
+                    <button
+                        type="submit"
+                        class="col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2 transition text-sm"
+                    >
                         ➕ Upload Version
                     </button>
+
                 </form>
             </div>
             {% endif %}

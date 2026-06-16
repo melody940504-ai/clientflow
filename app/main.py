@@ -689,46 +689,100 @@ def project_detail(request: Request, project_id: int):
 
 
 @app.post("/projects/{project_id}/versions")
-def create_version(
+async def create_version(
     request: Request,
     project_id: int,
-    version_label: str = Form(...),
-    video_url: str = Form(...),
+    version_label: str = Form(""),
+    video_url: str = Form(""),
+    video_file: UploadFile = File(None),
     notes: str = Form(""),
 ):
     if not version_label or not version_label.strip():
         return redirect(f"/projects/{project_id}?error=Version+label+is+required.")
 
-    if not video_url or not video_url.strip():
-        return redirect(f"/projects/{project_id}?error=Video+URL+is+required.")
-        
     user = require_user(request)
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Clients cannot upload versions.")
-        
+
+    final_video_url = video_url.strip() if video_url else ""
+
+    if video_file and video_file.filename:
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return redirect(f"/projects/{project_id}?error=Video+storage+is+not+configured.")
+
+        original_name = video_file.filename or "video"
+        extension = os.path.splitext(original_name)[1].lower()
+
+        allowed_extensions = {".mp4", ".webm", ".mov"}
+        if extension not in allowed_extensions:
+            return redirect(f"/projects/{project_id}?error=Supported+video+formats:+MP4,+WEBM,+MOV.")
+
+        storage_path = f"projects/{project_id}/{uuid.uuid4().hex}{extension}"
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/videos/{storage_path}"
+
+        video_bytes = await video_file.read()
+
+        headers = {
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "apikey": SUPABASE_KEY,
+            "Content-Type": video_file.content_type or "application/octet-stream",
+            "x-upsert": "true",
+        }
+
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(upload_url, headers=headers, content=video_bytes)
+
+        if response.status_code not in (200, 201):
+            return redirect(f"/projects/{project_id}?error=Video+upload+failed.")
+
+        final_video_url = f"{SUPABASE_URL}/storage/v1/object/public/videos/{storage_path}"
+
+    if not final_video_url:
+        return redirect(f"/projects/{project_id}?error=Please+provide+a+video+URL+or+upload+a+video+file.")
+
     with get_db() as db:
         db.execute(
-            "INSERT INTO video_versions (user_id, project_id, version_label, video_url, status, notes, created_at) VALUES (?, ?, ?, ?, 'Awaiting Review', ?, ?)",
-            (user["id"], project_id, version_label.strip(), video_url.strip(), notes.strip(), datetime.utcnow().isoformat()),
+            """
+            INSERT INTO video_versions
+            (user_id, project_id, version_label, video_url, status, notes, created_at)
+            VALUES (?, ?, ?, ?, 'Awaiting Review', ?, ?)
+            """,
+            (
+                user["id"],
+                project_id,
+                version_label.strip(),
+                final_video_url,
+                notes.strip(),
+                datetime.utcnow().isoformat(),
+            ),
         )
-        db.execute("UPDATE projects SET status='Awaiting Review' WHERE id=?", (project_id,))
-        
-        # 📬 【補齊 Email 通知情境 A】: 撈取客戶 Email 並模擬發送
+
+        db.execute(
+            "UPDATE projects SET status='Awaiting Review' WHERE id=?",
+            (project_id,),
+        )
+
         project_info = db.execute(
-            "SELECT p.name AS p_name, c.email AS c_email FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=?",
-            (project_id,)
+            """
+            SELECT p.name AS p_name, c.email AS c_email
+            FROM projects p
+            JOIN clients c ON p.client_id=c.id
+            WHERE p.id=?
+            """,
+            (project_id,),
         ).fetchone()
-        
+
         if project_info and project_info["c_email"]:
             public_review_url = f"{request.base_url}review/{project_id}"
+
             send_activity_email(
                 to_email=project_info["c_email"],
-                subject=f"🎬 [ClientFlow] New Version {version_label} Uploaded for '{project_info['p_name']}'",
+                subject=f"[ClientFlow] New version {version_label.strip()} uploaded",
                 project_name=project_info["p_name"],
-                action_text=f"Studio has uploaded a new iteration ({version_label}). Please click the link below to review.",
-                link_url=public_review_url
+                action_text=f"Studio uploaded a new version ({version_label.strip()}). Please review it when available.",
+                link_url=public_review_url,
             )
-            
+
     return redirect(f"/projects/{project_id}")
 
 
