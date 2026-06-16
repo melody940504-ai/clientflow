@@ -7,13 +7,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Form, Request, Response, HTTPException
+from fastapi import FastAPI, Form, Request, Response, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
 
 import os
+import uuid
+import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -30,6 +32,8 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 # ==========================================
 # 📬 【新增】Email 自動通知模擬引擎
@@ -50,17 +54,11 @@ def send_activity_email(to_email: str, subject: str, project_name: str, action_t
     print(f"Action Link: {link_url}")
     print(f"{border}\n")
 
-
-import os
-import sqlite3
-
 # 🎯 取得當前這個 main.py 檔案所在的資料夾絕對路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 🎯 不論是在本機 Windows 還是雲端 Linux，都能精準拼出正確的資料庫絕對路徑
 DB_PATH = os.path.join(BASE_DIR, "database.db")
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
 
 class PostgresDB:
     def __init__(self):
@@ -235,8 +233,6 @@ def register(email: str = Form(...), password: str = Form(...)):
     return response
 
 
-from fastapi import Request, Form
-from fastapi.responses import RedirectResponse
 import logging
 
 # 加入這行來設定記錄器，這樣我們能在 Render 的 Logs 看到後端發生什麼
@@ -751,22 +747,66 @@ def deliver_project(project_id: int, request: Request):
 # 📂 專案附件上傳路由
 # ==========================================
 @app.post("/projects/{project_id}/attachments")
-def add_project_attachment(project_id: int, request: Request, file_title: str = Form(...), file_url: str = Form(...)):
-    
+async def add_project_attachment(
+    project_id: int,
+    request: Request,
+    file_title: str = Form(...),
+    file: UploadFile = File(...),
+):
     if not file_title or not file_title.strip():
-       raise HTTPException(status_code=400, detail="檔案名稱不能全為空白鍵！")
+        raise HTTPException(status_code=400, detail="File name cannot be empty.")
 
     user = require_user(request)
-    if user["role"] != "owner": raise HTTPException(status_code=403)
-    
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403)
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase storage is not configured.")
+
+    original_name = file.filename or "attachment"
+    safe_title = file_title.strip()
+    extension = os.path.splitext(original_name)[1].lower()
+
+    allowed_extensions = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".zip"}
+    if extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Unsupported file type.")
+
+    storage_path = f"projects/{project_id}/{uuid.uuid4().hex}{extension}"
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/attachments/{storage_path}"
+
+    file_bytes = await file.read()
+
+    headers = {
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": SUPABASE_KEY,
+        "Content-Type": file.content_type or "application/octet-stream",
+        "x-upsert": "true",
+    }
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(upload_url, headers=headers, content=file_bytes)
+
+    if response.status_code not in (200, 201):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload attachment: {response.text}",
+        )
+
+    public_url = f"{SUPABASE_URL}/storage/v1/object/public/attachments/{storage_path}"
+
     with get_db() as db:
         project = db.execute("SELECT notes FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found.")
+
         current_notes = project["notes"] or ""
-        
-        # 使用字串大聯集追加包裝： 原本備註 || 檔案名稱 :: 網址
-        new_notes = f"{current_notes} || {file_title.strip()} :: {file_url.strip()}"
-        db.execute("UPDATE projects SET notes=? WHERE id=?", (new_notes, project_id))
-        
+        new_notes = f"{current_notes} || {safe_title} :: {public_url}"
+
+        db.execute(
+            "UPDATE projects SET notes=? WHERE id=?",
+            (new_notes, project_id),
+        )
+
     return redirect(f"/projects/{project_id}")
 
 @app.get("/db-test")

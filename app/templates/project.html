@@ -112,11 +112,34 @@
                 </div>
 
                 {% if project.status != 'Published' and user.role == 'owner' %}
-                <form action="/projects/{{ project.id }}/attachments" method="post" class="border-t border-gray-800/50 pt-3 flex gap-2">
-                    <input type="text" name="file_title" required pattern="\s*\S+.*" title="請輸入有效的檔案名稱，不能全為空白" placeholder="File Name (e.g., Script.pdf, Logo)" class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white">
-                    <input type="url" name="file_url" required pattern="https?://.+" title="請輸入有效的 URL" placeholder="File URL (e.g., Notion, Drive, Dropbox)" class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white">
-                    <button type="submit" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-1.5 rounded-xl text-xs font-semibold transition">
-                        📎 Attach
+                <form
+                    action="/projects/{{ project.id }}/attachments"
+                    method="post"
+                    enctype="multipart/form-data"
+                    class="border-t border-gray-800/50 pt-3 flex gap-2"
+        >
+                    <input
+                        type="text"
+                        name="file_title"
+                        required
+                        pattern="\s*\S+.*"
+                        placeholder="File Name"
+                        class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white"
+                    >
+
+                    <input
+                        type="file"
+                        name="file"
+                        required
+                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
+                        class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white"
+                    >
+
+                    <button
+                    type="submit"
+                    class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-1.5 rounded-xl text-xs font-semibold transition"
+                    >
+                        📎 Upload
                     </button>
                 </form>
                 {% endif %}
