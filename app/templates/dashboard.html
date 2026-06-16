@@ -99,6 +99,7 @@
 
     <main class="max-w-7xl mx-auto p-6 space-y-8">
         
+        {% if user.role != 'client' %}
         <!-- 📊 數據看版區塊 -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-5 rounded-2xl shadow-sm">
@@ -122,6 +123,7 @@
                 <p class="text-3xl font-black text-purple-400 mt-1">{{ stats.published }}</p>
             </div>
         </div>
+        {% endif %}
 
         {% if user.role != 'client' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -178,11 +180,11 @@
         <!-- 📂 專案列表 -->
         <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
             <h3 class="text-base font-bold text-white-fix">
-                {% if user.role == 'client' %}
-                    My Projects
-                {% else %}
-                    Active Workspace Projects
-                {% endif %}
+            {% if user.role == 'client' %}
+                My Projects Awaiting Review
+            {% else %}
+                Active Workspace Projects
+            {% endif %}
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for p in projects %}
@@ -198,7 +200,9 @@
                                 {{ p.status }}
                             </span>
                         </div>
+                        {% if user.role != 'client' %}
                         <p class="text-xs text-gray-400-fix">Client: <span class="font-semibold">{{ p.client_name }}</span></p>
+                        {% endif %}
                     </div>
                     <div class="flex justify-between items-center text-[11px] text-gray-500 pt-2 border-t border-gray-900/60">
                         <span class="bg-gray-900 px-2 py-0.5 rounded text-gray-400 border border-gray-800">{{ p.type }}</span>
