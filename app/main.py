@@ -60,36 +60,67 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 🎯 不論是在本機 Windows 還是雲端 Linux，都能精準拼出正確的資料庫絕對路徑
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 
-def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
+class PostgresDB:
+    def __init__(self):
+        self.conn = psycopg2.connect(
+            DATABASE_URL,
+            cursor_factory=RealDictCursor,
+            sslmode="require"
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type:
+            self.conn.rollback()
+        else:
+            self.conn.commit()
+        self.conn.close()
+
+    def execute(self, query, params=()):
+        query = query.replace("?", "%s")
+        cur = self.conn.cursor()
+        cur.execute(query, params)
+        return cur
+
+    def commit(self):
+        self.conn.commit()
+
+def get_db():
+    return PostgresDB()
 
 def init_db() -> None:
     with get_db() as db:
-        db.executescript(
-            """
+        db.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'owner', -- 'owner', 'editor', 'client'
-                client_reference_id INTEGER,       -- 如果是 client 角色，對應到哪個 client
+                role TEXT NOT NULL DEFAULT 'owner',
+                client_reference_id INTEGER,
                 created_at TEXT NOT NULL
-            );
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS clients (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,          -- 屬於哪個 studio owner
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 email TEXT,
                 contact TEXT,
                 notes TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id)
-            );
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL,
                 client_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
@@ -99,30 +130,35 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id),
                 FOREIGN KEY(client_id) REFERENCES clients(id)
-            );
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS video_versions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,          -- 建立此版本的 studio user id
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
                 project_id INTEGER NOT NULL,
-                version_label TEXT NOT NULL,       -- 例如 V1, V2, V3
+                version_label TEXT NOT NULL,
                 video_url TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Awaiting Review', -- 'Awaiting Review', 'Approved', 'Revision Requested'
+                status TEXT NOT NULL DEFAULT 'Awaiting Review',
                 notes TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(project_id) REFERENCES projects(id)
-            );
+            )
+        """)
+
+        db.execute("""
             CREATE TABLE IF NOT EXISTS comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 video_version_id INTEGER NOT NULL,
-                author_role TEXT NOT NULL,         -- 'studio', 'client'
+                author_role TEXT NOT NULL,
                 author_name TEXT NOT NULL,
                 body TEXT NOT NULL,
-                type TEXT NOT NULL DEFAULT 'comment', -- 'comment', 'approve', 'reject'
+                type TEXT NOT NULL DEFAULT 'comment',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(video_version_id) REFERENCES video_versions(id)
-            );
-            """
-        )
+            )
+        """)
 
 
 @app.on_event("startup")
@@ -187,12 +223,11 @@ def register(email: str = Form(...), password: str = Form(...)):
     try:
         with get_db() as db:
             cur = db.execute(
-                "INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, 'owner', ?)",
+                "INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, 'owner', ?) RETURNING id",
                 (email.strip().lower(), hash_password(password), datetime.utcnow().isoformat()),
             )
-            db.commit()  # <--- 這行一定要加，沒有它就等於沒寫資料
-            user_id = cur.lastrowid
-    except sqlite3.IntegrityError:
+            user_id = cur.fetchone()["id"]
+    except psycopg2.IntegrityError:
         return redirect("/register?error=email-exists")
     
     response = redirect("/dashboard")
@@ -319,11 +354,11 @@ def create_client(request: Request, name: str = Form(...), email: str = Form("")
     
     with get_db() as db:
         cur = db.execute(
-            "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
             (user["id"], name.strip(), email_clean, contact.strip(), notes.strip(), datetime.utcnow().isoformat()),
         )
-        client_id = cur.lastrowid
-        
+        client_id = cur.fetchone()["id"]
+
         # 建立一個角色為 client 的新使用者系統帳號
         login_email = email_clean if email_clean else f"client_{client_id}@clientflow.local"
         db.execute(
