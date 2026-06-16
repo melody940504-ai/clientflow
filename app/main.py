@@ -379,6 +379,14 @@ def create_client(
     client_password = secrets.token_hex(4)
 
     with get_db() as db:
+        existing_user = db.execute(
+            "SELECT id FROM users WHERE email = ?",
+            (email_clean,)
+        ).fetchone()
+
+        if existing_user:
+            return redirect("/dashboard?error=This+email+is+already+registered.")
+        
         cur = db.execute(
             "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
             (
@@ -567,9 +575,10 @@ def create_version(
     notes: str = Form(""),
 ):
     if not version_label or not version_label.strip():
-        raise HTTPException(status_code=400, detail="Version labels cannot be entirely composed of spaces!")
+        return redirect(f"/projects/{project_id}?error=Version+label+is+required.")
+
     if not video_url or not video_url.strip():
-        raise HTTPException(status_code=400, detail="Video URL cannot be entirely composed of spaces!")
+        return redirect(f"/projects/{project_id}?error=Video+URL+is+required.")
         
     user = require_user(request)
     if user["role"] != "owner":

@@ -80,6 +80,14 @@
         </div>
     </nav>
 
+    {% if request.query_params.get('error') %}
+    <div class="max-w-7xl mx-auto px-6 pt-4">
+        <div class="mb-4 p-3 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-sm">
+            {{ request.query_params.get('error') }}
+        </div>
+    </div>
+    {% endif %}
+    
     <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
         
         <div class="md:col-span-2 space-y-6">
