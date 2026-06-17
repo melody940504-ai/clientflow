@@ -238,9 +238,20 @@ def init_db() -> None:
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'owner',
                 client_reference_id INTEGER,
+                is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                verification_token TEXT,
                 created_at TEXT NOT NULL
             )
         """)
+        try:
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT"
+            )
+        except Exception as e:
+            print(f"User verification migration skipped: {e}")
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS clients (
