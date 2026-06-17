@@ -663,7 +663,18 @@ def create_client(
         login_email = email_clean
 
         db.execute(
-            "INSERT INTO users (email, password_hash, role, client_reference_id, created_at) VALUES (?, ?, 'client', ?, ?)",
+            """
+            INSERT INTO users
+            (
+                email,
+                password_hash,
+                role,
+                client_reference_id,
+                is_verified,
+                created_at
+            )
+            VALUES (?, ?, 'client', ?, TRUE, ?)
+            """,
             (
                 login_email,
                 hash_password(client_password),
