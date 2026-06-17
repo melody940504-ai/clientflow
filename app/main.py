@@ -19,6 +19,7 @@ import uuid
 import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from authlib.integrations.starlette_client import OAuth
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "clientflow.db"
@@ -36,6 +37,22 @@ CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+
+oauth = OAuth()
+
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    oauth.register(
+        name="google",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={
+            "scope": "openid email profile"
+        },
+    )
 
 # ==========================================
 # 📬 Email 自動通知模擬引擎
