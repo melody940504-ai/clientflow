@@ -370,17 +370,47 @@ def register(email: str = Form(...), password: str = Form(...)):
         return redirect("/register?error=password-too-short")
     try:
         with get_db() as db:
+            verification_token = secrets.token_urlsafe(32)
+
             cur = db.execute(
-                "INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, 'owner', ?) RETURNING id",
-                (email.strip().lower(), hash_password(password), datetime.utcnow().isoformat()),
+                """
+                INSERT INTO users
+                (
+                    email,
+                    password_hash,
+                    role,
+                    is_verified,
+                    verification_token,
+                    created_at
+                )
+                VALUES (?, ?, 'owner', FALSE, ?, ?)
+                RETURNING id
+                """,
+                (
+                    email.strip().lower(),
+                    hash_password(password),
+                    verification_token,
+                    datetime.utcnow().isoformat()
+                ),
             )
             user_id = cur.fetchone()["id"]
     except psycopg2.IntegrityError:
         return redirect("/register?error=email-exists")
     
-    response = redirect("/dashboard")
-    response.set_cookie("session", serializer.dumps(user_id), httponly=True, samesite="lax")
-    return response
+    verify_url = (
+        f"https://clientflow-q250.onrender.com/verify-email/"
+        f"{verification_token}"
+    )
+
+    send_activity_email(
+        email.strip().lower(),
+        "Verify your email",
+        "ClientFlow",
+        f"Please verify your email address.\n\n{verify_url}",
+        verify_url
+    )
+
+    return redirect("/?success=verification-sent")
 
 
 import logging
@@ -396,6 +426,12 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     
     if not user:
         return RedirectResponse(url="/?error=no_account", status_code=303)
+    
+    if not user["is_verified"]:
+        return RedirectResponse(
+            url="/?error=email-not-verified",
+            status_code=303
+        )   
         
     if not verify_password(password, user["password_hash"]):
         return RedirectResponse(url="/?error=wrong_password", status_code=303)
@@ -412,7 +448,6 @@ async def login_google(request: Request):
         request,
         redirect_uri
     )
-
 
 @app.get("/auth/google/callback")
 async def auth_google_callback(request: Request):
@@ -434,8 +469,14 @@ async def auth_google_callback(request: Request):
             db.execute(
                 """
                 INSERT INTO users
-                (email, password_hash, role, created_at)
-                VALUES (?, '', 'owner', ?)
+                (
+                    email,
+                    password_hash,
+                    role,
+                    is_verified,
+                    created_at
+                )
+                VALUES (?, '', 'owner', FALSE, ?)
                 """,
                 (email, datetime.utcnow().isoformat())
             )
@@ -454,6 +495,36 @@ async def auth_google_callback(request: Request):
     )
 
     return response
+
+@app.get("/verify-email/{token}")
+def verify_email(token: str):
+
+    with get_db() as db:
+
+        user = db.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE verification_token = ?
+            """,
+            (token,)
+        ).fetchone()
+
+        if not user:
+            return redirect("/?error=invalid-verification-link")
+
+        db.execute(
+            """
+            UPDATE users
+            SET
+                is_verified = TRUE,
+                verification_token = NULL
+            WHERE id = ?
+            """,
+            (user["id"],)
+        )
+
+    return redirect("/?success=email-verified")
 
 @app.get("/logout")
 def logout():
