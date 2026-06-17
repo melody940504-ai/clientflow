@@ -308,17 +308,14 @@ def init_db() -> None:
             )
         """)
 
-
 @app.on_event("startup")
 def startup() -> None:
     init_db()
-
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
     digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
     return f"{salt}${digest}"
-
 
 def verify_password(password: str, stored: str) -> bool:
     try:
@@ -326,7 +323,6 @@ def verify_password(password: str, stored: str) -> bool:
     except ValueError:
         return False
     return hashlib.sha256((salt + password).encode("utf-8")).hexdigest() == digest
-
 
 def get_current_user(request: Request) -> Optional[sqlite3.Row]:
     token = request.cookies.get("session")
@@ -339,17 +335,14 @@ def get_current_user(request: Request) -> Optional[sqlite3.Row]:
     with get_db() as db:
         return db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
 
-
 def require_user(request: Request) -> sqlite3.Row:
     user = get_current_user(request)
     if not user:
         raise HTTPException(status_code=401)
     return user
 
-
 def redirect(path: str):
     return RedirectResponse(path, status_code=303)
-
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -358,11 +351,9 @@ def home(request: Request):
         return redirect("/dashboard")
     return templates.TemplateResponse("login.html", {"request": request, "mode": "login", "error": None})
 
-
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "mode": "register", "error": None})
-
 
 @app.post("/register")
 def register(email: str = Form(...), password: str = Form(...)):
@@ -531,7 +522,6 @@ def logout():
     response = redirect("/")
     response.delete_cookie("session")
     return response
-
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, status: str = "all", category: str = "all", client_id: str = "all"):

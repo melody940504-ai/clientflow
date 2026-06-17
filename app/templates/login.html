@@ -14,11 +14,32 @@
                 Incorrect password. Please try again.
             {% elif request.query_params.get('error') == 'email-exists' %}
                 This email address is already registered. Please log in directly.
+            {% elif request.query_params.get('error') == 'email-not-verified' %}
+                This email address has not been verified yet. Please check your inbox.
+            {% elif request.query_params.get('error') == 'invalid-verification-link' %}
+                This verification link is invalid or has expired.
             {% else %}
                 Login failed. Please check your information.
             {% endif %}
         </div>
     {% endif %}
+    {% if request.query_params.get('success') %}
+      <div style="
+        background:#dcfce7;
+        color:#166534;
+        padding:10px;
+        margin-bottom:20px;
+        border-radius:8px;
+      ">
+        {% if request.query_params.get('success') == 'verification-sent' %}
+            Account created successfully! A verification email has been sent. Please verify your email before logging in.
+
+        {% elif request.query_params.get('success') == 'email-verified' %}
+            Email verified successfully! You can now log in.
+        {% endif %}
+      </div>
+    {% endif %}
+
     <a
       href="/login/google"
       style="
