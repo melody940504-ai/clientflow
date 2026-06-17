@@ -386,6 +386,56 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
     return response
 
+@app.get("/login/google")
+async def login_google(request: Request):
+    redirect_uri = request.url_for("auth_google_callback")
+
+    return await oauth.google.authorize_redirect(
+        request,
+        redirect_uri
+    )
+
+
+@app.get("/auth/google/callback")
+async def auth_google_callback(request: Request):
+    token = await oauth.google.authorize_access_token(request)
+    user_info = token.get("userinfo")
+
+    if not user_info or not user_info.get("email"):
+        return RedirectResponse(url="/?error=google_login_failed", status_code=303)
+
+    email = user_info["email"].strip().lower()
+
+    with get_db() as db:
+        user = db.execute(
+            "SELECT * FROM users WHERE email = ?",
+            (email,)
+        ).fetchone()
+
+        if not user:
+            db.execute(
+                """
+                INSERT INTO users
+                (email, password_hash, role, created_at)
+                VALUES (?, '', 'owner', ?)
+                """,
+                (email, datetime.utcnow().isoformat())
+            )
+
+            user = db.execute(
+                "SELECT * FROM users WHERE email = ?",
+                (email,)
+            ).fetchone()
+
+    response = RedirectResponse(url="/dashboard", status_code=303)
+    response.set_cookie(
+        "session",
+        serializer.dumps(user["id"]),
+        httponly=True,
+        samesite="lax"
+    )
+
+    return response
 
 @app.get("/logout")
 def logout():
