@@ -20,6 +20,7 @@ import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from authlib.integrations.starlette_client import OAuth
+from starlette.middleware.sessions import SessionMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "clientflow.db"
@@ -27,6 +28,11 @@ SECRET_KEY = "change-this-secret-before-deployment"
 serializer = URLSafeSerializer(SECRET_KEY, salt="clientflow-session")
 
 app = FastAPI(title="ClientFlow MVP")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "clientflow-dev-secret")
+)
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
