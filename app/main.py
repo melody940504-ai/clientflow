@@ -31,7 +31,8 @@ app = FastAPI(title="ClientFlow MVP")
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "clientflow-dev-secret")
+    secret_key=os.getenv("SESSION_SECRET", "clientflow-dev-secret"),
+    session_cookie="oauth_session"
 )
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
