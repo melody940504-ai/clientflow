@@ -79,14 +79,6 @@
             </div>
         </div>
     </nav>
-
-    {% if request.query_params.get('error') %}
-    <div class="max-w-7xl mx-auto px-6 pt-4">
-        <div class="mb-4 p-3 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-sm">
-            {{ request.query_params.get('error') }}
-        </div>
-    </div>
-    {% endif %}
     
     <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
         
@@ -479,23 +471,77 @@
             });
         }
 
-        function showToast(message) {
+        function showToast(message, type = "success") {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = "bg-gray-800 text-white border border-gray-700 dark:bg-white dark:text-gray-900 px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 transform -translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto text-sm font-medium";
-            toast.innerHTML = `<span>🔗</span> <span>${message}</span>`;
-            
+
+            const toastStyles = {
+                success: "bg-green-600 text-white border border-green-500",
+                error: "bg-red-600 text-white border border-red-500",
+                warning: "bg-yellow-500 text-white border border-yellow-400"
+            };
+
+            const toastIcons = {
+                success: "✅",
+                error: "❌",
+                warning: "⚠️"
+            };
+
+            toast.className = `
+                ${toastStyles[type] || toastStyles.success}
+                px-5 py-3 rounded-xl shadow-xl
+                flex items-center gap-2
+                transform -translate-y-2 opacity-0
+                transition-all duration-300
+                pointer-events-auto text-sm font-medium
+            `;
+
+            const iconSpan = document.createElement("span");
+            iconSpan.textContent = toastIcons[type] || toastIcons.success;
+
+            const messageSpan = document.createElement("span");
+            messageSpan.textContent = message;
+
+            toast.appendChild(iconSpan);
+            toast.appendChild(messageSpan);
+
             container.appendChild(toast);
-            
+
             setTimeout(() => {
                 toast.classList.remove('-translate-y-2', 'opacity-0');
             }, 10);
-            
+
             setTimeout(() => {
                 toast.classList.add('opacity-0', 'translate-y-2');
-                setTimeout(() => { toast.remove(); }, 300);
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
             }, 3000);
         }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const params = new URLSearchParams(window.location.search);
+
+            const successMessage = params.get("success");
+            const errorMessage = params.get("error");
+            const warningMessage = params.get("warning");
+
+            if (successMessage) {
+                showToast(successMessage, "success");
+            }
+
+            if (errorMessage) {
+                showToast(errorMessage, "error");
+            }
+
+            if (warningMessage) {
+                showToast(warningMessage, "warning");
+            }
+
+            if (successMessage || errorMessage || warningMessage) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
 
         let player = null;
         let timeUpdateTimer = null;
@@ -530,7 +576,7 @@
         // 🎬 打開內嵌播放器（高防禦力非同步加載版本）
         function openVideoModal(url, actionFormUrl, startTime = 0) {
             if (!url) {
-                showToast("⚠️ This version does not contain any legitimate video links!");
+                showToast("This version does not contain any legitimate video links!", "warning");
                 return;
             }
 
@@ -651,7 +697,7 @@
         function copyReviewLink() {
             const publicUrl = window.location.origin + "/review/{{ project.id }}";
             navigator.clipboard.writeText(publicUrl).then(() => {
-                showToast("The client review link has been successfully copied to the clipboard!");
+                showToast("Link copied successfully.", "success");
             }).catch(err => {
                 console.error("Failed to copy link: ", err);
             });
@@ -660,7 +706,7 @@
         function validateComment(formElement) {
             const textarea = formElement.querySelector('textarea[name="body"]');
             if (textarea && textarea.value.trim() === "") {
-                showToast("⚠️ The comment content cannot be all whitespace!");
+                showToast("The comment content cannot be all whitespace!", "warning");
                 textarea.classList.add('border-rose-500');
                 setTimeout(() => { textarea.classList.remove('border-rose-500'); }, 2000);
                 return false;

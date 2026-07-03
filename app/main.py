@@ -855,7 +855,7 @@ async def create_version(
     notes: str = Form(""),
 ):
     if not version_label or not version_label.strip():
-        return redirect(f"/projects/{project_id}?error=Version+label+is+required.")
+        return redirect(f"/projects/{project_id}?warning=Version+label+is+required.")
 
     user = require_user(request)
     if user["role"] != "owner":
@@ -872,7 +872,7 @@ async def create_version(
 
         allowed_extensions = {".mp4", ".webm", ".mov"}
         if extension not in allowed_extensions:
-            return redirect(f"/projects/{project_id}?error=Supported+video+formats:+MP4,+WEBM,+MOV.")
+            return redirect(f"/projects/{project_id}?warning=Supported+video+formats:+MP4,+WEBM,+MOV.")
 
         storage_path = f"projects/{project_id}/{uuid.uuid4().hex}{extension}"
         upload_url = f"{SUPABASE_URL}/storage/v1/object/videos/{storage_path}"
@@ -891,11 +891,11 @@ async def create_version(
 
         if response.status_code not in (200, 201):
             return redirect(f"/projects/{project_id}?error=Video+upload+failed.")
-
+        
         final_video_url = f"{SUPABASE_URL}/storage/v1/object/public/videos/{storage_path}"
 
     if not final_video_url:
-        return redirect(f"/projects/{project_id}?error=Please+provide+a+video+URL+or+upload+a+video+file.")
+        return redirect(f"/projects/{project_id}?warning=Please+provide+a+video+URL+or+upload+a+video+file.")
 
     with get_db() as db:
         db.execute(
@@ -940,7 +940,7 @@ async def create_version(
                 link_url=public_review_url,
             )
 
-    return redirect(f"/projects/{project_id}")
+    return redirect(f"/projects/{project_id}?success=Version+uploaded+successfully.")
 
 
 @app.post("/versions/{version_id}/action")
