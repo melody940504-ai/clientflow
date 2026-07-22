@@ -6,7 +6,8 @@
     <title>Lumaire - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        if (localStorage.getItem('theme') === 'light') {
+        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
+        if (storedTheme === 'light') {
             document.documentElement.classList.add('light-theme');
         }
     </script>
@@ -14,7 +15,7 @@
         /* 🎨 頂級淺色模式美化 */
         .light-theme body {
             background:
-                radial-gradient(circle at top left, rgba(79, 70, 229, 0.14), transparent 34%),
+                radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color, #6366f1) 14%, transparent), transparent 34%),
                 #f8fafc !important;
             color: #0f172a !important;
         }
@@ -122,7 +123,7 @@
         }
         body {
             background:
-                radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 34%),
+                radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color, #6366f1) 18%, transparent), transparent 34%),
                 #0f172a !important;
         }
         .menu-panel-fix {
@@ -382,13 +383,16 @@
     <script>
         const btn = document.getElementById('theme-toggle');
         if (btn) {
+            const updateThemeLabel = () => {
+                btn.textContent = document.documentElement.classList.contains('light-theme') ? 'Dark mode' : 'Light mode';
+            };
+            updateThemeLabel();
             btn.addEventListener('click', function() {
                 document.documentElement.classList.toggle('light-theme');
-                if (document.documentElement.classList.contains('light-theme')) {
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    localStorage.setItem('theme', 'dark');
-                }
+                const nextTheme = document.documentElement.classList.contains('light-theme') ? 'light' : 'dark';
+                localStorage.setItem('theme', nextTheme);
+                localStorage.setItem('clientflow-theme', nextTheme);
+                updateThemeLabel();
             });
         }
 

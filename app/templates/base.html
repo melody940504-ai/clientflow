@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title or 'Lumaire' }}</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260723-brand-buttons">
+  <script>
+    const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
+    if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
+  </script>
+  <link rel="stylesheet" href="/static/styles.css?v=20260723-theme-menu">
 </head>
 <body {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
   <header class="topbar">
@@ -12,19 +16,22 @@
       <span class="logo">Lu</span>
       <span>Lumaire</span>
     </a>
-    <div class="top-actions">
-      <button class="theme-toggle" type="button" id="themeToggle">Toggle theme</button>
+    <div class="top-menu">
+      <button class="theme-toggle menu-trigger" type="button" id="site-menu-toggle" aria-expanded="false">Menu</button>
+      <div class="site-menu hidden" id="site-menu-panel">
+        <button class="ghost menu-row" type="button" data-theme-toggle>Toggle theme</button>
       {% if user %}
-      <a href="/logout" class="ghost">Logout</a>
+        <a href="/logout" class="ghost menu-row danger-row">Logout</a>
       {% else %}
-      <a href="/login" class="ghost">Login</a>
-      <a href="/register" class="top-primary">Create account</a>
+        <a href="/login" class="ghost menu-row">Login</a>
+        <a href="/register" class="top-primary menu-row">Create account</a>
       {% endif %}
+      </div>
     </div>
   </header>
   <main class="container">
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js?v=20260723-brand-buttons"></script>
+  <script src="/static/app.js?v=20260723-theme-menu"></script>
 </body>
 </html>

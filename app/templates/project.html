@@ -6,14 +6,15 @@
     <title>{{ project.name }} - Project Workspace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        if (localStorage.getItem('theme') === 'light') {
+        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
+        if (storedTheme === 'light') {
             document.documentElement.classList.add('light-theme');
         }
     </script>
     <style>
         .light-theme body {
             background:
-                radial-gradient(circle at top left, rgba(79, 70, 229, 0.14), transparent 34%),
+                radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color, #6366f1) 14%, transparent), transparent 34%),
                 #f8fafc !important;
             color: #1f2937 !important;
         }
@@ -108,8 +109,11 @@
         }
         body {
             background:
-                radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 34%),
+                radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color, #6366f1) 18%, transparent), transparent 34%),
                 #0f172a !important;
+        }
+        .menu-panel-fix {
+            width: min(22rem, calc(100vw - 2rem));
         }
     </style>
 </head>
@@ -132,28 +136,34 @@
             <span class="brand-soft-fix max-w-full truncate text-xs border px-2.5 py-0.5 rounded-full font-medium">{{ project.client_name }}</span>
         </div>
         
-        <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:w-auto lg:gap-4">
-            <button id="theme-toggle" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm sm:w-auto sm:py-1.5">
-                🌓 Toggle Theme
-            </button>
+        <div class="flex w-full items-center justify-end gap-3 lg:w-auto">
+            <span class="w-fit text-xs font-bold px-3 py-1 rounded-full border
+                {% if project.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
+                {% elif project.status == 'In Revision' %} bg-blue-500/10 border-blue-500/30 text-blue-400
+                {% elif project.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
+                {% elif project.status == 'Published' %} bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/40 text-amber-500 shadow-sm shadow-amber-500/10
+                {% else %} bg-gray-500/10 border-gray-500/30 text-gray-400 {% endif %}">
+                {% if project.status == 'Published' %} Delivered {% else %} Status: {{ project.status }} {% endif %}
+            </span>
 
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                {% if user.role == 'owner' and project.status == 'Approved' %}
-                <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
-                    <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition transform hover:scale-105 sm:w-auto sm:py-1.5">
-                        📦 Mark as Final Delivery
-                    </button>
-                </form>
-                {% endif %}
-
-                <span class="w-fit text-xs font-bold px-3 py-1 rounded-full border
-                    {% if project.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
-                    {% elif project.status == 'In Revision' %} bg-blue-500/10 border-blue-500/30 text-blue-400
-                    {% elif project.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
-                    {% elif project.status == 'Published' %} bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/40 text-amber-500 shadow-sm shadow-amber-500/10
-                    {% else %} bg-gray-500/10 border-gray-500/30 text-gray-400 {% endif %}">
-                    {% if project.status == 'Published' %} 👑 Delivered {% else %} Status: {{ project.status }} {% endif %}
-                </span>
+            <div class="relative">
+                <button id="project-menu-toggle" type="button" class="nav-action-fix text-xs px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-bold flex items-center justify-center shadow-sm sm:py-1.5" aria-expanded="false">
+                    Menu
+                </button>
+                <div id="project-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2">
+                    <div class="grid gap-2">
+                        <button id="theme-toggle" type="button" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
+                            Toggle Theme
+                        </button>
+                        {% if user.role == 'owner' and project.status == 'Approved' %}
+                        <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
+                            <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition">
+                                Mark as Final Delivery
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
@@ -539,13 +549,36 @@
     <script>
         const btn = document.getElementById('theme-toggle');
         if (btn) {
+            const updateThemeLabel = () => {
+                btn.textContent = document.documentElement.classList.contains('light-theme') ? 'Dark mode' : 'Light mode';
+            };
+            updateThemeLabel();
             btn.addEventListener('click', function() {
                 document.documentElement.classList.toggle('light-theme');
-                if (document.documentElement.classList.contains('light-theme')) {
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    localStorage.setItem('theme', 'dark');
-                }
+                const nextTheme = document.documentElement.classList.contains('light-theme') ? 'light' : 'dark';
+                localStorage.setItem('theme', nextTheme);
+                localStorage.setItem('clientflow-theme', nextTheme);
+                updateThemeLabel();
+            });
+        }
+
+        const projectMenuToggle = document.getElementById("project-menu-toggle");
+        const projectMenuPanel = document.getElementById("project-menu-panel");
+
+        if (projectMenuToggle && projectMenuPanel) {
+            projectMenuToggle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                const isHidden = projectMenuPanel.classList.toggle("hidden");
+                projectMenuToggle.setAttribute("aria-expanded", String(!isHidden));
+            });
+
+            projectMenuPanel.addEventListener("click", (event) => {
+                event.stopPropagation();
+            });
+
+            document.addEventListener("click", () => {
+                projectMenuPanel.classList.add("hidden");
+                projectMenuToggle.setAttribute("aria-expanded", "false");
             });
         }
 
