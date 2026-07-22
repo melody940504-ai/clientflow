@@ -22,10 +22,12 @@
             <h2>Brand identity</h2>
             <p class="muted small">The name and logo shown to clients.</p>
           </div>
-          <label>Studio name
+          <label class="setting-field">
+            <span>Studio name</span>
             <input data-brand-name type="text" name="studio_name" maxlength="60" required value="{{ branding.studio_name }}" placeholder="Acme Studio">
           </label>
-          <label>Logo URL
+          <label class="setting-field">
+            <span>Logo URL</span>
             <input data-logo-url type="url" name="logo_url" value="{{ branding.logo_url }}" placeholder="https://example.com/logo.png">
           </label>
         </div>
@@ -50,7 +52,8 @@
             <h2>Email label</h2>
             <p class="muted small">Used as the sender display name for future client invitations.</p>
           </div>
-          <label>Email sender name
+          <label class="setting-field">
+            <span>Email sender name</span>
             <input data-sender-name type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
           </label>
         </div>
@@ -59,18 +62,18 @@
             <h2>Client preview</h2>
             <p class="muted small">A quick look at what clients will see.</p>
           </div>
-        <div class="preview-card">
-          <div class="preview-logo" data-preview-logo>
-            {% if branding.logo_url %}
-            <img src="{{ branding.logo_url }}" alt="">
-            {% else %}
-            <span>{{ branding.studio_name[:2].upper() }}</span>
-            {% endif %}
+          <div class="preview-card">
+            <div class="preview-logo" data-preview-logo>
+              {% if branding.logo_url %}
+              <img src="{{ branding.logo_url }}" alt="">
+              {% else %}
+              <span>{{ branding.studio_name[:2].upper() }}</span>
+              {% endif %}
+            </div>
+            <strong data-preview-name>{{ branding.studio_name }}</strong>
+            <p class="muted small">Project reviews, approval buttons, and invitation emails will carry this identity.</p>
+            <button type="button" class="primary preview-button">Review project</button>
           </div>
-          <strong data-preview-name>{{ branding.studio_name }}</strong>
-          <p class="muted small">Project reviews, approval buttons, and invitation emails will carry this identity.</p>
-          <button type="button" class="primary preview-button">Review project</button>
-        </div>
         </div>
       </div>
     </div>
