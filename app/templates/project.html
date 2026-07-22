@@ -42,33 +42,33 @@
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200">
     
-    <div id="toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center"></div>
+    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex w-[calc(100%-2rem)] max-w-md flex-col items-center sm:top-24"></div>
 
-    <nav class="border-b border-gray-800 bg-gray-900/50 backdrop-blur px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-3">
+    <nav class="border-b border-gray-800 bg-gray-900/50 backdrop-blur px-4 py-4 flex flex-col gap-4 sm:px-6 lg:flex-row lg:justify-between lg:items-center">
+        <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:gap-3 lg:w-auto">
             {% if not is_public_link %}
             <a href="/dashboard" class="text-sm text-gray-400-fix hover:text-indigo-400 transition">← Dashboard</a>
             <span class="text-gray-600">/</span>
             {% endif %}
-            <span class="text-lg font-bold text-white-fix">{{ project.name }}</span>
-            <span class="text-xs bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full text-indigo-400 font-medium">{{ project.client_name }}</span>
+            <span class="min-w-0 max-w-full break-words text-base font-bold text-white-fix sm:text-lg">{{ project.name }}</span>
+            <span class="max-w-full truncate text-xs bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full text-indigo-400 font-medium">{{ project.client_name }}</span>
         </div>
         
-        <div class="flex items-center gap-4">
-            <button id="theme-toggle" class="text-sm px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
+        <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:w-auto lg:gap-4">
+            <button id="theme-toggle" class="w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm sm:w-auto sm:py-1.5">
                 🌓 Toggle Theme
             </button>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                 {% if user.role == 'owner' and project.status == 'Approved' %}
                 <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
-                    <button type="submit" class="text-xs px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition transform hover:scale-105">
+                    <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition transform hover:scale-105 sm:w-auto sm:py-1.5">
                         📦 Mark as Final Delivery
                     </button>
                 </form>
                 {% endif %}
 
-                <span class="text-xs font-bold px-3 py-1 rounded-full border
+                <span class="w-fit text-xs font-bold px-3 py-1 rounded-full border
                     {% if project.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
                     {% elif project.status == 'In Revision' %} bg-blue-500/10 border-blue-500/30 text-blue-400
                     {% elif project.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
@@ -80,12 +80,12 @@
         </div>
     </nav>
     
-    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+    <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6 sm:p-6 md:gap-8">
         
         <div class="md:col-span-2 space-y-6">
             
-            <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-5 rounded-2xl space-y-4 shadow-sm">
-                <div class="flex justify-between items-center">
+            <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-4 shadow-sm">
+                <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
                     <h3 class="text-sm font-bold text-white-fix flex items-center gap-1.5">📁 Project Brief & Attachments</h3>
                     <span class="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ attachments|length }} files</span>
                 </div>
@@ -121,7 +121,7 @@
                     method="post"
                     enctype="multipart/form-data"
                     novalidate
-                    class="border-t border-gray-800/50 pt-3 flex gap-2"
+                    class="border-t border-gray-800/50 pt-3 flex flex-col gap-3 sm:flex-row sm:items-center"
         >
                     <input
                         type="text"
@@ -129,21 +129,21 @@
                         required
                         pattern="\s*\S+.*"
                         placeholder="File Name"
-                        class="input-fix flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-white"
+                        class="input-fix w-full sm:flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-white sm:py-1.5"
                     >
 
-                    <div class="flex-1 flex items-center gap-2">
+                    <div class="w-full sm:flex-1 flex items-center gap-2">
 
                         <label
                             for="fileUpload"
-                            class="input-fix cursor-pointer border border-gray-700 px-4 py-1.5 rounded-xl text-xs font-semibold transition"
+                            class="input-fix shrink-0 cursor-pointer border border-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition sm:py-1.5"
                         >
                             Choose File
                         </label>
 
                         <span
                             id="selectedFileName"
-                            class="text-xs text-gray-400-fix truncate"
+                            class="min-w-0 text-xs text-gray-400-fix truncate"
                         >
                             No file selected
                         </span>
@@ -162,7 +162,7 @@
 
                     <button
                     type="submit"
-                    class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-1.5 rounded-xl text-xs font-semibold transition"
+                    class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition sm:w-auto sm:py-1.5"
                     >
                         📎 Upload
                     </button>
@@ -171,7 +171,7 @@
             </div>
 
             {% if project.status == 'Published' %}
-            <div class="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-2xl p-6 flex items-center gap-4 shadow-md">
+            <div class="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-6 flex flex-col gap-3 shadow-md sm:flex-row sm:items-center sm:gap-4">
                 <span class="text-3xl">👑</span>
                 <div>
                     <h3 class="text-base font-bold text-amber-400">Final Master Delivered & Archived</h3>
@@ -179,10 +179,10 @@
                 </div>
             </div>
             {% elif user.role == 'owner' %}
-            <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-5 rounded-2xl space-y-3">
-                <div class="flex justify-between items-center">
+            <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-3">
+                <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                     <h3 class="text-sm font-semibold text-white-fix">Upload New Version</h3>
-                    <button type="button" onclick="copyReviewLink()" class="text-xs px-3 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 border border-purple-800/50 rounded-lg transition flex items-center gap-1 font-medium">
+                    <button type="button" onclick="copyReviewLink()" class="w-full justify-center text-xs px-3 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 border border-purple-800/50 rounded-lg transition flex items-center gap-1 font-medium sm:w-auto sm:py-1">
                         🔗 Copy Public Review Link
                     </button>
                 </div>
@@ -191,7 +191,7 @@
                     method="post"
                     enctype="multipart/form-data"
                     novalidate
-                    class="grid grid-cols-3 gap-3"
+                    class="grid grid-cols-1 gap-3 md:grid-cols-3"
                 >
 
                     <input
@@ -199,22 +199,22 @@
                         name="version_label"
                         required
                         placeholder="Version Label (e.g. V1, V2)"
-                        class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                        class="input-fix md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
                     >
 
                     <input
                         type="url" 
                         name="video_url"
                         placeholder="Video URL (YouTube, Drive, Vimeo)"
-                        class="input-fix col-span-3 md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                        class="input-fix md:col-span-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
                     >
 
-                    <div class="col-span-3 md:col-span-1 flex items-center gap-3 px-1 py-2">
-                        <label for="videoFileUpload" class="cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-1 rounded-lg text-xs text-white-fix">
+                    <div class="md:col-span-1 flex min-w-0 items-center gap-3 px-1 py-2">
+                        <label for="videoFileUpload" class="shrink-0 cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-2 rounded-lg text-xs text-white-fix md:py-1">
                             Choose Video
                         </label>
 
-                        <span id="selectedVideoFileName" class="text-xs text-gray-400-fix truncate">
+                        <span id="selectedVideoFileName" class="min-w-0 text-xs text-gray-400-fix truncate">
                             No video selected
                         </span>
 
@@ -231,12 +231,12 @@
                     <textarea
                         name="notes"
                         placeholder="Optional notes or description..."
-                        class="input-fix col-span-3 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-20 text-white"
+                        class="input-fix md:col-span-3 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-20 text-white"
                     ></textarea>
 
                     <button
                         type="submit"
-                        class="col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2 transition text-sm"
+                        class="md:col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2.5 transition text-sm"
                     >
                         ➕ Upload Version
                     </button>
@@ -249,12 +249,12 @@
                 <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">🎬 Video Versions Timeline</h2>
                 
                 {% for v in versions %}
-                <div class="bg-card-fix bg-gray-800/40 border border-gray-800 rounded-2xl p-6 space-y-4">
-                    <div class="flex justify-between items-start">
+                <div class="bg-card-fix bg-gray-800/40 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
                         <div class="space-y-1">
-                            <div class="flex items-center gap-3">
-                                <h3 class="text-xl font-bold text-white-fix">{{ v.version_label }}</h3>
-                                <span class="text-xs px-2.5 py-0.5 rounded-full border 
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                                <h3 class="break-words text-lg font-bold text-white-fix sm:text-xl">{{ v.version_label }}</h3>
+                                <span class="w-fit shrink-0 text-xs px-2.5 py-0.5 rounded-full border 
                                     {% if v.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-400
                                     {% elif v.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
                                     {% else %} bg-rose-500/10 border-rose-500/30 text-rose-400 {% endif %}">
@@ -263,7 +263,7 @@
                             </div>
                             <p class="text-xs text-gray-500">Pushed on {{ v.created_at[:10] }}</p>
                         </div>
-                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="text-sm px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95">
+                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="w-full justify-center text-sm px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 sm:w-auto sm:py-2">
                             ▶ Play Video
                         </button>
                     </div>
@@ -274,30 +274,30 @@
 
                     <div class="border-t border-gray-800/60 pt-4 space-y-3">
                         {% if v.status == 'Approved' %}
-                        <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
+                        <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex items-start gap-2.5 sm:items-center">
                                 <span class="text-lg">🔒</span>
                                 <div>
                                     <p class="text-sm font-semibold text-emerald-400">Version Approved & Locked</p>
                                     <p class="text-xs text-gray-400-fix">This version has been approved, and the workflow has been locked to prevent accidental tampering.</p>
                                 </div>
                             </div>
-                            <span class="text-xs font-mono bg-emerald-950/40 text-emerald-400 px-2.5 py-1 rounded border border-emerald-800/30">Immutable Log</span>
+                            <span class="w-fit text-xs font-mono bg-emerald-950/40 text-emerald-400 px-2.5 py-1 rounded border border-emerald-800/30">Immutable Log</span>
                         </div>
                         {% else %}
                         <p class="text-xs font-semibold text-gray-400-fix">Review & Actions:</p>
                         <form action="/versions/{{ v.id }}/action" method="post" novalidate class="space-y-3" onsubmit="return validateComment(this)">
                             <textarea name="body" required placeholder="Type feedback or approval notes here..." class="input-fix w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-16 focus:outline-none focus:border-indigo-500 text-white"></textarea>
                             
-                            <div class="flex gap-2 justify-end">
-                                <button type="submit" name="action_type" value="comment" class="text-xs px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 font-medium rounded-xl transition text-white-fix">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                                <button type="submit" name="action_type" value="comment" class="w-full text-xs px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 font-medium rounded-xl transition text-white-fix sm:w-auto sm:py-2">
                                     💬 Leave Comment
                                 </button>
                                 {% if user.role == 'client' %}
-                                <button type="submit" name="action_type" value="reject" class="text-xs px-4 py-2 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition">
+                                <button type="submit" name="action_type" value="reject" class="w-full text-xs px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition sm:w-auto sm:py-2">
                                     ❌ Request Change (Reject)
                                 </button>
-                                <button type="submit" name="action_type" value="approve" class="text-xs px-4 py-2 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 font-medium rounded-xl border border-emerald-900/40 transition">
+                                <button type="submit" name="action_type" value="approve" class="w-full text-xs px-4 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 font-medium rounded-xl border border-emerald-900/40 transition sm:w-auto sm:py-2">
                                     ✔ Approve & Signoff
                                 </button>
                                 {% endif %}
@@ -314,7 +314,7 @@
 
         <div class="space-y-4">
             <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
-            <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-6 max-h-[650px] overflow-y-auto relative">
+            <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
                 
                 <div class="absolute left-9 top-8 bottom-8 w-0.5 bg-gray-700/50"></div>
 
@@ -335,22 +335,22 @@
                             {% else %} 💬 {% endif %}
                         </div>
 
-                        <div class="flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700">
-                            <div class="flex justify-between items-baseline">
-                                <span class="text-xs font-bold text-white-fix capitalize">
+                        <div class="min-w-0 flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700">
+                            <div class="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline">
+                                <span class="break-words text-xs font-bold text-white-fix capitalize">
                                     {{ c.author_name }} 
                                     <span class="text-[10px] text-gray-500 font-normal">({{ c.author_role }})</span>
                                 </span>
-                                <span class="text-[10px] text-gray-500 font-mono">{{ c.created_at[:10] }} {{ c.created_at[11:16] }}</span>
+                                <span class="shrink-0 text-[10px] text-gray-500 font-mono">{{ c.created_at[:10] }} {{ c.created_at[11:16] }}</span>
                             </div>
                             
                             {% if c.type.startswith('timestamp_') %}
-                            <p class="text-sm text-indigo-400 font-medium cursor-pointer hover:text-indigo-300 transition inline-block bg-indigo-950/30 border border-indigo-900/40 px-2.5 py-0.5 rounded-xl shadow-sm mt-0.5" 
+                            <p class="break-words text-sm text-indigo-400 font-medium cursor-pointer hover:text-indigo-300 transition inline-block bg-indigo-950/30 border border-indigo-900/40 px-2.5 py-0.5 rounded-xl shadow-sm mt-0.5" 
                                onclick="openVideoModalWithTime('{{ v.video_url if v else project.id }}', '{{ c.type.split('_')[1] }}')">
                                 {{ c.body }} ↩
                             </p>
                             {% else %}
-                            <p class="text-sm {% if c.type == 'approve' %} text-emerald-400 font-medium
+                            <p class="break-words text-sm {% if c.type == 'approve' %} text-emerald-400 font-medium
                                               {% elif c.type == 'reject' %} text-rose-400 font-medium
                                               {% else %} text-gray-300 {% endif %}">
                                 {{ c.body }}
@@ -372,17 +372,17 @@
         </div>
     </main>
 
-    <div id="video-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 md:p-8 cursor-pointer" onclick="closeVideoModal()">
-        <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 shadow-2xl cursor-default transform scale-95 opacity-0 transition-all duration-300" id="modal-card" onclick="event.stopPropagation()">
+    <div id="video-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-2 sm:p-4 md:p-8 cursor-pointer" onclick="closeVideoModal()">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden max-w-6xl w-full max-h-[92vh] grid grid-cols-1 md:grid-cols-3 shadow-2xl cursor-default transform scale-95 opacity-0 transition-all duration-300" id="modal-card" onclick="event.stopPropagation()">
             
             <div class="md:col-span-2 bg-black flex items-center justify-center relative aspect-video md:aspect-auto">
                 <button onclick="closeVideoModal()" class="absolute top-4 left-4 text-white bg-gray-800/80 hover:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold transition z-50 md:hidden">✕</button>
-                <div id="player-container" class="w-full h-full min-h-[300px] md:h-full"></div>
+                <div id="player-container" class="w-full h-full min-h-[220px] sm:min-h-[300px] md:h-full"></div>
             </div>
 
-            <div class="p-5 border-t md:border-t-0 md:border-l border-gray-800 flex flex-col justify-between bg-gray-900/40">
+            <div class="max-h-[48vh] overflow-y-auto p-4 sm:p-5 border-t md:max-h-none md:border-t-0 md:border-l border-gray-800 flex flex-col justify-between bg-gray-900/40">
                 <div>
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-start gap-3 mb-4">
                         <h4 class="text-sm font-bold text-white-fix flex items-center gap-1.5">🎬 Live Timeline Marker</h4>
                         <button type="button" onclick="closeVideoModal()" class="text-gray-400 hover:text-white w-7 h-7 bg-gray-800 rounded-full hidden md:flex items-center justify-center font-bold text-xs">✕</button>
                     </div>
@@ -418,16 +418,16 @@
 
     <div
     id="attachmentModal"
-    class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6"
+    class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-6"
 >
-    <div class="bg-gray-900 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+    <div class="bg-gray-900 rounded-2xl w-full max-w-5xl h-[88vh] sm:h-[85vh] flex flex-col overflow-hidden">
 
-        <div class="flex justify-between items-center p-4 border-b border-gray-800">
-            <h3 id="attachmentTitle" class="text-white font-bold">
+        <div class="flex flex-col gap-3 p-4 border-b border-gray-800 sm:flex-row sm:justify-between sm:items-center">
+            <h3 id="attachmentTitle" class="break-words text-white font-bold">
                 Attachment Preview
             </h3>
 
-            <div class="flex gap-2">
+            <div class="flex shrink-0 gap-2">
 
                 <a
                     id="attachmentDownloadBtn"
@@ -435,7 +435,7 @@
                     target="_blank"
                     rel="noopener noreferrer"
                     download
-                    class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs text-white"
+                    class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs text-white sm:py-1"
                 >
                     Download
                 </a>
