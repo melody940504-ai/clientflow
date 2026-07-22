@@ -551,11 +551,18 @@ def home(request: Request):
     user = get_current_user(request)
     if user:
         return redirect("/dashboard")
-    return templates.TemplateResponse("login.html", {"request": request, "mode": "login", "error": None})
+    return templates.TemplateResponse("landing.html", {"request": request, "user": None})
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    user = get_current_user(request)
+    if user:
+        return redirect("/dashboard")
+    return templates.TemplateResponse("login.html", {"request": request, "mode": "login", "error": None, "user": None})
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "mode": "register", "error": None})
+    return templates.TemplateResponse("login.html", {"request": request, "mode": "register", "error": None, "user": None})
 
 @app.post("/register")
 def register(email: str = Form(...), password: str = Form(...)):
@@ -603,7 +610,7 @@ def register(email: str = Form(...), password: str = Form(...)):
         verify_url
     )
 
-    return redirect("/?success=verification-sent")
+    return redirect("/login?success=verification-sent")
 
 
 import logging
@@ -618,16 +625,16 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         user = db.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
     
     if not user:
-        return RedirectResponse(url="/?error=no_account", status_code=303)
+        return RedirectResponse(url="/login?error=no_account", status_code=303)
     
     if not user["is_verified"]:
         return RedirectResponse(
-            url="/?error=email-not-verified",
+            url="/login?error=email-not-verified",
             status_code=303
         )   
         
     if not verify_password(password, user["password_hash"]):
-        return RedirectResponse(url="/?error=wrong_password", status_code=303)
+        return RedirectResponse(url="/login?error=wrong_password", status_code=303)
     
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
@@ -728,7 +735,7 @@ def reset_password(token: str, password: str = Form(...)):
             (hash_password(password), user["id"]),
         )
 
-    return redirect("/?success=password-reset")
+    return redirect("/login?success=password-reset")
 
 @app.get("/login/google")
 async def login_google(request: Request):
@@ -745,7 +752,7 @@ async def auth_google_callback(request: Request):
     user_info = token.get("userinfo")
 
     if not user_info or not user_info.get("email"):
-        return RedirectResponse(url="/?error=google_login_failed", status_code=303)
+        return RedirectResponse(url="/login?error=google_login_failed", status_code=303)
 
     email = user_info["email"].strip().lower()
 
@@ -801,7 +808,7 @@ def verify_email(token: str):
         ).fetchone()
 
         if not user:
-            return redirect("/?error=invalid-verification-link")
+            return redirect("/login?error=invalid-verification-link")
 
         db.execute(
             """
@@ -814,7 +821,7 @@ def verify_email(token: str):
             (user["id"],)
         )
 
-    return redirect("/?success=email-verified")
+    return redirect("/login?success=email-verified")
 
 @app.get("/logout")
 def logout():

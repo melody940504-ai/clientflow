@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title or 'ClientFlow' }}</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260723-settings-cards">
+  <link rel="stylesheet" href="/static/styles.css?v=20260723-landing-login">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/dashboard">
+    <a class="brand" href="{% if user %}/dashboard{% else %}/{% endif %}">
       <span class="logo">CF</span>
       <span>ClientFlow</span>
     </a>
@@ -16,12 +16,15 @@
       <button class="theme-toggle" type="button" id="themeToggle">Toggle theme</button>
       {% if user %}
       <a href="/logout" class="ghost">Logout</a>
+      {% else %}
+      <a href="/login" class="ghost">Login</a>
+      <a href="/register" class="top-primary">Create account</a>
       {% endif %}
     </div>
   </header>
   <main class="container">
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js?v=20260723-settings-cards"></script>
+  <script src="/static/app.js?v=20260723-landing-login"></script>
 </body>
 </html>

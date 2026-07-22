@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set title = 'ClientFlow - Client Review Workspace' %}
+{% block content %}
+<section class="landing-hero">
+  <div class="landing-copy">
+    <p class="eyebrow">Client review workspace</p>
+    <h1>ClientFlow</h1>
+    <p class="landing-lead">
+      A lightweight portal for studios to share video versions, collect client feedback,
+      and keep approvals moving in one clean workspace.
+    </p>
+    <div class="landing-actions">
+      <a class="primary cta-link" href="/login">Login</a>
+      <a class="ghost cta-link" href="/register">Create account</a>
+    </div>
+  </div>
+
+  <div class="product-preview-panel" aria-label="ClientFlow product preview">
+    <div class="preview-toolbar">
+      <span class="preview-dot"></span>
+      <span class="preview-dot"></span>
+      <span class="preview-dot"></span>
+      <strong>Project review</strong>
+    </div>
+    <div class="preview-project">
+      <div>
+        <span class="badge">Awaiting Review</span>
+        <h2>Launch Reels Package</h2>
+        <p class="muted small">Client: Acme Studio</p>
+      </div>
+      <button class="primary" type="button">Upload V3</button>
+    </div>
+    <div class="preview-video">
+      <div class="play-button">▶</div>
+    </div>
+    <div class="preview-activity">
+      <div class="activity-item">
+        <span class="activity-pin"></span>
+        <div>
+          <strong>Client commented</strong>
+          <p>Use the shorter ending for the second cut.</p>
+        </div>
+      </div>
+      <div class="activity-item">
+        <span class="activity-pin is-done"></span>
+        <div>
+          <strong>Studio uploaded V2</strong>
+          <p>Ready for review with updated captions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feature-grid" aria-label="ClientFlow features">
+  <article class="feature-card">
+    <span>01</span>
+    <h2>Client portals</h2>
+    <p>Invite clients into focused project spaces without exposing your internal dashboard.</p>
+  </article>
+  <article class="feature-card">
+    <span>02</span>
+    <h2>Version reviews</h2>
+    <p>Keep every upload, comment, approval, and revision note tied to the right version.</p>
+  </article>
+  <article class="feature-card">
+    <span>03</span>
+    <h2>Approval tracking</h2>
+    <p>See what is waiting, approved, revised, or published before work gets buried.</p>
+  </article>
+</section>
+{% endblock %}
