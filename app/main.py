@@ -954,9 +954,6 @@ def version_decision(
 ):
     user = get_current_user(request)
 
-    if not body or not body.strip():
-        return redirect(f"/projects/{version['project_id']}?error=Comment+cannot+be+empty.")
-
     if user:
         author_role = "client" if user["role"] == "client" else "studio"
         author_name = user["email"].split("@")[0]
@@ -972,6 +969,10 @@ def version_decision(
 
         if not version:
             raise HTTPException(status_code=404)
+
+        if not body or not body.strip():
+            target_path = f"/projects/{version['project_id']}" if user else f"/review/{version['project_id']}"
+            return redirect(f"{target_path}?error=Comment+cannot+be+empty.")
 
         if version["status"] == "Approved":
             raise HTTPException(status_code=400, detail="This version has been approved and locked.")
