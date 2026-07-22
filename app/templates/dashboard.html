@@ -151,6 +151,7 @@
             </span>
         </div>
         <div class="flex w-full items-center justify-end gap-2 md:w-auto">
+            {% if user.role != 'client' %}
             <div class="relative">
                 <button id="notification-toggle" type="button" class="nav-action-fix menu-item-fix relative text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-2 shadow-sm sm:py-1.5" aria-label="Notifications">
                     <span class="text-sm leading-none">🔔</span>
@@ -163,7 +164,7 @@
                     </div>
                     <div class="mt-2 space-y-2">
                         {% for n in notifications %}
-                        <a href="/projects/{{ n.project_id }}" data-notification-id="{{ n.notification_id }}" class="notification-item bg-inner-card block rounded-xl border border-gray-900 bg-gray-900/40 p-3 transition hover:border-gray-700 hover:bg-gray-900">
+                        <a href="/projects/{{ n.project_id }}" data-notification-id="{{ n.notification_id }}" data-notification-project-id="{{ n.project_id }}" class="notification-item bg-inner-card block rounded-xl border border-gray-900 bg-gray-900/40 p-3 transition hover:border-gray-700 hover:bg-gray-900">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-white-fix">
@@ -189,6 +190,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             <div class="relative">
                 <button id="user-menu-toggle" type="button" class="nav-action-fix menu-item-fix text-xs px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-bold flex items-center justify-center gap-2 shadow-sm sm:py-1.5" aria-expanded="false">
                     Menu
@@ -448,8 +450,8 @@
             const notificationToggle = document.getElementById("notification-toggle");
             const notificationPanel = document.getElementById("notification-panel");
             const notificationCount = document.getElementById("notification-count");
-            const notificationItems = Array.from(document.querySelectorAll("[data-notification-id]"));
-            const readNotificationKey = "clientflow-read-notifications";
+            const notificationItems = Array.from(document.querySelectorAll("[data-notification-project-id]"));
+            const readNotificationKey = "lumaire-read-notification-projects";
 
             const getReadNotifications = () => {
                 try {
@@ -468,7 +470,7 @@
                 let unreadCount = 0;
 
                 notificationItems.forEach((item) => {
-                    const isRead = readIds.has(item.dataset.notificationId);
+                    const isRead = readIds.has(item.dataset.notificationProjectId);
                     item.classList.toggle("is-read", isRead);
                     if (!isRead) unreadCount += 1;
                 });
@@ -517,7 +519,7 @@
             notificationItems.forEach((item) => {
                 item.addEventListener("click", () => {
                     const readIds = getReadNotifications();
-                    readIds.add(item.dataset.notificationId);
+                    readIds.add(item.dataset.notificationProjectId);
                     saveReadNotifications(readIds);
                     updateNotificationState();
                 });

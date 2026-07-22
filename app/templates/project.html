@@ -830,6 +830,21 @@
 
     document.getElementById("selectedVideoFileName").textContent = fileName;
     }
+
+    {% if not is_public_link and user.role != 'client' %}
+    document.addEventListener("DOMContentLoaded", () => {
+        const readNotificationKey = "lumaire-read-notification-projects";
+        const projectId = "{{ project.id }}";
+
+        try {
+            const readProjects = new Set(JSON.parse(localStorage.getItem(readNotificationKey) || "[]"));
+            readProjects.add(String(projectId));
+            localStorage.setItem(readNotificationKey, JSON.stringify(Array.from(readProjects)));
+        } catch {
+            localStorage.setItem(readNotificationKey, JSON.stringify([String(projectId)]));
+        }
+    });
+    {% endif %}
     </script>
 </body>
 </html>
