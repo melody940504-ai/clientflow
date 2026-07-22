@@ -121,6 +121,53 @@
             border-color: var(--brand-color, #6366f1) !important;
             box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-color, #6366f1) 18%, transparent);
         }
+        .select-fix {
+            appearance: none;
+            background-image:
+                linear-gradient(45deg, transparent 50%, currentColor 50%),
+                linear-gradient(135deg, currentColor 50%, transparent 50%);
+            background-position:
+                calc(100% - 18px) 50%,
+                calc(100% - 12px) 50%;
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            color-scheme: dark;
+            padding-right: 2.75rem !important;
+            transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+        }
+        .select-fix:hover {
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 42%, #4b5563) !important;
+        }
+        .select-fix option {
+            background-color: #111827;
+            color: #f9fafb;
+        }
+        .select-fix option:disabled,
+        .select-fix option[value=""] {
+            color: #9ca3af;
+        }
+        .light-theme .select-fix {
+            background-color: #ffffff !important;
+            border-color: #dbe3ef !important;
+            color: #0f172a !important;
+            color-scheme: light;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+        .light-theme .select-fix:hover {
+            background-color: #fbfdff !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 35%, #cbd5e1) !important;
+        }
+        .light-theme .select-fix:focus {
+            border-color: var(--brand-color, #6366f1) !important;
+        }
+        .light-theme .select-fix option {
+            background-color: #ffffff;
+            color: #0f172a;
+        }
+        .light-theme .select-fix option:disabled,
+        .light-theme .select-fix option[value=""] {
+            color: #64748b;
+        }
         body {
             background:
                 radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color, #6366f1) 18%, transparent), transparent 34%),
@@ -285,25 +332,25 @@
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">🚀 Add Project</h3>
                     <form action="/projects" method="post" novalidate class="space-y-3 m-0">
                         <!-- 🔒 解決下拉選單問題 -->
-                        <select name="client_id" required class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-gray-300 cursor-pointer">
-                            <option value="" class="bg-gray-900 text-gray-500">Select Client</option>
+                        <select name="client_id" required class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none text-gray-300 cursor-pointer">
+                            <option value="">Select Client</option>
                             {% for c in clients %}
-                            <option value="{{ c.id }}" class="bg-gray-900 text-gray-100">{{ c.name }}</option>
+                            <option value="{{ c.id }}">{{ c.name }}</option>
                             {% endfor %}
                         </select>
                         <input type="text" name="name" required placeholder="Project Title" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <select name="category" class="input-fix w-full bg-gray-900 dark:bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white-fix">
-                                <option value="Shorts" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Shorts</option>
-                                <option value="Reels" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Reels</option>
-                                <option value="TikTok" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">TikTok</option>
-                                <option value="Ad" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Ad</option>
-                                <option value="YouTube" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">YouTube</option>
-                                <option value="Other" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Other</option>
+                            <select name="category" class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none text-white-fix">
+                                <option value="Shorts">Shorts</option>
+                                <option value="Reels">Reels</option>
+                                <option value="TikTok">TikTok</option>
+                                <option value="Ad">Ad</option>
+                                <option value="YouTube">YouTube</option>
+                                <option value="Other">Other</option>
                             </select>
-                            <select name="status" class="input-fix w-full bg-gray-900 dark:bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white-fix">
-                                <option value="Awaiting Review" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Awaiting Review</option>
-                                <option value="In Revision" class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">In Revision</option>
+                            <select name="status" class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none text-white-fix">
+                                <option value="Awaiting Review">Awaiting Review</option>
+                                <option value="In Revision">In Revision</option>
                             </select>
                         </div>
                         <textarea name="notes" placeholder="Project Scope / Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
