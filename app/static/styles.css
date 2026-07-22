@@ -86,17 +86,18 @@ h3 { margin: 8px 0; }
 .auth-card { width: min(460px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 30px; box-shadow: var(--shadow); }
 .settings-shell { width: min(980px, 100%); margin: 0 auto; }
 .settings-card { width: min(640px, 100%); }
-.settings-form { display: grid; gap: 34px; padding: 36px; }
+.settings-form { display: grid; gap: 28px; padding: 28px; }
 .settings-layout { display: block; }
-.settings-fields { display: grid; gap: 44px; }
+.settings-fields { display: grid; gap: 18px; }
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .field-group {
   display: grid;
   gap: 26px;
-  padding-bottom: 42px;
-  border-bottom: 1px solid var(--border);
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-2);
 }
-.field-group:last-child { border-bottom: 0; padding-bottom: 0; }
 .field-group h2 { margin-bottom: 4px; }
 .setting-field {
   display: grid;
@@ -129,10 +130,10 @@ h3 { margin: 8px 0; }
   display: grid;
   gap: 16px;
   max-width: 420px;
-  padding: 22px;
+  padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--primary)), var(--surface));
+  border-radius: 16px;
+  background: var(--surface);
 }
 .preview-logo {
   display: inline-grid;
@@ -154,8 +155,7 @@ h3 { margin: 8px 0; }
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
+  padding: 20px 4px 0;
 }
 .success-box, .error-box {
   padding: 10px 12px;
