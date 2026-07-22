@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -37,6 +37,27 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+
+def format_utc_iso(value: object) -> str:
+    if not value:
+        return ""
+
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        try:
+            dt = datetime.fromisoformat(str(value))
+        except ValueError:
+            return str(value)
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+templates.env.filters["utc_iso"] = format_utc_iso
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]

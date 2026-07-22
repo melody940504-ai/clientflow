@@ -262,7 +262,7 @@
                                     {{ v.status }}
                                 </span>
                             </div>
-                            <p class="text-xs text-gray-500">Pushed on {{ v.created_at[:10] }}</p>
+                            <p class="text-xs text-gray-500">Pushed on <time data-utc="{{ v.created_at|utc_iso }}" data-format="date">{{ v.created_at[:10] }}</time></p>
                         </div>
                         <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="w-full justify-center text-sm px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 sm:w-auto sm:py-2">
                             ▶ Play Video
@@ -342,7 +342,7 @@
                                     {{ c.author_name }} 
                                     <span class="text-[10px] text-gray-500 font-normal">({{ c.author_role }})</span>
                                 </span>
-                                <span class="shrink-0 text-[10px] text-gray-500 font-mono">{{ c.created_at[:10] }} {{ c.created_at[11:16] }}</span>
+                                <time class="shrink-0 text-[10px] text-gray-500 font-mono" data-utc="{{ c.created_at|utc_iso }}" data-format="datetime">{{ c.created_at[:10] }} {{ c.created_at[11:16] }}</time>
                             </div>
                             
                             {% if c.type.startswith('timestamp_') %}
@@ -471,6 +471,33 @@
                 }
             });
         }
+
+        function formatLocalTimes() {
+            const dateFormatter = new Intl.DateTimeFormat(undefined, {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit"
+            });
+
+            const datetimeFormatter = new Intl.DateTimeFormat(undefined, {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+
+            document.querySelectorAll("time[data-utc]").forEach((timeElement) => {
+                const date = new Date(timeElement.dataset.utc);
+                if (Number.isNaN(date.getTime())) return;
+
+                timeElement.textContent = timeElement.dataset.format === "date"
+                    ? dateFormatter.format(date)
+                    : datetimeFormatter.format(date);
+            });
+        }
+
+        formatLocalTimes();
 
         function showToast(message, type = "success") {
             const container = document.getElementById('toast-container');
