@@ -150,30 +150,13 @@
                 {% endif %}
             </span>
         </div>
-        <div class="relative w-full md:w-auto">
-            <button id="user-menu-toggle" type="button" class="nav-action-fix menu-item-fix w-full text-xs px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-bold flex items-center justify-center gap-2 shadow-sm md:w-auto sm:py-1.5" aria-expanded="false">
-                Menu
-                <span id="menu-notification-count" class="hidden min-w-5 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-black text-white"></span>
-            </button>
-            <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
-                <div class="theme-divider-fix border-b border-gray-900 pb-3">
-                    <p class="truncate text-xs font-mono text-gray-400-fix">{{ user.email }}</p>
-                </div>
-                <div class="mt-3 grid gap-2">
-                    <button id="theme-toggle" class="nav-action-fix menu-item-fix text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-1.5 shadow-sm">
-                        Toggle Theme
-                    </button>
-                    <button id="notification-toggle" type="button" class="nav-action-fix menu-item-fix relative text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-2 shadow-sm" aria-label="Notifications">
-                        <span>Notifications</span>
-                        <span id="notification-count" class="hidden min-w-5 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-black text-white"></span>
-                    </button>
-                    {% if user.role != 'client' %}
-                    <a href="/analytics" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Analytics</a>
-                    <a href="/settings" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Settings</a>
-                    {% endif %}
-                    <a href="/logout" class="menu-item-fix text-center text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</a>
-                </div>
-                <div id="notification-panel" class="bg-card-fix hidden mt-3 max-h-[54vh] overflow-y-auto rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-inner shadow-black/20">
+        <div class="flex w-full items-center justify-end gap-2 md:w-auto">
+            <div class="relative">
+                <button id="notification-toggle" type="button" class="nav-action-fix menu-item-fix relative text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-2 shadow-sm sm:py-1.5" aria-label="Notifications">
+                    <span class="text-sm leading-none">🔔</span>
+                    <span id="notification-count" class="hidden min-w-5 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-black text-white"></span>
+                </button>
+                <div id="notification-panel" class="bg-card-fix hidden fixed left-4 right-4 top-24 z-40 max-h-[70vh] overflow-y-auto rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96">
                     <div class="theme-divider-fix flex items-center justify-between border-b border-gray-900 pb-3">
                         <p class="text-sm font-bold text-white-fix">Recent activity</p>
                         <span class="text-[10px] font-mono uppercase tracking-wider text-gray-500">Latest {{ notifications|length }}</span>
@@ -206,6 +189,26 @@
                     </div>
                 </div>
             </div>
+            <div class="relative">
+                <button id="user-menu-toggle" type="button" class="nav-action-fix menu-item-fix text-xs px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-bold flex items-center justify-center gap-2 shadow-sm sm:py-1.5" aria-expanded="false">
+                    Menu
+                </button>
+                <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
+                    <div class="theme-divider-fix border-b border-gray-900 pb-3">
+                        <p class="truncate text-xs font-mono text-gray-400-fix">{{ user.email }}</p>
+                    </div>
+                    <div class="mt-3 grid gap-2">
+                        <button id="theme-toggle" class="nav-action-fix menu-item-fix text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-1.5 shadow-sm">
+                            Toggle Theme
+                        </button>
+                    {% if user.role != 'client' %}
+                    <a href="/analytics" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Analytics</a>
+                    <a href="/settings" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Settings</a>
+                    {% endif %}
+                    <a href="/logout" class="menu-item-fix text-center text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</a>
+                </div>
+            </div>
+        </div>
         </div>
     </nav>
 
@@ -445,7 +448,6 @@
             const notificationToggle = document.getElementById("notification-toggle");
             const notificationPanel = document.getElementById("notification-panel");
             const notificationCount = document.getElementById("notification-count");
-            const menuNotificationCount = document.getElementById("menu-notification-count");
             const notificationItems = Array.from(document.querySelectorAll("[data-notification-id]"));
             const readNotificationKey = "clientflow-read-notifications";
 
@@ -472,17 +474,13 @@
                 });
 
                 if (unreadCount > 0) {
-                    [notificationCount, menuNotificationCount].forEach((node) => {
-                        if (!node) return;
-                        node.textContent = String(unreadCount);
-                        node.classList.remove("hidden");
-                    });
+                    if (!notificationCount) return;
+                    notificationCount.textContent = String(unreadCount);
+                    notificationCount.classList.remove("hidden");
                 } else {
-                    [notificationCount, menuNotificationCount].forEach((node) => {
-                        if (!node) return;
-                        node.textContent = "";
-                        node.classList.add("hidden");
-                    });
+                    if (!notificationCount) return;
+                    notificationCount.textContent = "";
+                    notificationCount.classList.add("hidden");
                 }
             };
 
