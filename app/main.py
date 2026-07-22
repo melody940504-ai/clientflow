@@ -995,6 +995,147 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
     )
 
 
+@app.get("/analytics", response_class=HTMLResponse)
+def analytics_page(request: Request):
+    user = require_user(request)
+
+    if owner_needs_setup(user):
+        return redirect("/setup")
+
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+
+    user_id = user["id"]
+
+    with get_db() as db:
+        totals = db.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM clients WHERE user_id = ?) AS total_clients,
+                (SELECT COUNT(*) FROM projects WHERE user_id = ?) AS total_projects,
+                (SELECT COUNT(*) FROM video_versions WHERE user_id = ?) AS total_versions,
+                (
+                    SELECT COUNT(*)
+                    FROM comments cm
+                    JOIN video_versions vv ON cm.video_version_id = vv.id
+                    JOIN projects p ON vv.project_id = p.id
+                    WHERE p.user_id = ?
+                ) AS total_comments,
+                (
+                    SELECT COUNT(*)
+                    FROM projects
+                    WHERE user_id = ? AND status IN ('Approved', 'Published')
+                ) AS completed_projects,
+                (
+                    SELECT COUNT(*)
+                    FROM comments cm
+                    JOIN video_versions vv ON cm.video_version_id = vv.id
+                    JOIN projects p ON vv.project_id = p.id
+                    WHERE p.user_id = ? AND cm.type IN ('approve', 'reject')
+                ) AS decision_count
+            """,
+            (user_id, user_id, user_id, user_id, user_id, user_id),
+        ).fetchone()
+
+        status_rows = db.execute(
+            """
+            SELECT status, COUNT(*) AS count
+            FROM projects
+            WHERE user_id = ?
+            GROUP BY status
+            ORDER BY count DESC, status ASC
+            """,
+            (user_id,),
+        ).fetchall()
+
+        category_rows = db.execute(
+            """
+            SELECT category, COUNT(*) AS count
+            FROM projects
+            WHERE user_id = ?
+            GROUP BY category
+            ORDER BY count DESC, category ASC
+            """,
+            (user_id,),
+        ).fetchall()
+
+        top_clients = db.execute(
+            """
+            SELECT
+                c.id,
+                c.name,
+                COUNT(DISTINCT p.id) AS project_count,
+                COUNT(DISTINCT vv.id) AS version_count,
+                COUNT(DISTINCT cm.id) AS comment_count
+            FROM clients c
+            LEFT JOIN projects p ON p.client_id = c.id
+            LEFT JOIN video_versions vv ON vv.project_id = p.id
+            LEFT JOIN comments cm ON cm.video_version_id = vv.id
+            WHERE c.user_id = ?
+            GROUP BY c.id, c.name
+            ORDER BY project_count DESC, comment_count DESC, c.name ASC
+            LIMIT 5
+            """,
+            (user_id,),
+        ).fetchall()
+
+        recent_projects = db.execute(
+            """
+            SELECT
+                p.id,
+                p.name,
+                p.status,
+                p.category,
+                p.created_at,
+                c.name AS client_name,
+                COUNT(DISTINCT vv.id) AS version_count,
+                COUNT(DISTINCT cm.id) AS comment_count
+            FROM projects p
+            JOIN clients c ON p.client_id = c.id
+            LEFT JOIN video_versions vv ON vv.project_id = p.id
+            LEFT JOIN comments cm ON cm.video_version_id = vv.id
+            WHERE p.user_id = ?
+            GROUP BY p.id, p.name, p.status, p.category, p.created_at, c.name
+            ORDER BY p.created_at DESC
+            LIMIT 6
+            """,
+            (user_id,),
+        ).fetchall()
+
+        branding = get_branding_for_user(db, user)
+
+    total_projects = totals["total_projects"] or 0
+    total_versions = totals["total_versions"] or 0
+    total_comments = totals["total_comments"] or 0
+    completed_projects = totals["completed_projects"] or 0
+
+    analytics = {
+        "total_clients": totals["total_clients"] or 0,
+        "total_projects": total_projects,
+        "total_versions": total_versions,
+        "total_comments": total_comments,
+        "completed_projects": completed_projects,
+        "decision_count": totals["decision_count"] or 0,
+        "approval_rate": round((completed_projects / total_projects) * 100) if total_projects else 0,
+        "avg_versions_per_project": round(total_versions / total_projects, 1) if total_projects else 0,
+        "avg_comments_per_project": round(total_comments / total_projects, 1) if total_projects else 0,
+    }
+
+    return templates.TemplateResponse(
+        "analytics.html",
+        {
+            "request": request,
+            "user": user,
+            "branding": branding,
+            "analytics": analytics,
+            "status_rows": status_rows,
+            "category_rows": category_rows,
+            "top_clients": top_clients,
+            "recent_projects": recent_projects,
+        },
+    )
+
+
 @app.get("/setup", response_class=HTMLResponse)
 def setup_page(request: Request):
     user = require_user(request)

@@ -181,6 +181,7 @@
             <div class="flex min-w-0 items-center justify-between gap-3 sm:justify-end">
                 <span class="min-w-0 truncate text-xs text-gray-400-fix font-mono">{{ user.email }}</span>
                 {% if user.role != 'client' %}
+                <a href="/analytics" class="nav-action-fix shrink-0 text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold sm:py-1.5">Analytics</a>
                 <a href="/settings" class="nav-action-fix shrink-0 text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold sm:py-1.5">Settings</a>
                 {% endif %}
                 <a href="/logout" class="shrink-0 text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition sm:py-1.5">Logout</a>

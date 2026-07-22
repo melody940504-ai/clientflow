@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% set title = 'Analytics - Lumaire' %}
+{% block content %}
+<section class="analytics-shell">
+  <div class="analytics-hero">
+    <div>
+      <a class="back" href="/dashboard">Back to dashboard</a>
+      <p class="eyebrow">Studio analytics</p>
+      <h1>Delivery insights</h1>
+      <p class="muted">A compact view of project volume, review activity, and client engagement across your workspace.</p>
+    </div>
+    <div class="analytics-hero-card">
+      <span>Approval rate</span>
+      <strong>{{ analytics.approval_rate }}%</strong>
+      <p class="muted small">{{ analytics.completed_projects }} of {{ analytics.total_projects }} projects approved or published.</p>
+    </div>
+  </div>
+
+  <div class="analytics-kpi-grid">
+    <article>
+      <span>Clients</span>
+      <strong>{{ analytics.total_clients }}</strong>
+      <p>Total client workspaces</p>
+    </article>
+    <article>
+      <span>Projects</span>
+      <strong>{{ analytics.total_projects }}</strong>
+      <p>Tracked delivery projects</p>
+    </article>
+    <article>
+      <span>Versions</span>
+      <strong>{{ analytics.total_versions }}</strong>
+      <p>{{ analytics.avg_versions_per_project }} average per project</p>
+    </article>
+    <article>
+      <span>Comments</span>
+      <strong>{{ analytics.total_comments }}</strong>
+      <p>{{ analytics.avg_comments_per_project }} average per project</p>
+    </article>
+  </div>
+
+  <div class="analytics-grid">
+    <section class="analytics-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Pipeline</p>
+          <h2>Status breakdown</h2>
+        </div>
+        <span class="badge">{{ analytics.total_projects }} projects</span>
+      </div>
+      <div class="bar-list">
+        {% for row in status_rows %}
+          {% set width = ((row['count'] / analytics.total_projects) * 100) if analytics.total_projects else 0 %}
+          <div class="bar-row">
+            <div>
+              <strong>{{ row.status }}</strong>
+              <span>{{ row['count'] }}</span>
+            </div>
+            <div class="bar-track">
+              <span style="width: {{ width }}%"></span>
+            </div>
+          </div>
+        {% else %}
+          <p class="empty">No project status data yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="analytics-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Work mix</p>
+          <h2>Categories</h2>
+        </div>
+      </div>
+      <div class="category-grid">
+        {% for row in category_rows %}
+          <div>
+            <span>{{ row.category }}</span>
+            <strong>{{ row['count'] }}</strong>
+          </div>
+        {% else %}
+          <p class="empty">No categories yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="analytics-grid">
+    <section class="analytics-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Clients</p>
+          <h2>Most active</h2>
+        </div>
+      </div>
+      <div class="client-rank-list">
+        {% for client in top_clients %}
+          <div>
+            <strong>{{ client.name }}</strong>
+            <span>{{ client.project_count }} projects / {{ client.version_count }} versions / {{ client.comment_count }} comments</span>
+          </div>
+        {% else %}
+          <p class="empty">Create clients to see activity ranking.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="analytics-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Recent</p>
+          <h2>Project signals</h2>
+        </div>
+        <span class="badge">{{ analytics.decision_count }} decisions</span>
+      </div>
+      <div class="project-signal-list">
+        {% for project in recent_projects %}
+          <a href="/projects/{{ project.id }}">
+            <div>
+              <strong>{{ project.name }}</strong>
+              <span>{{ project.client_name }} / {{ project.category }}</span>
+            </div>
+            <div>
+              <span class="status status-{{ project.status|lower|replace(' ', '-') }}">{{ project.status }}</span>
+              <small>{{ project.version_count }}V / {{ project.comment_count }}C</small>
+            </div>
+          </a>
+        {% else %}
+          <p class="empty">Recent project signals will appear here.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}

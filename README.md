@@ -29,6 +29,7 @@ Demo account details can be added here when you are ready to share a public revi
 - Public review links for clients
 - Feedback comments, approve, and change request actions
 - Activity timeline for project creation, uploads, and comments
+- Studio analytics for project volume, review activity, and client engagement
 - Local-time rendering for project activity timestamps
 - Light/dark theme toggle
 - Responsive mobile layout
@@ -189,13 +190,13 @@ Completed MVP polish:
 - Forgot password flow
 - Collapsed development credentials panel
 - Local timezone display for project activity
+- Studio analytics dashboard
 
 Next priorities:
 
 - Notification center for new comments, approvals, and uploads
 - Studio settings for branding, logo, and sender name
 - Better mobile-first dashboard layout
-- Analytics for review time, revision count, and client activity
 - Public README screenshots and demo credentials
 
 ## MVP Scope
