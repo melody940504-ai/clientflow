@@ -7,7 +7,7 @@
   const swatches = Array.from(document.querySelectorAll("[data-color]"));
 
   const initialsFor = (name) => {
-    const cleanName = name.trim() || "ClientFlow";
+    const cleanName = name.trim() || "Lumaire";
     return cleanName.slice(0, 2).toUpperCase();
   };
 
@@ -39,7 +39,7 @@
 
   const syncPreview = () => {
     if (nameInput && previewName) {
-      previewName.textContent = nameInput.value.trim() || "ClientFlow MVP";
+      previewName.textContent = nameInput.value.trim() || "Lumaire Studio";
     }
 
     if (colorInput) {

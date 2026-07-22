@@ -1,6 +1,6 @@
-# ClientFlow MVP
+# Lumaire MVP
 
-ClientFlow is a lightweight client review and delivery dashboard for short-form video studios. It helps a studio owner manage clients, create projects, upload video versions, collect timestamped feedback, track approvals, and deliver final assets through a clean client portal.
+Lumaire is a calm creative delivery workspace for short-form video studios. It helps a studio owner manage clients, create projects, upload video versions, collect timestamped feedback, track approvals, and deliver final assets through a clean client portal.
 
 The goal of this MVP is to show a realistic SaaS-style workflow without building a heavy video hosting platform from scratch.
 
@@ -200,4 +200,4 @@ Next priorities:
 
 ## MVP Scope
 
-ClientFlow intentionally avoids becoming a full video hosting platform. The MVP supports external video URLs and Supabase Storage uploads so studios can keep hosting costs low while still presenting a professional client review workflow.
+Lumaire intentionally avoids becoming a full video hosting platform. The MVP supports external video URLs and Supabase Storage uploads so studios can keep hosting costs low while still presenting a professional client review workflow.

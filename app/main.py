@@ -27,7 +27,7 @@ DB_PATH = BASE_DIR / "clientflow.db"
 SECRET_KEY = "change-this-secret-before-deployment"
 serializer = URLSafeSerializer(SECRET_KEY, salt="clientflow-session")
 
-app = FastAPI(title="ClientFlow MVP")
+app = FastAPI(title="Lumaire")
 
 app.add_middleware(
     SessionMiddleware,
@@ -62,9 +62,9 @@ templates.env.filters["utc_iso"] = format_utc_iso
 DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
-DEFAULT_STUDIO_NAME = "ClientFlow MVP"
+DEFAULT_STUDIO_NAME = "Lumaire Studio"
 DEFAULT_BRAND_COLOR = "#6366f1"
-DEFAULT_EMAIL_SENDER_NAME = "ClientFlow"
+DEFAULT_EMAIL_SENDER_NAME = "Lumaire"
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
@@ -100,14 +100,14 @@ def send_activity_email(
         TEST_EMAIL = "melody940504@gmail.com"
 
         resend.Emails.send({
-            "from": "ClientFlow <onboarding@resend.dev>",
+            "from": "Lumaire <onboarding@resend.dev>",
             "to": [TEST_EMAIL],
             "subject": subject,
             "html": f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
 
                 <h2 style="color:#4f46e5;">
-                    🎬 ClientFlow Notification
+                    Lumaire Notification
                 </h2>
 
                 <p>
@@ -158,12 +158,12 @@ def send_client_invitation_email(
         resend.Emails.send({
             "from": f"{sender_name} <onboarding@resend.dev>",
             "to": [TEST_EMAIL],
-            "subject": "You have been invited to ClientFlow",
+            "subject": "You have been invited to Lumaire",
             "html": f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
 
                 <h2 style="color:#4f46e5;">
-                    Welcome to ClientFlow
+                    Welcome to Lumaire
                 </h2>
 
                 <p>
@@ -171,7 +171,7 @@ def send_client_invitation_email(
                 </p>
 
                 <p>
-                    You have been invited to review projects on ClientFlow.
+                    You have been invited to review projects on Lumaire.
                 </p>
 
                 <div style="
@@ -206,7 +206,7 @@ def send_client_invitation_email(
                 </p>
 
                 <p style="font-size:12px;color:#6b7280;margin-top:24px;">
-                    This is a test invitation sent by ClientFlow.
+                    This is a test invitation sent by Lumaire.
                 </p>
 
             </div>
@@ -229,18 +229,18 @@ def send_password_reset_email(to_email: str, reset_url: str):
         recipient = os.getenv("EMAIL_TEST_RECIPIENT") or to_email
 
         resend.Emails.send({
-            "from": "ClientFlow <onboarding@resend.dev>",
+            "from": "Lumaire <onboarding@resend.dev>",
             "to": [recipient],
-            "subject": "Reset your ClientFlow password",
+            "subject": "Reset your Lumaire password",
             "html": f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
 
                 <h2 style="color:#4f46e5;">
-                    Reset your ClientFlow password
+                    Reset your Lumaire password
                 </h2>
 
                 <p>
-                    We received a request to reset your ClientFlow password.
+                    We received a request to reset your Lumaire password.
                 </p>
 
                 <p style="margin-top:24px">
@@ -315,10 +315,10 @@ def init_db() -> None:
                 verification_token TEXT,
                 reset_token TEXT,
                 reset_token_expires_at TEXT,
-                studio_name TEXT DEFAULT 'ClientFlow MVP',
+                studio_name TEXT DEFAULT 'Lumaire Studio',
                 brand_color TEXT DEFAULT '#6366f1',
                 logo_url TEXT,
-                email_sender_name TEXT DEFAULT 'ClientFlow',
+                email_sender_name TEXT DEFAULT 'Lumaire',
                 setup_completed BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TEXT NOT NULL
             )
@@ -337,7 +337,7 @@ def init_db() -> None:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TEXT"
             )
             db.execute(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS studio_name TEXT DEFAULT 'ClientFlow MVP'"
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS studio_name TEXT DEFAULT 'Lumaire Studio'"
             )
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_color TEXT DEFAULT '#6366f1'"
@@ -346,7 +346,7 @@ def init_db() -> None:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS logo_url TEXT"
             )
             db.execute(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_sender_name TEXT DEFAULT 'ClientFlow'"
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_sender_name TEXT DEFAULT 'Lumaire'"
             )
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_completed BOOLEAN NOT NULL DEFAULT FALSE"
@@ -605,7 +605,7 @@ def register(email: str = Form(...), password: str = Form(...)):
     send_activity_email(
         email.strip().lower(),
         "Verify your email",
-        "ClientFlow",
+        "Lumaire",
         f"Please verify your email address.\n\n{verify_url}",
         verify_url
     )
@@ -1414,7 +1414,7 @@ async def create_version(
 
             send_activity_email(
                 to_email=project_info["c_email"],
-                subject=f"[ClientFlow] New version {version_label.strip()} uploaded",
+                subject=f"[Lumaire] New version {version_label.strip()} uploaded",
                 project_name=project_info["p_name"],
                 action_text=f"Studio uploaded a new version ({version_label.strip()}). Please review it when available.",
                 link_url=public_review_url,
@@ -1517,7 +1517,7 @@ def version_decision(
 
             send_activity_email(
                 to_email=studio_info["u_email"],
-                subject=f"📊 [ClientFlow] Project Activity Update: {action_display}",
+                subject=f"[Lumaire] Project Activity Update: {action_display}",
                 project_name=studio_info["p_name"],
                 action_text=(
                     f"Client ({author_name}) has submitted an action "
@@ -1607,7 +1607,7 @@ def deliver_project(project_id: int, request: Request):
         if client_info and client_info["email"]:
             send_activity_email(
                 to_email=client_info["email"],
-                subject=f"🎉 [ClientFlow] Final Delivery Completed for '{project['name']}'!",
+                subject=f"[Lumaire] Final Delivery Completed for '{project['name']}'!",
                 project_name=project["name"],
                 action_text="Studio has marked this project as Final Delivered! All approved master files have been successfully dispatched and archived.",
                 link_url=f"{request.base_url}review/{project_id}"
