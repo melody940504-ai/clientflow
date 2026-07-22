@@ -96,14 +96,29 @@
         .notification-item.is-read .unread-dot {
             display: none;
         }
+        #notification-count,
+        .unread-dot {
+            background-color: var(--brand-color, #6366f1) !important;
+        }
         .brand-text-fix {
             color: var(--brand-color, #6366f1);
         }
         .brand-bg-fix {
-            background-color: var(--brand-color, #6366f1);
+            background-color: var(--brand-color, #6366f1) !important;
+            border: 1px solid color-mix(in srgb, var(--brand-color, #6366f1) 70%, white) !important;
+            box-shadow: 0 12px 28px color-mix(in srgb, var(--brand-color, #6366f1) 22%, transparent);
+        }
+        .brand-bg-fix:hover {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 86%, white) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 82%, white) !important;
+            transform: translateY(-1px);
         }
         .brand-logo-fix {
             border-color: color-mix(in srgb, var(--brand-color, #6366f1) 40%, transparent);
+        }
+        .input-fix:focus {
+            border-color: var(--brand-color, #6366f1) !important;
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-color, #6366f1) 18%, transparent);
         }
         body {
             background:
@@ -116,6 +131,9 @@
         .menu-item-fix:hover {
             border-color: color-mix(in srgb, var(--brand-color, #6366f1) 55%, #1f2937) !important;
             transform: translateY(-1px);
+        }
+        .nav-action-fix:hover {
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 55%, #1f2937) !important;
         }
 
         /* 🏃‍♂️ 修正二：翻修原本醜醜的 Logout 按鈕，改成高對比清爽紅框質感 */

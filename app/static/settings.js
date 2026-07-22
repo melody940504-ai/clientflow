@@ -43,8 +43,11 @@
     }
 
     if (colorInput) {
-      document.documentElement.style.setProperty("--primary", colorInput.value);
-      document.documentElement.style.setProperty("--primary-strong", colorInput.value);
+      const primaryStrong = `color-mix(in srgb, ${colorInput.value} 86%, white)`;
+      [document.documentElement, document.body].forEach((element) => {
+        element.style.setProperty("--primary", colorInput.value);
+        element.style.setProperty("--primary-strong", primaryStrong);
+      });
 
       swatches.forEach((swatch) => {
         swatch.classList.toggle("is-active", swatch.dataset.color.toLowerCase() === colorInput.value.toLowerCase());
