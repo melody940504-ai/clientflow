@@ -54,10 +54,11 @@
             <input data-sender-name type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
           </label>
         </div>
-      </div>
-
-      <aside class="brand-preview">
-        <span class="preview-kicker">Client preview</span>
+        <div class="field-group brand-preview">
+          <div>
+            <h2>Client preview</h2>
+            <p class="muted small">A quick look at what clients will see.</p>
+          </div>
         <div class="preview-card">
           <div class="preview-logo" data-preview-logo>
             {% if branding.logo_url %}
@@ -70,7 +71,8 @@
           <p class="muted small">Project reviews, approval buttons, and invitation emails will carry this identity.</p>
           <button type="button" class="primary preview-button">Review project</button>
         </div>
-      </aside>
+        </div>
+      </div>
     </div>
 
     <div class="settings-actions">
