@@ -88,6 +88,16 @@
             border-color: color-mix(in srgb, var(--brand-color, #6366f1) 82%, white) !important;
             transform: translateY(-1px);
         }
+        .light-theme .primary-action-fix {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 12%, #ffffff) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 42%, #cbd5e1) !important;
+            color: color-mix(in srgb, var(--brand-color, #6366f1) 70%, #0f172a) !important;
+            box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-color, #6366f1) 12%, transparent);
+        }
+        .light-theme .primary-action-fix:hover {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 18%, #ffffff) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 58%, #cbd5e1) !important;
+        }
         .brand-logo-fix {
             border-color: color-mix(in srgb, var(--brand-color, #6366f1) 40%, transparent);
         }
@@ -106,6 +116,44 @@
         }
         .nav-action-fix:hover {
             border-color: color-mix(in srgb, var(--brand-color, #6366f1) 55%, #1f2937) !important;
+        }
+        .neutral-action-fix {
+            background-color: #1f2937 !important;
+            border-color: #374151 !important;
+            color: #f3f4f6 !important;
+        }
+        .neutral-action-fix:hover {
+            background-color: #374151 !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 45%, #4b5563) !important;
+        }
+        .light-theme .neutral-action-fix {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        }
+        .light-theme .neutral-action-fix:hover {
+            background-color: #f8fafc !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 45%, #cbd5e1) !important;
+            color: #0f172a !important;
+        }
+        .light-theme .semantic-reject-fix {
+            background-color: #fff1f2 !important;
+            border-color: #fda4af !important;
+            color: #e11d48 !important;
+        }
+        .light-theme .semantic-reject-fix:hover {
+            background-color: #ffe4e6 !important;
+            border-color: #fb7185 !important;
+        }
+        .light-theme .semantic-approve-fix {
+            background-color: #ecfdf5 !important;
+            border-color: #86efac !important;
+            color: #059669 !important;
+        }
+        .light-theme .semantic-approve-fix:hover {
+            background-color: #dcfce7 !important;
+            border-color: #4ade80 !important;
         }
         body {
             background:
@@ -224,7 +272,7 @@
 
                         <label
                             for="fileUpload"
-                            class="input-fix shrink-0 cursor-pointer border border-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition sm:py-1.5"
+                            class="neutral-action-fix shrink-0 cursor-pointer border px-4 py-2 rounded-xl text-xs font-semibold transition sm:py-1.5"
                         >
                             Choose File
                         </label>
@@ -250,7 +298,7 @@
 
                     <button
                     type="submit"
-                    class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition sm:w-auto sm:py-1.5"
+                    class="neutral-action-fix w-full border px-4 py-2 rounded-xl text-xs font-semibold transition sm:w-auto sm:py-1.5"
                     >
                         📎 Upload
                     </button>
@@ -298,7 +346,7 @@
                     >
 
                     <div class="md:col-span-1 flex min-w-0 items-center gap-3 px-1 py-2">
-                        <label for="videoFileUpload" class="shrink-0 cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-2 rounded-lg text-xs text-white-fix md:py-1">
+                        <label for="videoFileUpload" class="neutral-action-fix shrink-0 cursor-pointer border px-3 py-2 rounded-lg text-xs font-semibold transition md:py-1">
                             Choose Video
                         </label>
 
@@ -324,7 +372,7 @@
 
                     <button
                         type="submit"
-                        class="brand-bg-fix md:col-span-3 text-white font-medium rounded-xl px-4 py-2.5 transition text-sm opacity-95 hover:opacity-100"
+                        class="brand-bg-fix primary-action-fix md:col-span-3 text-white font-medium rounded-xl px-4 py-2.5 transition text-sm opacity-95 hover:opacity-100"
                     >
                         ➕ Upload Version
                     </button>
@@ -351,7 +399,7 @@
                             </div>
                             <p class="text-xs text-gray-500">Pushed on <time data-utc="{{ v.created_at|utc_iso }}" data-format="date">{{ v.created_at[:10] }}</time></p>
                         </div>
-                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="brand-bg-fix w-full justify-center text-sm px-4 py-2.5 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 opacity-95 hover:opacity-100 sm:w-auto sm:py-2">
+                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="brand-bg-fix primary-action-fix w-full justify-center text-sm px-4 py-2.5 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 opacity-95 hover:opacity-100 sm:w-auto sm:py-2">
                             ▶ Play Video
                         </button>
                     </div>
@@ -378,14 +426,14 @@
                             <textarea name="body" required placeholder="Type feedback or approval notes here..." class="input-fix w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-16 focus:outline-none focus:border-indigo-500 text-white"></textarea>
                             
                             <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                                <button type="submit" name="action_type" value="comment" class="w-full text-xs px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 font-medium rounded-xl transition text-white-fix sm:w-auto sm:py-2">
+                                <button type="submit" name="action_type" value="comment" class="neutral-action-fix w-full text-xs px-4 py-2.5 border font-medium rounded-xl transition sm:w-auto sm:py-2">
                                     💬 Leave Comment
                                 </button>
                                 {% if user.role == 'client' %}
-                                <button type="submit" name="action_type" value="reject" class="w-full text-xs px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition sm:w-auto sm:py-2">
+                                <button type="submit" name="action_type" value="reject" class="semantic-reject-fix w-full text-xs px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition sm:w-auto sm:py-2">
                                     ❌ Request Change (Reject)
                                 </button>
-                                <button type="submit" name="action_type" value="approve" class="w-full text-xs px-4 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 font-medium rounded-xl border border-emerald-900/40 transition sm:w-auto sm:py-2">
+                                <button type="submit" name="action_type" value="approve" class="semantic-approve-fix w-full text-xs px-4 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 font-medium rounded-xl border border-emerald-900/40 transition sm:w-auto sm:py-2">
                                     ✔ Approve & Signoff
                                 </button>
                                 {% endif %}
