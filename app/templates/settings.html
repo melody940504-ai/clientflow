@@ -11,15 +11,15 @@
     </div>
   </div>
 
-  <div class="panel settings-card">
-    {% if success %}
-      <div class="success-box">{{ success }}</div>
-    {% endif %}
-    {% if error %}
-      <div class="error-box">{{ error }}</div>
-    {% endif %}
+  {% if success %}
+    <div class="success-box">{{ success }}</div>
+  {% endif %}
+  {% if error %}
+    <div class="error-box">{{ error }}</div>
+  {% endif %}
 
-    <form class="stack" method="post" action="/settings" novalidate>
+  <form class="panel settings-form" method="post" action="/settings" novalidate>
+    <div class="settings-grid">
       <label>Studio name
         <input type="text" name="studio_name" maxlength="60" required value="{{ branding.studio_name }}" placeholder="Acme Studio">
       </label>
@@ -35,9 +35,12 @@
       <label>Email sender name
         <input type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
       </label>
+    </div>
 
+    <div class="settings-actions">
+      <p class="muted small">Changes apply to your dashboard, client portal, public review pages, and future client invitation emails.</p>
       <button class="primary" type="submit">Save settings</button>
-    </form>
-  </div>
+    </div>
+  </form>
 </section>
 {% endblock %}

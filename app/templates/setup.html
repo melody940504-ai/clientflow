@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 {% set title = 'Studio Setup - ClientFlow' %}
 {% block content %}
-<section class="auth-shell">
-  <div class="auth-card settings-card">
-    <p class="eyebrow">Studio setup</p>
-    <h1>Set up your workspace</h1>
-    <p class="muted">Add the basics clients will see in your review portal. You can edit these later from Settings.</p>
+<section class="settings-shell">
+  <div class="project-header">
+    <div>
+      <p class="eyebrow">Studio setup</p>
+      <h1>Set up your workspace</h1>
+      <p class="muted">Add the basics clients will see in your review portal.</p>
+    </div>
+  </div>
 
-    {% if error %}
-      <div class="error-box">{{ error }}</div>
-    {% endif %}
+  {% if error %}
+    <div class="error-box">{{ error }}</div>
+  {% endif %}
 
-    <form class="stack" method="post" action="/setup" novalidate>
+  <form class="panel settings-form" method="post" action="/setup" novalidate>
+    <div class="settings-grid">
       <label>Studio name
         <input type="text" name="studio_name" maxlength="60" required value="{{ branding.studio_name }}" placeholder="Acme Studio">
       </label>
@@ -27,9 +31,12 @@
       <label>Email sender name
         <input type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
       </label>
+    </div>
 
+    <div class="settings-actions">
+      <p class="muted small">You can update these later from Settings.</p>
       <button class="primary" type="submit">Continue to dashboard</button>
-    </form>
-  </div>
+    </div>
+  </form>
 </section>
 {% endblock %}
