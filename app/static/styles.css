@@ -80,7 +80,7 @@ button, input, textarea, select { font: inherit; }
 }
 .top-primary:hover { background: var(--primary-strong); filter: brightness(1.04); }
 .top-primary:active { transform: translateY(1px); }
-.container { width: min(1280px, calc(100% - 36px)); margin: 42px auto 88px; }
+.container { width: min(1440px, calc(100% - 56px)); margin: 42px auto 88px; }
 
 .hero, .project-header {
   display: flex;
@@ -101,9 +101,9 @@ h3 { margin: 10px 0; }
 .auth-card { width: min(460px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 30px; box-shadow: var(--shadow); }
 .landing-hero {
   display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(520px, 1.18fr);
+  grid-template-columns: minmax(440px, 0.95fr) minmax(560px, 1.05fr);
   align-items: center;
-  gap: 78px;
+  gap: clamp(72px, 8vw, 140px);
   min-height: calc(100vh - 190px);
   padding: 76px 0 96px;
 }
@@ -113,10 +113,10 @@ h3 { margin: 10px 0; }
 }
 .landing-copy h1 {
   margin-bottom: 0;
-  max-width: 700px;
-  font-size: clamp(4.6rem, 10vw, 9.2rem);
-  line-height: 0.86;
-  letter-spacing: -0.08em;
+  max-width: 720px;
+  font-size: clamp(4.4rem, 7.2vw, 7.8rem);
+  line-height: 0.9;
+  letter-spacing: -0.07em;
 }
 .landing-lead {
   max-width: 680px;
@@ -178,7 +178,7 @@ h3 { margin: 10px 0; }
   border-radius: 34px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--primary)), var(--surface));
   box-shadow: var(--shadow);
-  transform: perspective(1200px) rotateY(-3deg) rotateX(1deg);
+  transform: perspective(1200px) rotateY(-1.2deg) rotateX(0.6deg);
   transition: transform .28s ease, border-color .22s ease, box-shadow .22s ease;
 }
 .product-preview-panel:hover {
