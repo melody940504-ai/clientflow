@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% set title = 'Settings - ClientFlow' %}
+{% block content %}
+<section class="settings-shell">
+  <div class="project-header">
+    <div>
+      <a class="back" href="/dashboard">Back to dashboard</a>
+      <p class="eyebrow">Workspace settings</p>
+      <h1>Studio branding</h1>
+      <p class="muted">Control the name, logo, color, and sender label clients see across ClientFlow.</p>
+    </div>
+  </div>
+
+  <div class="panel settings-card">
+    {% if success %}
+      <div class="success-box">{{ success }}</div>
+    {% endif %}
+    {% if error %}
+      <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form class="stack" method="post" action="/settings" novalidate>
+      <label>Studio name
+        <input type="text" name="studio_name" maxlength="60" required value="{{ branding.studio_name }}" placeholder="Acme Studio">
+      </label>
+
+      <label>Brand color
+        <input type="color" name="brand_color" value="{{ branding.brand_color }}">
+      </label>
+
+      <label>Logo URL
+        <input type="url" name="logo_url" value="{{ branding.logo_url }}" placeholder="https://example.com/logo.png">
+      </label>
+
+      <label>Email sender name
+        <input type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
+      </label>
+
+      <button class="primary" type="submit">Save settings</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -64,6 +64,7 @@ STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 DEFAULT_STUDIO_NAME = "ClientFlow MVP"
 DEFAULT_BRAND_COLOR = "#6366f1"
+DEFAULT_EMAIL_SENDER_NAME = "ClientFlow"
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
@@ -149,12 +150,13 @@ def send_client_invitation_email(
     login_email: str,
     temporary_password: str,
     login_url: str,
+    sender_name: str = DEFAULT_EMAIL_SENDER_NAME,
 ):
     try:
         TEST_EMAIL = "melody940504@gmail.com"
 
         resend.Emails.send({
-            "from": "ClientFlow <onboarding@resend.dev>",
+            "from": f"{sender_name} <onboarding@resend.dev>",
             "to": [TEST_EMAIL],
             "subject": "You have been invited to ClientFlow",
             "html": f"""
@@ -315,6 +317,9 @@ def init_db() -> None:
                 reset_token_expires_at TEXT,
                 studio_name TEXT DEFAULT 'ClientFlow MVP',
                 brand_color TEXT DEFAULT '#6366f1',
+                logo_url TEXT,
+                email_sender_name TEXT DEFAULT 'ClientFlow',
+                setup_completed BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TEXT NOT NULL
             )
         """)
@@ -336,6 +341,15 @@ def init_db() -> None:
             )
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_color TEXT DEFAULT '#6366f1'"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS logo_url TEXT"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_sender_name TEXT DEFAULT 'ClientFlow'"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_completed BOOLEAN NOT NULL DEFAULT FALSE"
             )
         except Exception as e:
             print(f"User verification migration skipped: {e}")
@@ -436,19 +450,31 @@ def is_valid_hex_color(value: str) -> bool:
 def normalize_branding(row: Optional[sqlite3.Row]) -> dict:
     studio_name = DEFAULT_STUDIO_NAME
     brand_color = DEFAULT_BRAND_COLOR
+    logo_url = ""
+    email_sender_name = DEFAULT_EMAIL_SENDER_NAME
+    setup_completed = False
 
     if row:
         studio_name = (row["studio_name"] or DEFAULT_STUDIO_NAME).strip() or DEFAULT_STUDIO_NAME
         brand_color = (row["brand_color"] or DEFAULT_BRAND_COLOR).strip()
+        logo_url = (row["logo_url"] or "").strip()
+        email_sender_name = (row["email_sender_name"] or studio_name or DEFAULT_EMAIL_SENDER_NAME).strip()
+        setup_completed = bool(row["setup_completed"])
 
     if not is_valid_hex_color(brand_color):
         brand_color = DEFAULT_BRAND_COLOR
 
-    return {"studio_name": studio_name, "brand_color": brand_color}
+    return {
+        "studio_name": studio_name,
+        "brand_color": brand_color,
+        "logo_url": logo_url,
+        "email_sender_name": email_sender_name,
+        "setup_completed": setup_completed,
+    }
 
 def get_owner_branding(db, owner_id: int) -> dict:
     row = db.execute(
-        "SELECT studio_name, brand_color FROM users WHERE id = ?",
+        "SELECT studio_name, brand_color, logo_url, email_sender_name, setup_completed FROM users WHERE id = ?",
         (owner_id,),
     ).fetchone()
     return normalize_branding(row)
@@ -457,7 +483,7 @@ def get_branding_for_user(db, user: sqlite3.Row) -> dict:
     if user["role"] == "client":
         owner = db.execute(
             """
-            SELECT u.studio_name, u.brand_color
+            SELECT u.studio_name, u.brand_color, u.logo_url, u.email_sender_name, u.setup_completed
             FROM clients c
             JOIN users u ON c.user_id = u.id
             WHERE c.id = ?
@@ -467,6 +493,55 @@ def get_branding_for_user(db, user: sqlite3.Row) -> dict:
         return normalize_branding(owner)
 
     return normalize_branding(user)
+
+def owner_needs_setup(user: sqlite3.Row) -> bool:
+    return user["role"] == "owner" and not bool(user["setup_completed"])
+
+def post_login_path(user: sqlite3.Row) -> str:
+    return "/setup" if owner_needs_setup(user) else "/dashboard"
+
+def sanitize_optional_url(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    if value.startswith("https://") or value.startswith("http://"):
+        return value[:500]
+    return ""
+
+def save_studio_settings(
+    db,
+    user_id: int,
+    studio_name: str,
+    brand_color: str,
+    logo_url: str,
+    email_sender_name: str,
+    setup_completed: bool,
+) -> Optional[str]:
+    studio_name = studio_name.strip()[:60] or DEFAULT_STUDIO_NAME
+    brand_color = brand_color.strip()
+    logo_url = sanitize_optional_url(logo_url)
+    email_sender_name = (
+        email_sender_name.strip().replace("<", "").replace(">", "")[:60]
+        or studio_name
+    )
+
+    if not is_valid_hex_color(brand_color):
+        return "Brand color must be a valid hex color."
+
+    db.execute(
+        """
+        UPDATE users
+        SET studio_name = ?,
+            brand_color = ?,
+            logo_url = ?,
+            email_sender_name = ?,
+            setup_completed = ?
+        WHERE id = ?
+        """,
+        (studio_name, brand_color, logo_url, email_sender_name, setup_completed, user_id),
+    )
+
+    return None
 
 def redirect(path: str):
     return RedirectResponse(path, status_code=303)
@@ -554,7 +629,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     if not verify_password(password, user["password_hash"]):
         return RedirectResponse(url="/?error=wrong_password", status_code=303)
     
-    response = RedirectResponse(url="/dashboard", status_code=303)
+    response = RedirectResponse(url=post_login_path(user), status_code=303)
     response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
     return response
 
@@ -701,7 +776,7 @@ async def auth_google_callback(request: Request):
                 (email,)
             ).fetchone()
 
-    response = RedirectResponse(url="/dashboard", status_code=303)
+    response = RedirectResponse(url=post_login_path(user), status_code=303)
     response.set_cookie(
         "session",
         serializer.dumps(user["id"]),
@@ -750,6 +825,9 @@ def logout():
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, status: str = "all", category: str = "all", client_id: str = "all"):
     user = require_user(request)
+
+    if owner_needs_setup(user):
+        return redirect("/setup")
     
     with get_db() as db:
         if user["role"] == "client":
@@ -910,31 +988,101 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
     )
 
 
+@app.get("/setup", response_class=HTMLResponse)
+def setup_page(request: Request):
+    user = require_user(request)
+
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+
+    return templates.TemplateResponse(
+        "setup.html",
+        {
+            "request": request,
+            "user": user,
+            "branding": normalize_branding(user),
+            "error": request.query_params.get("error"),
+        },
+    )
+
+
+@app.post("/setup")
+def complete_setup(
+    request: Request,
+    studio_name: str = Form(""),
+    brand_color: str = Form(DEFAULT_BRAND_COLOR),
+    logo_url: str = Form(""),
+    email_sender_name: str = Form(""),
+):
+    user = require_user(request)
+
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+
+    with get_db() as db:
+        error = save_studio_settings(
+            db,
+            user["id"],
+            studio_name,
+            brand_color,
+            logo_url,
+            email_sender_name,
+            True,
+        )
+
+    if error:
+        return redirect(f"/setup?error={error.replace(' ', '+')}")
+
+    return redirect("/dashboard?success=Studio+setup+complete.")
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request):
+    user = require_user(request)
+
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "user": user,
+            "branding": normalize_branding(user),
+            "error": request.query_params.get("error"),
+            "success": request.query_params.get("success"),
+        },
+    )
+
+
 @app.post("/settings")
 def update_settings(
     request: Request,
     studio_name: str = Form(""),
     brand_color: str = Form(DEFAULT_BRAND_COLOR),
+    logo_url: str = Form(""),
+    email_sender_name: str = Form(""),
 ):
     user = require_user(request)
 
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only studio owners can update settings.")
 
-    studio_name = studio_name.strip() or DEFAULT_STUDIO_NAME
-    studio_name = studio_name[:60]
-    brand_color = brand_color.strip()
-
-    if not is_valid_hex_color(brand_color):
-        return redirect("/dashboard?error=Brand+color+must+be+a+valid+hex+color.")
-
     with get_db() as db:
-        db.execute(
-            "UPDATE users SET studio_name = ?, brand_color = ? WHERE id = ?",
-            (studio_name, brand_color, user["id"]),
+        error = save_studio_settings(
+            db,
+            user["id"],
+            studio_name,
+            brand_color,
+            logo_url,
+            email_sender_name,
+            True,
         )
 
-    return redirect("/dashboard?success=Settings+updated.")
+    if error:
+        return redirect(f"/settings?error={error.replace(' ', '+')}")
+
+    return redirect("/settings?success=Settings+updated.")
 
 
 @app.post("/clients")
@@ -1014,12 +1162,14 @@ def create_client(
             (generated_notes, client_id)
         )
 
+        branding = get_branding_for_user(db, user)
         send_client_invitation_email(
             to_email=login_email,
             client_name=name.strip(),
             login_email=login_email,
             temporary_password=client_password,
             login_url="https://clientflow-q250.onrender.com",
+            sender_name=branding["email_sender_name"],
         )
 
     return redirect("/dashboard")

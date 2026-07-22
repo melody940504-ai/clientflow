@@ -78,6 +78,9 @@
         .brand-bg-fix {
             background-color: var(--brand-color, #6366f1);
         }
+        .brand-logo-fix {
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 40%, transparent);
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
@@ -89,6 +92,9 @@
             {% if not is_public_link %}
             <a href="/dashboard" class="text-sm text-gray-400-fix hover:text-indigo-400 transition">← Dashboard</a>
             <span class="text-gray-600">/</span>
+            {% endif %}
+            {% if branding.logo_url %}
+            <img src="{{ branding.logo_url }}" alt="{{ branding.studio_name }} logo" class="brand-logo-fix h-7 w-7 shrink-0 rounded-lg border object-cover">
             {% endif %}
             <span class="brand-text-fix text-xs font-black uppercase tracking-wider">{{ branding.studio_name }}</span>
             <span class="text-gray-600">/</span>
