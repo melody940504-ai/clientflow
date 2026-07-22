@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -220,6 +220,54 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 🎯 不論是在本機 Windows 還是雲端 Linux，都能精準拼出正確的資料庫絕對路徑
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 
+def send_password_reset_email(to_email: str, reset_url: str):
+    try:
+        recipient = os.getenv("EMAIL_TEST_RECIPIENT") or to_email
+
+        resend.Emails.send({
+            "from": "ClientFlow <onboarding@resend.dev>",
+            "to": [recipient],
+            "subject": "Reset your ClientFlow password",
+            "html": f"""
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+
+                <h2 style="color:#4f46e5;">
+                    Reset your ClientFlow password
+                </h2>
+
+                <p>
+                    We received a request to reset your ClientFlow password.
+                </p>
+
+                <p style="margin-top:24px">
+                    <a
+                        href="{reset_url}"
+                        style="
+                            background:#4f46e5;
+                            color:white;
+                            padding:12px 20px;
+                            text-decoration:none;
+                            border-radius:8px;
+                            display:inline-block;
+                        "
+                    >
+                        Reset Password
+                    </a>
+                </p>
+
+                <p style="font-size:12px;color:#6b7280;margin-top:24px;">
+                    This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.
+                </p>
+
+            </div>
+            """
+        })
+
+        print(f"Password reset email sent to {recipient}")
+
+    except Exception as e:
+        print(f"Password reset email failed: {e}")
+
 class PostgresDB:
     def __init__(self):
         self.conn = psycopg2.connect(
@@ -261,6 +309,8 @@ def init_db() -> None:
                 client_reference_id INTEGER,
                 is_verified BOOLEAN NOT NULL DEFAULT FALSE,
                 verification_token TEXT,
+                reset_token TEXT,
+                reset_token_expires_at TEXT,
                 created_at TEXT NOT NULL
             )
         """)
@@ -270,6 +320,12 @@ def init_db() -> None:
             )
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TEXT"
             )
         except Exception as e:
             print(f"User verification migration skipped: {e}")
@@ -451,6 +507,103 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     response = RedirectResponse(url="/dashboard", status_code=303)
     response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
     return response
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse(
+        "forgot_password.html",
+        {"request": request},
+    )
+
+@app.post("/forgot-password")
+def forgot_password(request: Request, email: str = Form(...)):
+    email_clean = email.strip().lower()
+    reset_token = secrets.token_urlsafe(32)
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
+    with get_db() as db:
+        user = db.execute(
+            "SELECT * FROM users WHERE email = ?",
+            (email_clean,),
+        ).fetchone()
+
+        if user:
+            db.execute(
+                """
+                UPDATE users
+                SET reset_token = ?, reset_token_expires_at = ?
+                WHERE id = ?
+                """,
+                (reset_token, expires_at, user["id"]),
+            )
+
+            reset_url = f"{request.base_url}reset-password/{reset_token}"
+            send_password_reset_email(email_clean, reset_url)
+
+    return redirect("/forgot-password?success=reset-link-sent")
+
+@app.get("/reset-password/{token}", response_class=HTMLResponse)
+def reset_password_page(request: Request, token: str):
+    with get_db() as db:
+        user = db.execute(
+            "SELECT * FROM users WHERE reset_token = ?",
+            (token,),
+        ).fetchone()
+
+    token_valid = False
+    if user and user["reset_token_expires_at"]:
+        try:
+            expires_at = datetime.fromisoformat(user["reset_token_expires_at"])
+            token_valid = expires_at >= datetime.utcnow()
+        except ValueError:
+            token_valid = False
+
+    if not token_valid:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "token_valid": False},
+        )
+
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "token": token, "token_valid": True},
+    )
+
+@app.post("/reset-password/{token}")
+def reset_password(token: str, password: str = Form(...)):
+    if len(password) < 6:
+        return redirect(f"/reset-password/{token}?error=password-too-short")
+
+    with get_db() as db:
+        user = db.execute(
+            "SELECT * FROM users WHERE reset_token = ?",
+            (token,),
+        ).fetchone()
+
+        if not user or not user["reset_token_expires_at"]:
+            return redirect(f"/reset-password/{token}?error=invalid-or-expired")
+
+        try:
+            expires_at = datetime.fromisoformat(user["reset_token_expires_at"])
+        except ValueError:
+            return redirect(f"/reset-password/{token}?error=invalid-or-expired")
+
+        if expires_at < datetime.utcnow():
+            return redirect(f"/reset-password/{token}?error=invalid-or-expired")
+
+        db.execute(
+            """
+            UPDATE users
+            SET password_hash = ?,
+                reset_token = NULL,
+                reset_token_expires_at = NULL,
+                is_verified = TRUE
+            WHERE id = ?
+            """,
+            (hash_password(password), user["id"]),
+        )
+
+    return redirect("/?success=password-reset")
 
 @app.get("/login/google")
 async def login_google(request: Request):

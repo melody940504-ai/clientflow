@@ -36,6 +36,8 @@
 
         {% elif request.query_params.get('success') == 'email-verified' %}
             Email verified successfully! You can now log in.
+        {% elif request.query_params.get('success') == 'password-reset' %}
+            Password reset successfully! You can now log in with your new password.
         {% endif %}
       </div>
     {% endif %}
@@ -85,6 +87,11 @@
     <p class="muted small">
       {% if mode == 'register' %}Already have an account? <a href="/">Login</a>{% else %}New here? <a href="/register">Create an account</a>{% endif %}
     </p>
+    {% if mode != 'register' %}
+    <p class="muted small">
+      <a href="/forgot-password">Forgot your password?</a>
+    </p>
+    {% endif %}
   </div>
 </section>
 
