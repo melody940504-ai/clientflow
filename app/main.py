@@ -62,6 +62,8 @@ templates.env.filters["utc_iso"] = format_utc_iso
 DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
+DEFAULT_STUDIO_NAME = "ClientFlow MVP"
+DEFAULT_BRAND_COLOR = "#6366f1"
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
@@ -311,6 +313,8 @@ def init_db() -> None:
                 verification_token TEXT,
                 reset_token TEXT,
                 reset_token_expires_at TEXT,
+                studio_name TEXT DEFAULT 'ClientFlow MVP',
+                brand_color TEXT DEFAULT '#6366f1',
                 created_at TEXT NOT NULL
             )
         """)
@@ -326,6 +330,12 @@ def init_db() -> None:
             )
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TEXT"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS studio_name TEXT DEFAULT 'ClientFlow MVP'"
+            )
+            db.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_color TEXT DEFAULT '#6366f1'"
             )
         except Exception as e:
             print(f"User verification migration skipped: {e}")
@@ -417,6 +427,46 @@ def require_user(request: Request) -> sqlite3.Row:
     if not user:
         raise HTTPException(status_code=401)
     return user
+
+def is_valid_hex_color(value: str) -> bool:
+    if len(value) != 7 or not value.startswith("#"):
+        return False
+    return all(char in "0123456789abcdefABCDEF" for char in value[1:])
+
+def normalize_branding(row: Optional[sqlite3.Row]) -> dict:
+    studio_name = DEFAULT_STUDIO_NAME
+    brand_color = DEFAULT_BRAND_COLOR
+
+    if row:
+        studio_name = (row["studio_name"] or DEFAULT_STUDIO_NAME).strip() or DEFAULT_STUDIO_NAME
+        brand_color = (row["brand_color"] or DEFAULT_BRAND_COLOR).strip()
+
+    if not is_valid_hex_color(brand_color):
+        brand_color = DEFAULT_BRAND_COLOR
+
+    return {"studio_name": studio_name, "brand_color": brand_color}
+
+def get_owner_branding(db, owner_id: int) -> dict:
+    row = db.execute(
+        "SELECT studio_name, brand_color FROM users WHERE id = ?",
+        (owner_id,),
+    ).fetchone()
+    return normalize_branding(row)
+
+def get_branding_for_user(db, user: sqlite3.Row) -> dict:
+    if user["role"] == "client":
+        owner = db.execute(
+            """
+            SELECT u.studio_name, u.brand_color
+            FROM clients c
+            JOIN users u ON c.user_id = u.id
+            WHERE c.id = ?
+            """,
+            (user["client_reference_id"],),
+        ).fetchone()
+        return normalize_branding(owner)
+
+    return normalize_branding(user)
 
 def redirect(path: str):
     return RedirectResponse(path, status_code=303)
@@ -822,6 +872,7 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             """,
             (target_id,),
         ).fetchone()
+        branding = get_branding_for_user(db, user)
 
     # 從 clients.notes 解析測試用客戶密碼，供 dashboard.html 顯示 c.raw_password
     parsed_clients = []
@@ -848,6 +899,7 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             "clients": clients,
             "projects": projects,
             "stats": stats,
+            "branding": branding,
             "notifications": notifications,
             "status_options": STATUS_OPTIONS,
             "category_options": CATEGORY_OPTIONS,
@@ -856,6 +908,33 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             "selected_client_id": client_id,
         },
     )
+
+
+@app.post("/settings")
+def update_settings(
+    request: Request,
+    studio_name: str = Form(""),
+    brand_color: str = Form(DEFAULT_BRAND_COLOR),
+):
+    user = require_user(request)
+
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only studio owners can update settings.")
+
+    studio_name = studio_name.strip() or DEFAULT_STUDIO_NAME
+    studio_name = studio_name[:60]
+    brand_color = brand_color.strip()
+
+    if not is_valid_hex_color(brand_color):
+        return redirect("/dashboard?error=Brand+color+must+be+a+valid+hex+color.")
+
+    with get_db() as db:
+        db.execute(
+            "UPDATE users SET studio_name = ?, brand_color = ? WHERE id = ?",
+            (studio_name, brand_color, user["id"]),
+        )
+
+    return redirect("/dashboard?success=Settings+updated.")
 
 
 @app.post("/clients")
@@ -1070,6 +1149,7 @@ def project_detail(request: Request, project_id: int):
                 if "::" in att:
                     title, url = att.split("::", 1)
                     attachments.append({"title": title.strip(), "url": url.strip()})
+        branding = get_owner_branding(db, project["user_id"])
         
     return templates.TemplateResponse(
         "project.html",
@@ -1077,6 +1157,7 @@ def project_detail(request: Request, project_id: int):
             "request": request,
             "user": user,
             "project": project,
+            "branding": branding,
             "display_notes": display_notes,  # 傳遞乾淨的備註文字給前端
             "attachments": attachments,      # 傳遞解析好的附件清單給前端
             "versions": versions,
@@ -1328,6 +1409,7 @@ def public_review_page(request: Request, project_id: int):
                 if "::" in att:
                     title, url = att.split("::", 1)
                     attachments.append({"title": title.strip(), "url": url.strip()})
+        branding = get_owner_branding(db, project["user_id"])
 
     return templates.TemplateResponse(
         "project.html",
@@ -1335,6 +1417,7 @@ def public_review_page(request: Request, project_id: int):
             "request": request,
             "user": {"role": "client", "email": "Public Reviewer"},
             "project": project,
+            "branding": branding,
             "display_notes": display_notes,
             "attachments": attachments,
             "versions": versions,

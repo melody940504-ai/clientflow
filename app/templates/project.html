@@ -72,9 +72,15 @@
             border-color: #cbd5e1 !important;
             color: #475569 !important;
         }
+        .brand-text-fix {
+            color: var(--brand-color, #6366f1);
+        }
+        .brand-bg-fix {
+            background-color: var(--brand-color, #6366f1);
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200">
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
     <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex w-[calc(100%-2rem)] max-w-md flex-col items-center sm:top-24"></div>
 
@@ -84,6 +90,8 @@
             <a href="/dashboard" class="text-sm text-gray-400-fix hover:text-indigo-400 transition">← Dashboard</a>
             <span class="text-gray-600">/</span>
             {% endif %}
+            <span class="brand-text-fix text-xs font-black uppercase tracking-wider">{{ branding.studio_name }}</span>
+            <span class="text-gray-600">/</span>
             <span class="min-w-0 max-w-full break-words text-base font-bold text-white-fix sm:text-lg">{{ project.name }}</span>
             <span class="max-w-full truncate text-xs bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full text-indigo-400 font-medium">{{ project.client_name }}</span>
         </div>
@@ -270,7 +278,7 @@
 
                     <button
                         type="submit"
-                        class="md:col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl px-4 py-2.5 transition text-sm"
+                        class="brand-bg-fix md:col-span-3 text-white font-medium rounded-xl px-4 py-2.5 transition text-sm opacity-95 hover:opacity-100"
                     >
                         ➕ Upload Version
                     </button>
@@ -297,7 +305,7 @@
                             </div>
                             <p class="text-xs text-gray-500">Pushed on <time data-utc="{{ v.created_at|utc_iso }}" data-format="date">{{ v.created_at[:10] }}</time></p>
                         </div>
-                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="w-full justify-center text-sm px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 sm:w-auto sm:py-2">
+                        <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="brand-bg-fix w-full justify-center text-sm px-4 py-2.5 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 opacity-95 hover:opacity-100 sm:w-auto sm:py-2">
                             ▶ Play Video
                         </button>
                     </div>

@@ -94,6 +94,12 @@
         .notification-item.is-read .unread-dot {
             display: none;
         }
+        .brand-text-fix {
+            color: var(--brand-color, #6366f1);
+        }
+        .brand-bg-fix {
+            background-color: var(--brand-color, #6366f1);
+        }
 
         /* 🏃‍♂️ 修正二：翻修原本醜醜的 Logout 按鈕，改成高對比清爽紅框質感 */
         .light-theme a[href="/logout"] {
@@ -107,13 +113,13 @@
         }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200">
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
 
     <div id="toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center"></div>
 
     <nav class="border-b border-gray-900 bg-gray-950/50 backdrop-blur px-4 py-4 flex flex-col gap-4 sm:px-6 md:flex-row md:justify-between md:items-center">
         <div class="flex w-full min-w-0 items-center justify-between gap-3 md:w-auto md:justify-start">
-            <span class="truncate text-lg font-black bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent sm:text-xl">ClientFlow MVP</span>
+            <span class="brand-text-fix truncate text-lg font-black sm:text-xl">{{ branding.studio_name }}</span>
             <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full font-bold border border-gray-700 tracking-wider uppercase">
                 {% if user.role == 'client' %}
                     Client Portal
@@ -200,6 +206,29 @@
         {% endif %}
 
         {% if user.role != 'client' %}
+        <details class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-sm group">
+            <summary class="cursor-pointer list-none flex items-center justify-between gap-3">
+                <span class="text-sm font-bold text-white-fix">Settings</span>
+                <span class="text-[10px] text-gray-500 font-mono uppercase tracking-wider group-open:hidden">Closed</span>
+                <span class="hidden text-[10px] text-gray-500 font-mono uppercase tracking-wider group-open:inline">Open</span>
+            </summary>
+            <form action="/settings" method="post" novalidate class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
+                <label class="space-y-1">
+                    <span class="text-xs font-semibold text-gray-400-fix">Studio name</span>
+                    <input type="text" name="studio_name" maxlength="60" value="{{ branding.studio_name }}" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs font-semibold text-gray-400-fix">Brand color</span>
+                    <input type="color" name="brand_color" value="{{ branding.brand_color }}" class="input-fix h-10 w-full cursor-pointer bg-gray-900 border border-gray-800 rounded-xl px-2 py-1">
+                </label>
+                <button type="submit" class="brand-bg-fix w-full rounded-xl px-4 py-2 text-sm font-bold text-white transition opacity-95 hover:opacity-100 md:w-auto">
+                    Save Settings
+                </button>
+            </form>
+        </details>
+        {% endif %}
+
+        {% if user.role != 'client' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
             <!-- 👥 Add Client -->
             <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
@@ -210,7 +239,7 @@
                         <input type="email" name="email" required placeholder="Client Email" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <input type="text" name="contact" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <textarea name="notes" placeholder="Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-indigo-600/10 mt-2">
+                        <button type="submit" class="brand-bg-fix w-full text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-indigo-600/10 mt-2 opacity-95 hover:opacity-100">
                             Save Client & Generate Pass
                         </button>
                     </form>
@@ -245,7 +274,7 @@
                             </select>
                         </div>
                         <textarea name="notes" placeholder="Project Scope / Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
-                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-purple-600/10 mt-2">
+                        <button type="submit" class="brand-bg-fix w-full text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-purple-600/10 mt-2 opacity-95 hover:opacity-100">
                             Create Project
                         </button>
                     </form>
