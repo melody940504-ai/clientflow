@@ -15,22 +15,62 @@
   {% endif %}
 
   <form class="panel settings-form" method="post" action="/setup" novalidate>
-    <div class="settings-grid">
-      <label>Studio name
-        <input type="text" name="studio_name" maxlength="60" required value="{{ branding.studio_name }}" placeholder="Acme Studio">
-      </label>
+    <div class="settings-layout">
+      <div class="settings-fields">
+        <div class="field-group">
+          <div>
+            <h2>Brand identity</h2>
+            <p class="muted small">The name and logo shown to clients.</p>
+          </div>
+          <label>Studio name
+            <input data-brand-name type="text" name="studio_name" maxlength="60" required value="{{ branding.studio_name }}" placeholder="Acme Studio">
+          </label>
+          <label>Logo URL
+            <input data-logo-url type="url" name="logo_url" value="{{ branding.logo_url }}" placeholder="https://example.com/logo.png">
+          </label>
+        </div>
 
-      <label>Brand color
-        <input type="color" name="brand_color" value="{{ branding.brand_color }}">
-      </label>
+        <div class="field-group">
+          <div>
+            <h2>Visual style</h2>
+            <p class="muted small">Choose a primary color for buttons and accents.</p>
+          </div>
+          <div class="color-row">
+            <input data-brand-color type="color" name="brand_color" value="{{ branding.brand_color }}" aria-label="Brand color">
+            <button type="button" class="swatch" data-color="#6366f1" style="--swatch:#6366f1"></button>
+            <button type="button" class="swatch" data-color="#0ea5e9" style="--swatch:#0ea5e9"></button>
+            <button type="button" class="swatch" data-color="#10b981" style="--swatch:#10b981"></button>
+            <button type="button" class="swatch" data-color="#f59e0b" style="--swatch:#f59e0b"></button>
+            <button type="button" class="swatch" data-color="#ec4899" style="--swatch:#ec4899"></button>
+          </div>
+        </div>
 
-      <label>Logo URL
-        <input type="url" name="logo_url" value="{{ branding.logo_url }}" placeholder="https://example.com/logo.png">
-      </label>
+        <div class="field-group">
+          <div>
+            <h2>Email label</h2>
+            <p class="muted small">Used as the sender display name for future client invitations.</p>
+          </div>
+          <label>Email sender name
+            <input data-sender-name type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
+          </label>
+        </div>
+      </div>
 
-      <label>Email sender name
-        <input type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
-      </label>
+      <aside class="brand-preview">
+        <span class="preview-kicker">Client preview</span>
+        <div class="preview-card">
+          <div class="preview-logo" data-preview-logo>
+            {% if branding.logo_url %}
+            <img src="{{ branding.logo_url }}" alt="">
+            {% else %}
+            <span>{{ branding.studio_name[:2].upper() }}</span>
+            {% endif %}
+          </div>
+          <strong data-preview-name>{{ branding.studio_name }}</strong>
+          <p class="muted small">Project reviews, approval buttons, and invitation emails will carry this identity.</p>
+          <button type="button" class="primary preview-button">Review project</button>
+        </div>
+      </aside>
     </div>
 
     <div class="settings-actions">
@@ -39,4 +79,5 @@
     </div>
   </form>
 </section>
+<script src="/static/settings.js"></script>
 {% endblock %}
