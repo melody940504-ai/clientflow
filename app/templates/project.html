@@ -39,6 +39,37 @@
         .light-theme .input-fix::placeholder {
             color: #9ca3af !important;
         }
+        .light-theme .nav-action-fix {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        .light-theme .nav-action-fix:hover {
+            background-color: #f1f5f9 !important;
+        }
+        .light-theme .theme-surface-fix,
+        .light-theme .bg-gray-950\/20,
+        .light-theme .bg-gray-950\/10,
+        .light-theme .bg-gray-900\/50,
+        .light-theme .bg-gray-800\/10 {
+            background-color: #f8fafc !important;
+        }
+        .light-theme .theme-border-fix,
+        .light-theme .border-gray-800,
+        .light-theme .border-gray-800\/60,
+        .light-theme .border-gray-800\/50,
+        .light-theme .border-gray-800\/40,
+        .light-theme .border-gray-700 {
+            border-color: #e2e8f0 !important;
+        }
+        .light-theme .theme-border-fix:hover {
+            border-color: #cbd5e1 !important;
+        }
+        .light-theme .theme-chip-fix {
+            background-color: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #475569 !important;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200">
@@ -56,7 +87,7 @@
         </div>
         
         <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:w-auto lg:gap-4">
-            <button id="theme-toggle" class="w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm sm:w-auto sm:py-1.5">
+            <button id="theme-toggle" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm sm:w-auto sm:py-1.5">
                 🌓 Toggle Theme
             </button>
 
@@ -88,7 +119,7 @@
             <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-4 shadow-sm">
                 <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
                     <h3 class="text-sm font-bold text-white-fix flex items-center gap-1.5">📁 Project Brief & Attachments</h3>
-                    <span class="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ attachments|length }} files</span>
+                    <span class="theme-chip-fix text-xs font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ attachments|length }} files</span>
                 </div>
 
                 {% if display_notes %}
@@ -360,7 +391,7 @@
 
                             {% if c.version_label %}
                             <div class="text-[10px] flex justify-end">
-                                <span class="bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ c.version_label }}</span>
+                                <span class="theme-chip-fix bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ c.version_label }}</span>
                             </div>
                             {% endif %}
                         </div>
@@ -473,27 +504,21 @@
         }
 
         function formatLocalTimes() {
-            const dateFormatter = new Intl.DateTimeFormat(undefined, {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit"
-            });
-
-            const datetimeFormatter = new Intl.DateTimeFormat(undefined, {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit"
-            });
+            const padDatePart = (value) => String(value).padStart(2, "0");
+            const formatLocalDate = (date) => [
+                date.getFullYear(),
+                padDatePart(date.getMonth() + 1),
+                padDatePart(date.getDate())
+            ].join("/");
+            const formatLocalDateTime = (date) => `${formatLocalDate(date)} ${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
 
             document.querySelectorAll("time[data-utc]").forEach((timeElement) => {
                 const date = new Date(timeElement.dataset.utc);
                 if (Number.isNaN(date.getTime())) return;
 
                 timeElement.textContent = timeElement.dataset.format === "date"
-                    ? dateFormatter.format(date)
-                    : datetimeFormatter.format(date);
+                    ? formatLocalDate(date)
+                    : formatLocalDateTime(date);
             });
         }
 
