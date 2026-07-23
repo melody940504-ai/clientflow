@@ -2,8 +2,18 @@
 {% set title = 'Lumaire Login' %}
 {% block content %}
 <section class="auth-shell">
+  <div class="auth-context" aria-hidden="true">
+    <p class="eyebrow">Lumaire workspace</p>
+    <h2>Clarity for<br>every cut.</h2>
+    <p>Built for studios and the clients who review their work.</p>
+    <div class="auth-mark">
+      <span>LU</span>
+      <i></i>
+      <small>Review / Refine / Deliver</small>
+    </div>
+  </div>
   <div class="auth-card">
-    <p class="eyebrow">Short-form video delivery dashboard</p>
+    <p class="eyebrow">Secure workspace access</p>
     <h1>{% if mode == 'register' %}Create your workspace{% else %}Welcome back{% endif %}</h1>
     <p class="muted">Track clients, projects, video versions, approvals, and revision notes without storing heavy video files.</p>
     {% if request.query_params.get('error') %}

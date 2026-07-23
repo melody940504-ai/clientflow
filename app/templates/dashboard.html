@@ -11,6 +11,9 @@
             document.documentElement.classList.add('light-theme');
         }
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* 🎨 頂級淺色模式美化 */
         .light-theme body {
@@ -195,12 +198,13 @@
             border-color: #fca5a5 !important;
         }
     </style>
+    <link rel="stylesheet" href="/static/workspace.css?v=20260723-visual-refresh">
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
+<body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
 
     <div id="toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center"></div>
 
-    <nav class="border-b border-gray-900 bg-gray-950/50 backdrop-blur px-4 py-4 flex flex-col gap-4 sm:px-6 md:flex-row md:justify-between md:items-center">
+    <nav class="workspace-nav border-b border-gray-900 bg-gray-950/50 backdrop-blur px-4 py-4 flex flex-col gap-4 sm:px-6 md:flex-row md:justify-between md:items-center">
         <div class="flex w-full min-w-0 items-center justify-between gap-3 md:w-auto md:justify-start">
             <div class="flex min-w-0 items-center gap-2">
                 {% if branding.logo_url %}
@@ -280,7 +284,7 @@
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto p-4 space-y-6 sm:p-6 sm:space-y-8">
+    <main class="workspace-main max-w-7xl mx-auto p-4 space-y-6 sm:p-6 sm:space-y-8">
 
         {% if is_demo %}
         <section class="flex flex-col gap-3 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -293,27 +297,45 @@
             {% endif %}
         </section>
         {% endif %}
+
+        <section class="workspace-heading">
+            <div>
+                <p class="workspace-kicker">
+                    {% if user.role == 'client' %}Client workspace{% else %}Studio workspace{% endif %}
+                </p>
+                <h1>
+                    {% if user.role == 'client' %}Projects ready for review{% else %}Workspace overview{% endif %}
+                </h1>
+            </div>
+            <p>
+                {% if user.role == 'client' %}
+                    Review current versions and keep every decision attached to the project.
+                {% else %}
+                    A focused view of active client work, review status, and delivery progress.
+                {% endif %}
+            </p>
+        </section>
         
         {% if user.role != 'client' %}
         <!-- 📊 數據看版區塊 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm">
+        <div class="workspace-stats grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+            <div class="workspace-stat bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm" data-tone="neutral">
                 <p class="text-xs font-semibold text-gray-400-fix">Total Projects</p>
                 <p class="text-3xl font-black text-white-fix mt-1">{{ stats.total }}</p>
             </div>
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-amber-500/50">
+            <div class="workspace-stat bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-amber-500/50" data-tone="amber">
                 <p class="text-xs font-semibold text-amber-500">Awaiting Review</p>
                 <p class="text-3xl font-black text-amber-500 mt-1">{{ stats.awaiting }}</p>
             </div>
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-blue-500/50">
+            <div class="workspace-stat bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-blue-500/50" data-tone="blue">
                 <p class="text-xs font-semibold text-blue-400">In Revision</p>
                 <p class="text-3xl font-black text-blue-400 mt-1">{{ stats.revision }}</p>
             </div>
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500/50">
+            <div class="workspace-stat bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500/50" data-tone="green">
                 <p class="text-xs font-semibold text-emerald-400">Approved</p>
                 <p class="text-3xl font-black text-emerald-400 mt-1">{{ stats.approved }}</p>
             </div>
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-purple-500/50 md:col-span-1">
+            <div class="workspace-stat bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-5 rounded-2xl shadow-sm border-l-4 border-l-purple-500/50 md:col-span-1" data-tone="violet">
                 <p class="text-xs font-semibold text-purple-400">Published</p>
                 <p class="text-3xl font-black text-purple-400 mt-1">{{ stats.published }}</p>
             </div>
@@ -321,9 +343,9 @@
         {% endif %}
 
         {% if user.role != 'client' and not is_demo %}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+        <div class="workspace-actions-grid grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
             <!-- 👥 Add Client -->
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
+            <div class="workspace-form-panel bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
                 <div>
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">✨ Add Client</h3>
                     <form action="/clients" method="post" novalidate class="space-y-3 m-0">
@@ -339,7 +361,7 @@
             </div>
 
             <!-- 📁 Add Project -->
-            <div class="bg-card-fix bg-gray-900/40 border border-gray-800 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
+            <div class="workspace-form-panel bg-card-fix bg-gray-900/40 border border-gray-800 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
                 <div>
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">🚀 Add Project</h3>
                     <form action="/projects" method="post" novalidate class="space-y-3 m-0">
@@ -376,7 +398,7 @@
         {% endif %}
 
         <!-- 📂 專案列表 -->
-        <div class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+        <div class="workspace-projects bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <h3 class="text-base font-bold text-white-fix">
             {% if user.role == 'client' %}
                 My Projects Awaiting Review
@@ -386,7 +408,7 @@
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for p in projects %}
-                <a href="/projects/{{ p.id }}" class="bg-inner-card bg-gray-950/40 hover:bg-gray-900/60 border border-gray-900 hover:border-gray-700 p-4 sm:p-5 rounded-xl transition flex flex-col justify-between space-y-4 group">
+                <a href="/projects/{{ p.id }}" class="workspace-project-card bg-inner-card bg-gray-950/40 hover:bg-gray-900/60 border border-gray-900 hover:border-gray-700 p-4 sm:p-5 rounded-xl transition flex flex-col justify-between space-y-4 group">
                     <div class="space-y-1">
                         <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
                             <h4 class="break-words font-bold text-white-fix group-hover:text-indigo-400 transition">{{ p.name }}</h4>
