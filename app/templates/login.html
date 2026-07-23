@@ -22,6 +22,8 @@
                 The shared demo account is not available yet. Please try again after the current deployment finishes.
             {% elif request.query_params.get('error') == 'google-unavailable' %}
                 Google login is not configured for this environment. Use email login instead.
+            {% elif request.query_params.get('error') == 'session-expired' %}
+                Your session expired after the latest update. Please log in again.
             {% elif request.query_params.get('error') == 'password-too-short' %}
                 Passwords must contain at least 6 characters.
             {% else %}

@@ -688,7 +688,10 @@ def get_current_user(request: Request) -> Optional[sqlite3.Row]:
 def require_user(request: Request) -> sqlite3.Row:
     user = get_current_user(request)
     if not user:
-        raise HTTPException(status_code=401)
+        raise HTTPException(
+            status_code=303,
+            headers={"Location": "/login?error=session-expired"},
+        )
     return user
 
 
