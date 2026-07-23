@@ -17,10 +17,10 @@ The shared studio account is read-only. Creation, upload, branding, delivery, an
 
 1. Log out, return to the landing page, and choose **Open client view**.
 2. Open an assigned Acme Studio project.
-3. Compare versions and review the comment, revision, and approval controls.
+3. Compare versions and review the seeded comments, repeated revision requests, approvals, and delivery history.
 4. Resize the browser or open the page on a phone to see the mobile client workflow.
 
-The client demo is also read-only, so all seeded projects remain stable for the next visitor.
+**Launch Reels Package** remains in revision so the active client workflow is easy to inspect; the other projects demonstrate approved and delivered states. The client demo is read-only, so all seeded projects remain stable for the next visitor.
 
 ## Full Workflow in a Private Account
 
@@ -32,4 +32,3 @@ For a writable test, create a separate owner account and complete this path:
 4. Open the generated public review link in a private browser window.
 5. Leave feedback, request a revision, or approve the version.
 6. Return to the owner dashboard to inspect the notification, timeline, status, and analytics update.
-

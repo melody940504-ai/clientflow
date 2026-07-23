@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% set title = 'Account Settings - Lumaire' %}
+{% block content %}
+<section class="settings-shell account-shell">
+  <div class="page-crumb">
+    <a href="/dashboard">&larr; Dashboard</a>
+    <span>/</span>
+    <strong>Account settings</strong>
+  </div>
+
+  <div class="project-header account-header">
+    <div>
+      <p class="eyebrow">Private account</p>
+      <h1>Login &amp; security</h1>
+      <p class="muted">Manage the credentials used to access your Lumaire workspace.</p>
+    </div>
+    <span class="account-role">{{ user.role|title }} account</span>
+  </div>
+
+  {% if success %}
+    <div class="success-box">{{ success }}</div>
+  {% endif %}
+  {% if error %}
+    <div class="error-box">{{ error }}</div>
+  {% endif %}
+
+  <div class="account-grid">
+    <form class="panel account-form" method="post" action="/account/email" novalidate>
+      <div>
+        <p class="eyebrow">Sign-in email</p>
+        <h2>Email address</h2>
+        <p class="muted small">This address is private and is no longer shown in workspace navigation.</p>
+      </div>
+
+      <label class="setting-field">
+        <span>Email</span>
+        <input type="email" name="email" required value="{{ user.email }}" autocomplete="email">
+      </label>
+
+      <label class="setting-field">
+        <span>Current password</span>
+        <input type="password" name="current_password" required autocomplete="current-password">
+      </label>
+
+      <button class="primary account-submit" type="submit" {% if not has_password %}disabled{% endif %}>
+        Update email
+      </button>
+    </form>
+
+    <form class="panel account-form" method="post" action="/account/password" novalidate>
+      <div>
+        <p class="eyebrow">Security</p>
+        <h2>Change password</h2>
+        <p class="muted small">Use at least eight characters and avoid reusing another account password.</p>
+      </div>
+
+      {% if has_password %}
+      <label class="setting-field">
+        <span>Current password</span>
+        <input type="password" name="current_password" required autocomplete="current-password">
+      </label>
+
+      <label class="setting-field">
+        <span>New password</span>
+        <input type="password" name="new_password" minlength="8" required autocomplete="new-password">
+      </label>
+
+      <label class="setting-field">
+        <span>Confirm new password</span>
+        <input type="password" name="confirm_password" minlength="8" required autocomplete="new-password">
+      </label>
+
+      <button class="primary account-submit" type="submit">Update password</button>
+      {% else %}
+      <div class="account-managed">
+        <strong>Managed by your sign-in provider</strong>
+        <p class="muted small">Use your connected provider to manage account credentials.</p>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</section>
+{% endblock %}

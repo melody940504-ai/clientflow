@@ -25,7 +25,7 @@ No credentials are required for the shared demo, and its portfolio data cannot b
 
 ### Studio workflow
 
-- Email registration, verification, password reset, and Google OAuth
+- Email registration, verification, password reset, Google OAuth, and private account settings
 - Guided workspace branding setup after registration
 - Client creation with generated portal credentials and invitation email
 - Project creation, categories, lifecycle status, and active project overview
@@ -96,7 +96,7 @@ The seeded workspace uses **Northstar Creative** and **Acme Studio** to show mul
 - Product Teaser
 - Brand Film Master
 
-Shared demo sessions are read-only. The backend blocks settings updates, client/project creation, uploads, review actions, attachments, password resets, and delivery changes for both demo identities.
+The client-side history includes comments, approvals, repeated revision requests, delivered work, and one intentionally unresolved project. Shared demo sessions are read-only. The backend blocks account and workspace settings updates, client/project creation, uploads, review actions, attachments, password resets, and delivery changes for both demo identities.
 
 ## Run Locally
 

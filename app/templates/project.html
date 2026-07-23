@@ -203,6 +203,11 @@
                         <button id="theme-toggle" type="button" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
                             Toggle Theme
                         </button>
+                        {% if not is_public_link and not is_demo %}
+                        <a href="/account" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                            Account settings
+                        </a>
+                        {% endif %}
                         {% if user.role == 'owner' and project.status == 'Approved' and not is_demo %}
                         <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
                             <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition">

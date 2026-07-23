@@ -423,9 +423,244 @@ def init_db() -> None:
             )
         """)
 
+
+def seed_demo_review_history() -> None:
+    if not DEMO_ENABLED:
+        return
+
+    now = datetime.utcnow()
+
+    def add_comment(
+        db,
+        version_id: int,
+        body: str,
+        action_type: str,
+        minutes_ago: int,
+    ) -> None:
+        existing = db.execute(
+            """
+            SELECT id
+            FROM comments
+            WHERE video_version_id = ?
+              AND author_role = 'client'
+              AND body = ?
+              AND type = ?
+            """,
+            (version_id, body, action_type),
+        ).fetchone()
+        if existing:
+            return
+
+        db.execute(
+            """
+            INSERT INTO comments
+            (video_version_id, author_role, author_name, body, type, created_at)
+            VALUES (?, 'client', 'Acme Studio', ?, ?, ?)
+            """,
+            (
+                version_id,
+                body,
+                action_type,
+                (now - timedelta(minutes=minutes_ago)).isoformat(),
+            ),
+        )
+
+    with get_db() as db:
+        owner = db.execute(
+            "SELECT id FROM users WHERE email = ? AND role = 'owner'",
+            (DEMO_OWNER_EMAIL,),
+        ).fetchone()
+        client_user = db.execute(
+            """
+            SELECT id, client_reference_id
+            FROM users
+            WHERE email = ? AND role = 'client'
+            """,
+            (DEMO_CLIENT_EMAIL,),
+        ).fetchone()
+        if not owner or not client_user or not client_user["client_reference_id"]:
+            return
+
+        client = db.execute(
+            """
+            SELECT id
+            FROM clients
+            WHERE id = ? AND user_id = ?
+            """,
+            (client_user["client_reference_id"], owner["id"]),
+        ).fetchone()
+        if not client:
+            return
+
+        projects = db.execute(
+            """
+            SELECT id, name
+            FROM projects
+            WHERE user_id = ? AND client_id = ?
+            """,
+            (owner["id"], client["id"]),
+        ).fetchall()
+        projects_by_name = {row["name"]: row for row in projects}
+
+        def versions_for(project_name: str):
+            project = projects_by_name.get(project_name)
+            if not project:
+                return []
+            return db.execute(
+                """
+                SELECT id, video_url
+                FROM video_versions
+                WHERE project_id = ?
+                ORDER BY created_at ASC, id ASC
+                """,
+                (project["id"],),
+            ).fetchall()
+
+        launch_project = projects_by_name.get("Launch Reels Package")
+        launch_versions = versions_for("Launch Reels Package")
+        if launch_project and launch_versions:
+            first_version = launch_versions[0]
+            latest_version = launch_versions[-1]
+            add_comment(
+                db,
+                first_version["id"],
+                "Could we tighten the opening and bring the product shot in sooner?",
+                "comment",
+                520,
+            )
+            add_comment(
+                db,
+                first_version["id"],
+                "Please revise the first cut with a faster opening and shorter end card.",
+                "reject",
+                500,
+            )
+            add_comment(
+                db,
+                latest_version["id"],
+                "The revised opening is much stronger. Please keep the warmer grade.",
+                "comment",
+                150,
+            )
+            add_comment(
+                db,
+                latest_version["id"],
+                "One final change: trim the end card by one second before approval.",
+                "reject",
+                130,
+            )
+            db.execute(
+                "UPDATE video_versions SET status = 'Revision Requested' WHERE id IN (?, ?)",
+                (first_version["id"], latest_version["id"]),
+            )
+            db.execute(
+                "UPDATE projects SET status = 'In Revision' WHERE id = ?",
+                (launch_project["id"],),
+            )
+
+        completed_projects = [
+            (
+                "Product Teaser",
+                "The pacing and product close-up both look good now.",
+                "Approved for launch. Please use this cut as the final social master.",
+                "Approved",
+                310,
+            ),
+            (
+                "Brand Film Master",
+                "The new music balance works well and the logo timing feels right.",
+                "Approved. This version is ready for final delivery.",
+                "Published",
+                390,
+            ),
+        ]
+        for project_name, note, approval, project_status, minutes_ago in completed_projects:
+            project = projects_by_name.get(project_name)
+            versions = versions_for(project_name)
+            if not project or not versions:
+                continue
+            latest_version = versions[-1]
+            add_comment(db, latest_version["id"], note, "comment", minutes_ago)
+            add_comment(
+                db,
+                latest_version["id"],
+                approval,
+                "approve",
+                minutes_ago - 20,
+            )
+            db.execute(
+                "UPDATE video_versions SET status = 'Approved' WHERE id = ?",
+                (latest_version["id"],),
+            )
+            db.execute(
+                "UPDATE projects SET status = ? WHERE id = ?",
+                (project_status, project["id"]),
+            )
+
+        summer_project = projects_by_name.get("Summer Campaign Cutdowns")
+        summer_versions = versions_for("Summer Campaign Cutdowns")
+        if summer_project and not summer_versions:
+            reference_version = db.execute(
+                """
+                SELECT video_url
+                FROM video_versions
+                WHERE user_id = ? AND video_url <> ''
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (owner["id"],),
+            ).fetchone()
+            if reference_version:
+                created = db.execute(
+                    """
+                    INSERT INTO video_versions
+                    (user_id, project_id, version_label, video_url, status, notes, created_at)
+                    VALUES (?, ?, 'V1', ?, 'Approved', ?, ?)
+                    RETURNING id, video_url
+                    """,
+                    (
+                        owner["id"],
+                        summer_project["id"],
+                        reference_version["video_url"],
+                        "Final cutdowns with updated captions and safe-area spacing.",
+                        (now - timedelta(hours=7)).isoformat(),
+                    ),
+                ).fetchone()
+                summer_versions = [created]
+
+        if summer_project and summer_versions:
+            latest_version = summer_versions[-1]
+            add_comment(
+                db,
+                latest_version["id"],
+                "Captions and framing look correct across all cutdowns.",
+                "comment",
+                240,
+            )
+            add_comment(
+                db,
+                latest_version["id"],
+                "Approved for delivery.",
+                "approve",
+                220,
+            )
+            db.execute(
+                "UPDATE video_versions SET status = 'Approved' WHERE id = ?",
+                (latest_version["id"],),
+            )
+            db.execute(
+                "UPDATE projects SET status = 'Published' WHERE id = ?",
+                (summer_project["id"],),
+            )
+
+
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    try:
+        seed_demo_review_history()
+    except Exception as exc:
+        print(f"Demo history seed skipped: {exc}")
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
@@ -465,6 +700,27 @@ def is_demo_email(email: Optional[str]) -> bool:
 
 def is_demo_user(user: Optional[sqlite3.Row]) -> bool:
     return bool(user and is_demo_email(user["email"]))
+
+
+def is_valid_email(value: str) -> bool:
+    if (
+        not value
+        or len(value) > 254
+        or value != value.strip()
+        or " " in value
+        or value.count("@") != 1
+    ):
+        return False
+    local, separator, domain = value.partition("@")
+    return bool(
+        separator
+        and local
+        and domain
+        and "." in domain
+        and not domain.startswith(".")
+        and not domain.endswith(".")
+    )
+
 
 def is_valid_hex_color(value: str) -> bool:
     if len(value) != 7 or not value.startswith("#"):
@@ -1067,23 +1323,6 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
         ).fetchone()
         branding = get_branding_for_user(db, user)
 
-    # 從 clients.notes 解析測試用客戶密碼，供 dashboard.html 顯示 c.raw_password
-    parsed_clients = []
-    for c in clients:
-        c_dict = dict(c)
-        raw_password = ""
-
-        notes_text = c_dict.get("notes") or ""
-        if "Password:" in notes_text:
-            raw_password = notes_text.split("Password:", 1)[1].split("\n", 1)[0].strip()
-        elif "密碼:" in notes_text:
-            raw_password = notes_text.split("密碼:", 1)[1].split("\n", 1)[0].strip()
-        
-        c_dict["raw_password"] = raw_password
-        parsed_clients.append(c_dict)
-
-    clients = parsed_clients
-
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -1351,6 +1590,118 @@ def update_settings(
     return redirect("/settings?success=Settings+updated.")
 
 
+@app.get("/account", response_class=HTMLResponse)
+def account_page(request: Request):
+    user = require_user(request)
+    if is_demo_user(user):
+        return redirect("/dashboard")
+
+    errors = {
+        "invalid-email": "Enter a valid email address.",
+        "email-in-use": "That email address is already connected to another account.",
+        "current-password": "Your current password is incorrect.",
+        "password-length": "Your new password must contain at least 8 characters.",
+        "password-mismatch": "The new passwords do not match.",
+        "password-unavailable": "Password changes are unavailable for this sign-in method.",
+    }
+    successes = {
+        "email-updated": "Account email updated.",
+        "password-updated": "Password updated.",
+    }
+
+    with get_db() as db:
+        branding = get_branding_for_user(db, user)
+
+    return templates.TemplateResponse(
+        "account.html",
+        {
+            "request": request,
+            "user": user,
+            "branding": branding,
+            "is_demo": False,
+            "error": errors.get(request.query_params.get("error", "")),
+            "success": successes.get(request.query_params.get("success", "")),
+            "has_password": bool(user["password_hash"]),
+        },
+    )
+
+
+@app.post("/account/email")
+def update_account_email(
+    request: Request,
+    email: str = Form(""),
+    current_password: str = Form(""),
+):
+    user = require_user(request)
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+    if not user["password_hash"] or not verify_password(
+        current_password,
+        user["password_hash"],
+    ):
+        return redirect("/account?error=current-password")
+
+    email_clean = email.strip().lower()
+    if not is_valid_email(email_clean):
+        return redirect("/account?error=invalid-email")
+    if email_clean == user["email"].strip().lower():
+        return redirect("/account?success=email-updated")
+
+    with get_db() as db:
+        existing = db.execute(
+            "SELECT id FROM users WHERE email = ? AND id <> ?",
+            (email_clean, user["id"]),
+        ).fetchone()
+        if existing:
+            return redirect("/account?error=email-in-use")
+
+        db.execute(
+            "UPDATE users SET email = ? WHERE id = ?",
+            (email_clean, user["id"]),
+        )
+        if user["role"] == "client" and user["client_reference_id"]:
+            db.execute(
+                "UPDATE clients SET email = ? WHERE id = ?",
+                (email_clean, user["client_reference_id"]),
+            )
+
+    return redirect("/account?success=email-updated")
+
+
+@app.post("/account/password")
+def update_account_password(
+    request: Request,
+    current_password: str = Form(""),
+    new_password: str = Form(""),
+    confirm_password: str = Form(""),
+):
+    user = require_user(request)
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+    if not user["password_hash"]:
+        return redirect("/account?error=password-unavailable")
+    if not verify_password(current_password, user["password_hash"]):
+        return redirect("/account?error=current-password")
+    if len(new_password) < 8:
+        return redirect("/account?error=password-length")
+    if new_password != confirm_password:
+        return redirect("/account?error=password-mismatch")
+
+    with get_db() as db:
+        db.execute(
+            """
+            UPDATE users
+            SET password_hash = ?,
+                reset_token = NULL,
+                reset_token_expires_at = NULL
+            WHERE id = ?
+            """,
+            (hash_password(new_password), user["id"]),
+        )
+
+    return redirect("/account?success=password-updated")
+
+
 @app.post("/clients")
 def create_client(
     request: Request,
@@ -1419,16 +1770,6 @@ def create_client(
                 client_id,
                 datetime.utcnow().isoformat(),
             ),
-        )
-
-        generated_notes = (
-            f"[System-generated credentials] Account: {login_email} | Password: {client_password}\n"
-            f"{notes.strip()}"
-        )
-
-        db.execute(
-            "UPDATE clients SET notes=? WHERE id=?",
-            (generated_notes, client_id)
         )
 
         branding = get_branding_for_user(db, user)
@@ -1721,14 +2062,21 @@ def version_decision(
     if action_type not in {"comment", "approve", "reject"}:
         raise HTTPException(status_code=400, detail="Invalid review action.")
 
-    if user:
-        author_role = "client" if user["role"] == "client" else "studio"
-        author_name = user["email"].split("@")[0]
-    else:
-        author_role = "client"
-        author_name = "Anonymous Client"
-
     with get_db() as db:
+        if user:
+            author_role = "client" if user["role"] == "client" else "studio"
+            if user["role"] == "client" and user["client_reference_id"]:
+                client = db.execute(
+                    "SELECT name FROM clients WHERE id = ?",
+                    (user["client_reference_id"],),
+                ).fetchone()
+                author_name = client["name"] if client else "Client"
+            else:
+                author_name = normalize_branding(user)["studio_name"]
+        else:
+            author_role = "client"
+            author_name = "Anonymous Client"
+
         version = db.execute(
             "SELECT * FROM video_versions WHERE id = ?",
             (version_id,)

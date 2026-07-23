@@ -263,16 +263,16 @@
                     Menu
                 </button>
                 <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
-                    <div class="theme-divider-fix border-b border-gray-900 pb-3">
-                        <p class="truncate text-xs font-mono text-gray-400-fix">{{ user.email }}</p>
-                    </div>
-                    <div class="mt-3 grid gap-2">
+                    <div class="grid gap-2">
                         <button id="theme-toggle" class="nav-action-fix menu-item-fix text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-1.5 shadow-sm">
                             Toggle Theme
                         </button>
                     {% if user.role != 'client' %}
                     <a href="/analytics" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Analytics</a>
                     <a href="/settings" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Settings</a>
+                    {% endif %}
+                    {% if not is_demo %}
+                    <a href="/account" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Account settings</a>
                     {% endif %}
                     <a href="/logout" class="menu-item-fix text-center text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</a>
                 </div>
@@ -419,24 +419,6 @@
             </div>
         </div>
 
-        {% if user.role != 'client' and not is_demo %}
-        <details class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-sm group">
-            <summary class="cursor-pointer list-none text-xs font-bold text-amber-500 flex items-center justify-between gap-3">
-                <span>Development credentials</span>
-                <span class="text-[10px] text-gray-500 font-mono uppercase tracking-wider group-open:hidden">Hidden</span>
-                <span class="hidden text-[10px] text-gray-500 font-mono uppercase tracking-wider group-open:inline">Visible</span>
-            </summary>
-            <p class="mt-2 text-xs text-gray-500">For testing only. Keep this collapsed during portfolio demos.</p>
-            <div class="mt-3 divide-y divide-gray-900/60 text-xs font-mono text-gray-400-fix">
-                {% for c in clients %}
-                <div class="py-3 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
-                    <span><strong>{{ c.name }}</strong>：[System-generated credentials] Account: <span class="text-indigo-400">{{ c.email }}</span></span>
-                    <span class="w-fit max-w-full break-all bg-gray-950 px-2 py-0.5 rounded border border-gray-800 text-gray-300">Password: {{ c.raw_password }}</span>
-                </div>
-                {% endfor %}
-            </div>
-        </details>
-        {% endif %}
     </main>
 
     <script>

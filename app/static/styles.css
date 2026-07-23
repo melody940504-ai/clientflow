@@ -925,6 +925,39 @@ h3 { margin: 10px 0; }
   gap: 18px;
   padding: 20px 4px 0;
 }
+.account-shell { padding-bottom: 48px; }
+.account-header { align-items: flex-end; }
+.account-role {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 22px;
+}
+.account-form {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.account-form h2 { margin: 4px 0 6px; }
+.account-submit { justify-self: start; min-width: 150px; }
+.account-submit:disabled { cursor: not-allowed; filter: grayscale(.55); opacity: .55; }
+.account-managed {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.account-managed p { margin: 8px 0 0; }
 .success-box, .error-box {
   padding: 10px 12px;
   margin-bottom: 16px;
@@ -1044,6 +1077,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .panel-grid { grid-template-columns: 1fr; }
   .filters { grid-template-columns: 1fr; }
   .settings-grid { grid-template-columns: 1fr; }
+  .account-grid { grid-template-columns: 1fr; }
   .settings-actions { align-items: stretch; flex-direction: column; }
   .card-meta { align-items: flex-start; }
   .status-form { width: 100%; }
@@ -1087,4 +1121,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .stats-grid { grid-template-columns: 1fr; }
   .panel, .auth-card { padding: 18px; border-radius: 18px; }
   .settings-form { gap: 24px; }
+  .account-header { align-items: flex-start; }
+  .account-form { padding: 22px; }
+  .account-submit { justify-self: stretch; width: 100%; }
 }
