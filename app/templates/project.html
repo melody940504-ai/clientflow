@@ -155,6 +155,30 @@
             background-color: #dcfce7 !important;
             border-color: #4ade80 !important;
         }
+        .approved-lock-fix {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 9%, #111827) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 30%, #374151) !important;
+        }
+        .approved-lock-title-fix {
+            color: color-mix(in srgb, var(--brand-color, #6366f1) 72%, white) !important;
+        }
+        .approved-lock-badge-fix {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 14%, #0f172a) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 38%, #374151) !important;
+            color: color-mix(in srgb, var(--brand-color, #6366f1) 72%, white) !important;
+        }
+        .light-theme .approved-lock-fix {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 5%, white) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 24%, #dbe3ee) !important;
+        }
+        .light-theme .approved-lock-title-fix {
+            color: color-mix(in srgb, var(--brand-color, #6366f1) 78%, #0f172a) !important;
+        }
+        .light-theme .approved-lock-badge-fix {
+            background-color: color-mix(in srgb, var(--brand-color, #6366f1) 10%, white) !important;
+            border-color: color-mix(in srgb, var(--brand-color, #6366f1) 32%, #cbd5e1) !important;
+            color: color-mix(in srgb, var(--brand-color, #6366f1) 82%, #0f172a) !important;
+        }
         body {
             background:
                 radial-gradient(circle at top left, color-mix(in srgb, var(--brand-color, #6366f1) 18%, transparent), transparent 34%),
@@ -427,15 +451,15 @@
 
                     <div class="border-t border-gray-800/60 pt-4 space-y-3">
                         {% if v.status == 'Approved' %}
-                        <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="approved-lock-fix border rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-start gap-2.5 sm:items-center">
                                 <span class="text-lg">🔒</span>
                                 <div>
-                                    <p class="text-sm font-semibold text-emerald-400">Version Approved & Locked</p>
+                                    <p class="approved-lock-title-fix text-sm font-semibold">Version Approved & Locked</p>
                                     <p class="text-xs text-gray-400-fix">This version has been approved, and the workflow has been locked to prevent accidental tampering.</p>
                                 </div>
                             </div>
-                            <span class="w-fit text-xs font-mono bg-emerald-950/40 text-emerald-400 px-2.5 py-1 rounded border border-emerald-800/30">Immutable Log</span>
+                            <span class="approved-lock-badge-fix w-fit text-xs font-mono px-2.5 py-1 rounded border">Immutable Log</span>
                         </div>
                         {% else %}
                         <p class="text-xs font-semibold text-gray-400-fix">Review & Actions:</p>
@@ -554,8 +578,8 @@
                 </div>
 
                 {% if is_demo or project.status == 'Approved' or project.status == 'Published' %}
-                <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-center space-y-1">
-                    <p class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
+                <div class="approved-lock-fix border rounded-xl p-4 text-center space-y-1">
+                    <p class="approved-lock-title-fix text-xs font-bold flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
                     <p class="text-[11px] text-gray-500">{% if is_demo %}Timestamp comments are disabled in the shared demo.{% else %}This version has been approved by the client, and the timeline has been secured for read-only access.{% endif %}</p>
                 </div>
                 {% else %}

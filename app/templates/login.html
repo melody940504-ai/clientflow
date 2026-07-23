@@ -44,25 +44,6 @@
       </div>
     {% endif %}
 
-    {% if mode != 'register' and demo_enabled %}
-    <section class="demo-access" aria-label="Shared demo access">
-      <div>
-        <p class="eyebrow">Live product demo</p>
-        <strong>Enter a seeded, read-only workspace</strong>
-        <p class="muted small">No credentials required. Choose the side of the review workflow you want to inspect.</p>
-      </div>
-      <div class="demo-access-actions">
-        <form method="post" action="/demo-login/owner">
-          <button class="primary" type="submit">Studio workspace</button>
-        </form>
-        <form method="post" action="/demo-login/client">
-          <button class="ghost" type="submit">Client portal</button>
-        </form>
-      </div>
-    </section>
-    <div class="auth-divider"><span>or use your account</span></div>
-    {% endif %}
-
     <a
       href="/login/google"
       class="google-auth-button"

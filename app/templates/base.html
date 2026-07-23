@@ -8,7 +8,7 @@
     const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
     if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=20260723-account-settings">
+  <link rel="stylesheet" href="/static/styles.css?v=20260723-ui-fixes">
 </head>
 <body {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
   <header class="topbar">
