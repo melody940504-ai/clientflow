@@ -674,8 +674,7 @@ def verify_password(password: str, stored: str) -> bool:
         return False
     return hashlib.sha256((salt + password).encode("utf-8")).hexdigest() == digest
 
-def get_current_user(request: Request) -> Optional[sqlite3.Row]:
-    token = request.cookies.get("session")
+def get_user_from_session_token(token: Optional[str]) -> Optional[sqlite3.Row]:
     if not token:
         return None
     try:
@@ -684,6 +683,11 @@ def get_current_user(request: Request) -> Optional[sqlite3.Row]:
         return None
     with get_db() as db:
         return db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+
+def get_current_user(request: Request) -> Optional[sqlite3.Row]:
+    return get_user_from_session_token(request.cookies.get("session"))
+
 
 def require_user(request: Request) -> sqlite3.Row:
     user = get_current_user(request)
@@ -950,6 +954,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         samesite="lax",
         secure=request.url.scheme == "https",
     )
+    response.delete_cookie("return_session")
     return response
 
 
@@ -975,7 +980,17 @@ def demo_login(request: Request, role: str):
     if not user or not user["is_verified"]:
         return redirect("/login?error=demo-unavailable")
 
+    current_user = get_current_user(request)
+    current_session = request.cookies.get("session")
     response = redirect(post_login_path(user))
+    if current_user and not is_demo_user(current_user) and current_session:
+        response.set_cookie(
+            "return_session",
+            current_session,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+        )
     response.set_cookie(
         "session",
         serializer.dumps(user["id"]),
@@ -1157,6 +1172,7 @@ async def auth_google_callback(request: Request):
         samesite="lax",
         secure=request.url.scheme == "https",
     )
+    response.delete_cookie("return_session")
 
     return response
 
@@ -1191,9 +1207,31 @@ def verify_email(token: str):
     return redirect("/login?success=email-verified")
 
 @app.get("/logout")
-def logout():
+def logout(request: Request):
+    current_user = get_current_user(request)
+    return_token = request.cookies.get("return_session")
+    return_user = get_user_from_session_token(return_token)
+
+    if (
+        is_demo_user(current_user)
+        and return_user
+        and not is_demo_user(return_user)
+        and return_token
+    ):
+        response = redirect(post_login_path(return_user))
+        response.set_cookie(
+            "session",
+            return_token,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+        )
+        response.delete_cookie("return_session")
+        return response
+
     response = redirect("/")
     response.delete_cookie("session")
+    response.delete_cookie("return_session")
     return response
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -1856,7 +1894,9 @@ def project_detail(request: Request, project_id: int):
             ).fetchone()
             
         if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+            return redirect(
+                "/dashboard?error=This+project+is+not+available+for+the+active+account."
+            )
             
         # 撈取版本時間軸（由新到舊）
         versions = db.execute(
