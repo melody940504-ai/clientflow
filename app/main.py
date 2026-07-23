@@ -24,14 +24,14 @@ from starlette.middleware.sessions import SessionMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "clientflow.db"
-SECRET_KEY = "change-this-secret-before-deployment"
-serializer = URLSafeSerializer(SECRET_KEY, salt="clientflow-session")
+SESSION_SECRET = os.getenv("SESSION_SECRET") or secrets.token_urlsafe(32)
+serializer = URLSafeSerializer(SESSION_SECRET, salt="clientflow-session")
 
 app = FastAPI(title="Lumaire")
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "clientflow-dev-secret"),
+    secret_key=SESSION_SECRET,
     session_cookie="oauth_session"
 )
 
@@ -65,6 +65,21 @@ CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 DEFAULT_STUDIO_NAME = "Lumaire Studio"
 DEFAULT_BRAND_COLOR = "#6366f1"
 DEFAULT_EMAIL_SENDER_NAME = "Lumaire"
+EMAIL_TEST_RECIPIENT = os.getenv("EMAIL_TEST_RECIPIENT", "").strip()
+DEMO_ENABLED = os.getenv("DEMO_ENABLED", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+DEMO_OWNER_EMAIL = os.getenv(
+    "DEMO_OWNER_EMAIL",
+    "melody940504+demo@gmail.com",
+).strip().lower()
+DEMO_CLIENT_EMAIL = os.getenv(
+    "DEMO_CLIENT_EMAIL",
+    "demo.client@example.com",
+).strip().lower()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
@@ -96,12 +111,11 @@ def send_activity_email(
     link_url: str
 ):
     try:
-
-        TEST_EMAIL = "melody940504@gmail.com"
+        recipient = EMAIL_TEST_RECIPIENT or to_email
 
         resend.Emails.send({
             "from": "Lumaire <onboarding@resend.dev>",
-            "to": [TEST_EMAIL],
+            "to": [recipient],
             "subject": subject,
             "html": f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
@@ -139,7 +153,7 @@ def send_activity_email(
             """
         })
 
-        print(f"📬 Email sent successfully → {TEST_EMAIL}")
+        print(f"Email sent successfully to {recipient}")
 
     except Exception as e:
         print(f"❌ Email failed: {e}")
@@ -153,11 +167,11 @@ def send_client_invitation_email(
     sender_name: str = DEFAULT_EMAIL_SENDER_NAME,
 ):
     try:
-        TEST_EMAIL = "melody940504@gmail.com"
+        recipient = EMAIL_TEST_RECIPIENT or to_email
 
         resend.Emails.send({
             "from": f"{sender_name} <onboarding@resend.dev>",
-            "to": [TEST_EMAIL],
+            "to": [recipient],
             "subject": "You have been invited to Lumaire",
             "html": f"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
@@ -213,7 +227,7 @@ def send_client_invitation_email(
             """
         })
 
-        print(f"📬 Client invitation email sent successfully → {TEST_EMAIL}")
+        print(f"Client invitation email sent successfully to {recipient}")
 
     except Exception as e:
         print(f"❌ Client invitation email failed: {e}")
@@ -226,7 +240,7 @@ DB_PATH = os.path.join(BASE_DIR, "database.db")
 
 def send_password_reset_email(to_email: str, reset_url: str):
     try:
-        recipient = os.getenv("EMAIL_TEST_RECIPIENT") or to_email
+        recipient = EMAIL_TEST_RECIPIENT or to_email
 
         resend.Emails.send({
             "from": "Lumaire <onboarding@resend.dev>",
@@ -442,6 +456,16 @@ def require_user(request: Request) -> sqlite3.Row:
         raise HTTPException(status_code=401)
     return user
 
+
+def is_demo_email(email: Optional[str]) -> bool:
+    if not DEMO_ENABLED or not email:
+        return False
+    return email.strip().lower() in {DEMO_OWNER_EMAIL, DEMO_CLIENT_EMAIL}
+
+
+def is_demo_user(user: Optional[sqlite3.Row]) -> bool:
+    return bool(user and is_demo_email(user["email"]))
+
 def is_valid_hex_color(value: str) -> bool:
     if len(value) != 7 or not value.startswith("#"):
         return False
@@ -546,26 +570,52 @@ def save_studio_settings(
 def redirect(path: str):
     return RedirectResponse(path, status_code=303)
 
+
+def demo_read_only_redirect(path: str):
+    separator = "&" if "?" in path else "?"
+    return redirect(f"{path}{separator}error=Shared+demo+is+read-only.")
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     user = get_current_user(request)
     if user:
         return redirect("/dashboard")
-    return templates.TemplateResponse("landing.html", {"request": request, "user": None})
+    return templates.TemplateResponse(
+        "landing.html",
+        {"request": request, "user": None, "demo_enabled": DEMO_ENABLED},
+    )
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     user = get_current_user(request)
     if user:
         return redirect("/dashboard")
-    return templates.TemplateResponse("login.html", {"request": request, "mode": "login", "error": None, "user": None})
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "mode": "login",
+            "error": None,
+            "user": None,
+            "demo_enabled": DEMO_ENABLED,
+        },
+    )
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "mode": "register", "error": None, "user": None})
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "mode": "register",
+            "error": None,
+            "user": None,
+            "demo_enabled": DEMO_ENABLED,
+        },
+    )
 
 @app.post("/register")
-def register(email: str = Form(...), password: str = Form(...)):
+def register(request: Request, email: str = Form(...), password: str = Form(...)):
     if len(password) < 6:
         return redirect("/register?error=password-too-short")
     try:
@@ -597,10 +647,7 @@ def register(email: str = Form(...), password: str = Form(...)):
     except psycopg2.IntegrityError:
         return redirect("/register?error=email-exists")
     
-    verify_url = (
-        f"https://clientflow-q250.onrender.com/verify-email/"
-        f"{verification_token}"
-    )
+    verify_url = f"{request.base_url}verify-email/{verification_token}"
 
     send_activity_email(
         email.strip().lower(),
@@ -637,19 +684,61 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         return RedirectResponse(url="/login?error=wrong_password", status_code=303)
     
     response = RedirectResponse(url=post_login_path(user), status_code=303)
-    response.set_cookie("session", serializer.dumps(user["id"]), httponly=True, samesite="lax")
+    response.set_cookie(
+        "session",
+        serializer.dumps(user["id"]),
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@app.post("/demo-login/{role}")
+def demo_login(request: Request, role: str):
+    if not DEMO_ENABLED:
+        raise HTTPException(status_code=404)
+
+    demo_accounts = {
+        "owner": DEMO_OWNER_EMAIL,
+        "client": DEMO_CLIENT_EMAIL,
+    }
+    email = demo_accounts.get(role)
+    if not email:
+        raise HTTPException(status_code=404)
+
+    with get_db() as db:
+        user = db.execute(
+            "SELECT * FROM users WHERE email = ? AND role = ?",
+            (email, role),
+        ).fetchone()
+
+    if not user or not user["is_verified"]:
+        return redirect("/login?error=demo-unavailable")
+
+    response = redirect(post_login_path(user))
+    response.set_cookie(
+        "session",
+        serializer.dumps(user["id"]),
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
     return response
 
 @app.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_page(request: Request):
     return templates.TemplateResponse(
         "forgot_password.html",
-        {"request": request},
+        {"request": request, "user": None, "demo_enabled": DEMO_ENABLED},
     )
 
 @app.post("/forgot-password")
 def forgot_password(request: Request, email: str = Form(...)):
     email_clean = email.strip().lower()
+    if is_demo_email(email_clean):
+        return redirect("/forgot-password?success=reset-link-sent")
+
     reset_token = secrets.token_urlsafe(32)
     expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
 
@@ -693,12 +782,24 @@ def reset_password_page(request: Request, token: str):
     if not token_valid:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "token_valid": False},
+            {
+                "request": request,
+                "token": token,
+                "token_valid": False,
+                "user": None,
+                "demo_enabled": DEMO_ENABLED,
+            },
         )
 
     return templates.TemplateResponse(
         "reset_password.html",
-        {"request": request, "token": token, "token_valid": True},
+        {
+            "request": request,
+            "token": token,
+            "token_valid": True,
+            "user": None,
+            "demo_enabled": DEMO_ENABLED,
+        },
     )
 
 @app.post("/reset-password/{token}")
@@ -713,6 +814,9 @@ def reset_password(token: str, password: str = Form(...)):
         ).fetchone()
 
         if not user or not user["reset_token_expires_at"]:
+            return redirect(f"/reset-password/{token}?error=invalid-or-expired")
+
+        if is_demo_email(user["email"]):
             return redirect(f"/reset-password/{token}?error=invalid-or-expired")
 
         try:
@@ -739,6 +843,9 @@ def reset_password(token: str, password: str = Form(...)):
 
 @app.get("/login/google")
 async def login_google(request: Request):
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return redirect("/login?error=google-unavailable")
+
     redirect_uri = request.url_for("auth_google_callback")
 
     return await oauth.google.authorize_redirect(
@@ -773,7 +880,7 @@ async def auth_google_callback(request: Request):
                     is_verified,
                     created_at
                 )
-                VALUES (?, '', 'owner', FALSE, ?)
+                VALUES (?, '', 'owner', TRUE, ?)
                 """,
                 (email, datetime.utcnow().isoformat())
             )
@@ -788,7 +895,8 @@ async def auth_google_callback(request: Request):
         "session",
         serializer.dumps(user["id"]),
         httponly=True,
-        samesite="lax"
+        samesite="lax",
+        secure=request.url.scheme == "https",
     )
 
     return response
@@ -991,6 +1099,7 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             "selected_status": status,
             "selected_category": category,
             "selected_client_id": client_id,
+            "is_demo": is_demo_user(user),
         },
     )
 
@@ -1132,6 +1241,7 @@ def analytics_page(request: Request):
             "category_rows": category_rows,
             "top_clients": top_clients,
             "recent_projects": recent_projects,
+            "is_demo": is_demo_user(user),
         },
     )
 
@@ -1150,6 +1260,7 @@ def setup_page(request: Request):
             "user": user,
             "branding": normalize_branding(user),
             "error": request.query_params.get("error"),
+            "is_demo": is_demo_user(user),
         },
     )
 
@@ -1166,6 +1277,9 @@ def complete_setup(
 
     if user["role"] != "owner":
         return redirect("/dashboard")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect("/setup")
 
     with get_db() as db:
         error = save_studio_settings(
@@ -1199,6 +1313,7 @@ def settings_page(request: Request):
             "branding": normalize_branding(user),
             "error": request.query_params.get("error"),
             "success": request.query_params.get("success"),
+            "is_demo": is_demo_user(user),
         },
     )
 
@@ -1215,6 +1330,9 @@ def update_settings(
 
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only studio owners can update settings.")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect("/settings")
 
     with get_db() as db:
         error = save_studio_settings(
@@ -1245,6 +1363,9 @@ def create_client(
 
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only studio owners can create clients.")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
 
     if not name or not name.strip():
         return redirect("/dashboard?error=Client+name+is+required.")
@@ -1316,7 +1437,7 @@ def create_client(
             client_name=name.strip(),
             login_email=login_email,
             temporary_password=client_password,
-            login_url="https://clientflow-q250.onrender.com",
+            login_url=str(request.base_url),
             sender_name=branding["email_sender_name"],
         )
 
@@ -1337,6 +1458,9 @@ def create_project(
     if user["role"] != "owner":
         raise HTTPException(status_code=403)
 
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+
     if not client_id or not client_id.strip():
         return redirect("/dashboard?error=Please+select+a+client.")
 
@@ -1349,6 +1473,13 @@ def create_project(
         return redirect("/dashboard?error=Project+title+is+required.")
 
     with get_db() as db:
+        client = db.execute(
+            "SELECT id FROM clients WHERE id = ? AND user_id = ?",
+            (client_id_int, user["id"]),
+        ).fetchone()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found.")
+
         db.execute(
             "INSERT INTO projects (user_id, client_id, name, category, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
@@ -1461,7 +1592,8 @@ def project_detail(request: Request, project_id: int):
             "versions": versions,
             "comments": comments,
             "status_options": STATUS_OPTIONS,
-            "is_public_link": False          # 代表是後台登入模式
+            "is_public_link": False,
+            "is_demo": is_demo_user(user),
         },
     )
 
@@ -1481,6 +1613,17 @@ async def create_version(
     user = require_user(request)
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Clients cannot upload versions.")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+
+    with get_db() as db:
+        project = db.execute(
+            "SELECT id FROM projects WHERE id = ? AND user_id = ?",
+            (project_id, user["id"]),
+        ).fetchone()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found.")
 
     final_video_url = video_url.strip() if video_url else ""
 
@@ -1575,6 +1718,9 @@ def version_decision(
 ):
     user = get_current_user(request)
 
+    if action_type not in {"comment", "approve", "reject"}:
+        raise HTTPException(status_code=400, detail="Invalid review action.")
+
     if user:
         author_role = "client" if user["role"] == "client" else "studio"
         author_name = user["email"].split("@")[0]
@@ -1590,6 +1736,23 @@ def version_decision(
 
         if not version:
             raise HTTPException(status_code=404)
+
+        project_owner = db.execute(
+            """
+            SELECT u.email
+            FROM projects p
+            JOIN users u ON p.user_id = u.id
+            WHERE p.id = ?
+            """,
+            (version["project_id"],),
+        ).fetchone()
+        if project_owner and is_demo_email(project_owner["email"]):
+            target_path = (
+                f"/projects/{version['project_id']}"
+                if user
+                else f"/review/{version['project_id']}"
+            )
+            return demo_read_only_redirect(target_path)
 
         if not body or not body.strip():
             target_path = f"/projects/{version['project_id']}" if user else f"/review/{version['project_id']}"
@@ -1681,7 +1844,16 @@ def version_decision(
 @app.get("/review/{project_id}", response_class=HTMLResponse)
 def public_review_page(request: Request, project_id: int):
     with get_db() as db:
-        project = db.execute("SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=?", (project_id,)).fetchone()
+        project = db.execute(
+            """
+            SELECT p.*, c.name AS client_name, u.email AS owner_email
+            FROM projects p
+            JOIN clients c ON p.client_id = c.id
+            JOIN users u ON p.user_id = u.id
+            WHERE p.id = ?
+            """,
+            (project_id,),
+        ).fetchone()
         if not project: raise HTTPException(status_code=404, detail="Review link invalid or expired")
         versions = db.execute("SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
         comments = db.execute(
@@ -1721,7 +1893,8 @@ def public_review_page(request: Request, project_id: int):
             "versions": versions,
             "comments": comments,
             "status_options": STATUS_OPTIONS,
-            "is_public_link": True
+            "is_public_link": True,
+            "is_demo": is_demo_email(project["owner_email"]),
         },
     )
 
@@ -1734,9 +1907,15 @@ def deliver_project(project_id: int, request: Request):
     user = require_user(request)
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only owners can mark final delivery.")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
         
     with get_db() as db:
-        project = db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        project = db.execute(
+            "SELECT * FROM projects WHERE id = ? AND user_id = ?",
+            (project_id, user["id"]),
+        ).fetchone()
         if not project:
             raise HTTPException(status_code=404)
             
@@ -1773,6 +1952,17 @@ async def add_project_attachment(
     user = require_user(request)
     if user["role"] != "owner":
         raise HTTPException(status_code=403)
+
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+
+    with get_db() as db:
+        owned_project = db.execute(
+            "SELECT id FROM projects WHERE id = ? AND user_id = ?",
+            (project_id, user["id"]),
+        ).fetchone()
+        if not owned_project:
+            raise HTTPException(status_code=404, detail="Project not found.")
 
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise HTTPException(status_code=500, detail="Supabase storage is not configured.")
@@ -1825,6 +2015,9 @@ async def add_project_attachment(
 
 @app.get("/db-test")
 def db_test():
+    if os.getenv("ENABLE_DB_TEST") != "1":
+        raise HTTPException(status_code=404)
+
     if not DATABASE_URL:
         return {"ok": False, "error": "DATABASE_URL not set"}
 

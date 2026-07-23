@@ -1,204 +1,147 @@
-# Lumaire MVP
+# Lumaire
 
-Lumaire is a calm creative delivery workspace for short-form video studios. It helps a studio owner manage clients, create projects, upload video versions, collect timestamped feedback, track approvals, and deliver final assets through a clean client portal.
+Lumaire is a client review and delivery workspace for creative studios. It keeps video versions, client feedback, approvals, files, and project status in one focused portal instead of scattered email threads.
 
-The goal of this MVP is to show a realistic SaaS-style workflow without building a heavy video hosting platform from scratch.
+[Open the live demo](https://clientflow-q250.onrender.com/) · [Follow the 2-minute demo](docs/DEMO_GUIDE.md)
 
-## Live Demo
+The landing page includes one-click access to two seeded, read-only roles:
 
-Production demo:
+- **Studio demo** shows the owner dashboard, project management, branding, notifications, and analytics.
+- **Client demo** shows the private client portal and assigned review projects.
 
-```text
-https://clientflow-q250.onrender.com
-```
+No credentials are required for the shared demo, and its portfolio data cannot be changed by visitors.
 
-Demo account details can be added here when you are ready to share a public reviewer login.
+## Product Preview
 
-## Core Features
+| Studio workspace | Project review |
+| --- | --- |
+| ![Studio dashboard](docs/screenshots/owner-dashboard.jpg) | ![Project review](docs/screenshots/project-review.jpg) |
 
-- Email registration, login, logout, and email verification
-- Google OAuth login
-- Forgot password and password reset flow
-- Studio owner dashboard
-- Client account generation and client portal access
-- Client and project management
-- Project status tracking: Awaiting Review, In Revision, Approved, Published
-- Category support for Shorts, Reels, TikTok, Ads, YouTube, and Other
-- Video version upload by URL or Supabase Storage upload
-- Project attachment upload via Supabase Storage
-- Public review links for clients
-- Feedback comments, approve, and change request actions
-- Activity timeline for project creation, uploads, and comments
-- Studio analytics for project volume, review activity, and client engagement
-- Local-time rendering for project activity timestamps
-- Light/dark theme toggle
-- Responsive mobile layout
-- Development-only credentials panel for testing client accounts
+| Analytics | Client portal |
+| --- | --- |
+| ![Studio analytics](docs/screenshots/analytics.jpg) | ![Client portal](docs/screenshots/client-portal.jpg) |
 
-## Tech Stack
+## What It Demonstrates
 
-- Backend: FastAPI, Starlette, Jinja2
-- Database: PostgreSQL via `DATABASE_URL`
-- Storage: Supabase Storage for video and attachment files
-- Email: Resend
-- Auth: Custom email/password auth, signed session cookies, Google OAuth via Authlib
-- Deployment: Render
-- Frontend: Server-rendered HTML templates with Tailwind CSS CDN
+### Studio workflow
+
+- Email registration, verification, password reset, and Google OAuth
+- Guided workspace branding setup after registration
+- Client creation with generated portal credentials and invitation email
+- Project creation, categories, lifecycle status, and active project overview
+- Video versions from external URLs or Supabase Storage uploads
+- Attachments, public review links, final delivery, and activity timeline
+- Notification center with per-project read state
+- Analytics for clients, projects, versions, comments, and approval activity
+
+### Client workflow
+
+- Private portal limited to assigned projects
+- Version playback, comments, revision requests, and approval signoff
+- Public review links for reviewers who do not need an account
+- Project activity displayed in each visitor's local timezone
+- Responsive desktop and mobile layouts with persistent light/dark theme
+
+### SaaS polish
+
+- Studio name, logo, sender label, and brand color customization
+- Consistent theme tokens across buttons, cards, fields, and status controls
+- Read-only shared demo accounts with server-side mutation protection
+- Responsive navigation, menus, notifications, modals, and forms
 
 ## Architecture
 
 ```mermaid
-flowchart TD
-    User["Studio owner / Client reviewer"] --> Browser["Browser"]
-    Browser --> Render["Render web service"]
-    Render --> FastAPI["FastAPI app"]
-    FastAPI --> Postgres["PostgreSQL database"]
-    FastAPI --> Supabase["Supabase Storage"]
-    FastAPI --> Resend["Resend email API"]
-    FastAPI --> Google["Google OAuth"]
+flowchart LR
+    Visitor["Studio owner or client"] --> Browser["Server-rendered web UI"]
+    Browser --> App["FastAPI on Render"]
+    App --> Auth["Signed sessions and Google OAuth"]
+    App --> DB["PostgreSQL"]
+    App --> Storage["Supabase Storage"]
+    App --> Email["Resend"]
 
-    Postgres --> Data["Users, clients, projects, versions, comments"]
-    Supabase --> Files["Videos and attachments"]
-    Resend --> Emails["Verification, invitations, password reset"]
+    DB --> Records["Users, clients, projects, versions, comments"]
+    Storage --> Assets["Videos and attachments"]
+    Email --> Messages["Verification, reset, invitations, activity"]
 ```
 
-## Main User Flows
+The frontend stays intentionally lightweight: FastAPI renders Jinja templates, while small JavaScript modules handle theme persistence, local-time formatting, menus, notifications, modals, and branding previews.
 
-### Studio Owner
+## Tech Stack
 
-1. Register or log in.
-2. Verify email.
-3. Create clients.
-4. Create projects for each client.
-5. Upload video versions or paste external video links.
-6. Send public review links.
-7. Review comments and client decisions.
-8. Mark approved projects as final delivered.
+| Layer | Technology |
+| --- | --- |
+| Backend | FastAPI, Starlette, Jinja2 |
+| Database | PostgreSQL with `psycopg2` |
+| Storage | Supabase Storage |
+| Email | Resend |
+| Authentication | Password hashing, signed cookies, Google OAuth via Authlib |
+| Frontend | Server-rendered HTML, CSS, vanilla JavaScript |
+| Deployment | Render |
 
-### Client Reviewer
+## Data Flow
 
-1. Log in with generated client credentials or open a public review link.
-2. View assigned projects.
-3. Watch video versions.
-4. Leave feedback, request changes, or approve a version.
-5. Review project activity history.
+1. A studio owner creates a client and project.
+2. Lumaire sends the client invitation and stores project metadata in PostgreSQL.
+3. The studio uploads a version to Supabase Storage or provides a hosted video URL.
+4. The client reviews the version and submits a comment, revision request, or approval.
+5. The dashboard, notification center, timeline, and analytics reflect the new activity.
 
-### Password Reset
+## Demo Dataset
 
-1. User opens Forgot Password.
-2. User submits email.
-3. App creates a reset token and sends a Resend email.
-4. User opens reset link.
-5. User sets a new password.
-6. Reset token is cleared after use.
+The seeded workspace uses **Northstar Creative** and **Acme Studio** to show multiple realistic project states:
 
-## Environment Variables
+- Launch Reels Package
+- Summer Campaign Cutdowns
+- Product Teaser
+- Brand Film Master
 
-Create environment variables in Render or your local shell:
-
-```env
-DATABASE_URL=postgresql://...
-SESSION_SECRET=replace-with-a-secure-secret
-
-RESEND_API_KEY=re_...
-EMAIL_TEST_RECIPIENT=optional-test-inbox@example.com
-
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=...
-```
-
-Notes:
-
-- `DATABASE_URL` is required for the current deployed app.
-- `SESSION_SECRET` should be set in production.
-- `EMAIL_TEST_RECIPIENT` is optional. When set, password reset emails are routed to that test inbox.
-- Supabase Storage requires public buckets or compatible policies for uploaded videos and attachments.
+Shared demo sessions are read-only. The backend blocks settings updates, client/project creation, uploads, review actions, attachments, password resets, and delivery changes for both demo identities.
 
 ## Run Locally
 
-```bash
+```powershell
+git clone <your-repository-url>
 cd clientflow_mvp
 python -m venv .venv
-```
-
-Windows PowerShell:
-
-```powershell
 .venv\Scripts\Activate.ps1
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
-```
-
-Set the required environment variables, then start the app:
-
-```bash
+Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Open:
+Open `http://127.0.0.1:8000` after filling in the required values from `.env.example`.
 
-```text
-http://127.0.0.1:8000
-```
+## Environment Variables
 
-## Deployment Notes
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `SESSION_SECRET` | Production | Signs login and OAuth session cookies |
+| `RESEND_API_KEY` | For email | Verification, invitation, reset, and activity mail |
+| `EMAIL_TEST_RECIPIENT` | No | Routes all outgoing mail to one test inbox |
+| `GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth client secret |
+| `SUPABASE_URL` | For uploads | Supabase project URL |
+| `SUPABASE_KEY` | For uploads | Supabase server-side API key |
+| `DEMO_ENABLED` | No | Enables one-click shared demo access |
+| `DEMO_OWNER_EMAIL` | For demo | Seeded owner identity protected as read-only |
+| `DEMO_CLIENT_EMAIL` | For demo | Seeded client identity protected as read-only |
+| `ENABLE_DB_TEST` | No | Enables the diagnostic database route; keep off publicly |
 
-This MVP is designed for deployment on Render:
+Never commit real secrets. `.env` files, local databases, virtual environments, and Python caches are excluded by `.gitignore`.
 
-1. Push the repository to GitHub.
-2. Create a Render web service.
-3. Set the build/start commands.
-4. Add the environment variables listed above.
-5. Connect PostgreSQL and Supabase Storage.
-6. Deploy.
+## Deploy on Render
 
-Suggested start command:
+1. Push the repository to GitHub and create a Render web service.
+2. Install dependencies with `pip install -r requirements.txt`.
+3. Start with `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+4. Add the environment variables above in Render.
+5. Point `DATABASE_URL` to PostgreSQL and configure Supabase Storage policies.
+6. Add the Render callback URL to the Google OAuth client.
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
+## Current Scope
 
-## Screenshots
+Lumaire is a portfolio-ready MVP, not a full video hosting platform. It supports hosted video links and Supabase uploads so the core experience stays focused on client review and delivery.
 
-Screenshots can be added after the UI is finalized:
-
-```text
-docs/screenshots/dashboard-desktop.png
-docs/screenshots/dashboard-mobile.png
-docs/screenshots/project-review.png
-```
-
-## Roadmap
-
-Completed MVP polish:
-
-- Mobile UI improvements
-- Success/error redirect feedback
-- Forgot password flow
-- Collapsed development credentials panel
-- Local timezone display for project activity
-- Studio analytics dashboard
-
-Next priorities:
-
-- Notification center for new comments, approvals, and uploads
-- Studio settings for branding, logo, and sender name
-- Better mobile-first dashboard layout
-- Public README screenshots and demo credentials
-
-## MVP Scope
-
-Lumaire intentionally avoids becoming a full video hosting platform. The MVP supports external video URLs and Supabase Storage uploads so studios can keep hosting costs low while still presenting a professional client review workflow.
+Natural next steps are paid plan limits, team roles, durable notification records across devices, deeper review-time analytics, and automated end-to-end tests.

@@ -214,6 +214,7 @@
                 {% else %}
                     Owner Portal
                 {% endif %}
+                {% if is_demo %} / Demo{% endif %}
             </span>
         </div>
         <div class="flex w-full items-center justify-end gap-2 md:w-auto">
@@ -277,10 +278,21 @@
                 </div>
             </div>
         </div>
-        </div>
     </nav>
 
     <main class="max-w-7xl mx-auto p-4 space-y-6 sm:p-6 sm:space-y-8">
+
+        {% if is_demo %}
+        <section class="flex flex-col gap-3 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm font-bold text-teal-300">Read-only shared demo</p>
+                <p class="mt-1 text-xs text-gray-400-fix">Explore projects, versions, notifications, analytics, and both roles without changing the seeded data.</p>
+            </div>
+            {% if user.role != 'client' %}
+            <a href="/analytics" class="nav-action-fix shrink-0 rounded-lg border border-teal-500/30 px-3 py-2 text-center text-xs font-bold text-teal-300 transition hover:bg-teal-500/10">View analytics</a>
+            {% endif %}
+        </section>
+        {% endif %}
         
         {% if user.role != 'client' %}
         <!-- 📊 數據看版區塊 -->
@@ -308,7 +320,7 @@
         </div>
         {% endif %}
 
-        {% if user.role != 'client' %}
+        {% if user.role != 'client' and not is_demo %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
             <!-- 👥 Add Client -->
             <div class="bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
@@ -407,7 +419,7 @@
             </div>
         </div>
 
-        {% if user.role != 'client' %}
+        {% if user.role != 'client' and not is_demo %}
         <details class="bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-sm group">
             <summary class="cursor-pointer list-none text-xs font-bold text-amber-500 flex items-center justify-between gap-3">
                 <span>Development credentials</span>

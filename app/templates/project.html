@@ -203,7 +203,7 @@
                         <button id="theme-toggle" type="button" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
                             Toggle Theme
                         </button>
-                        {% if user.role == 'owner' and project.status == 'Approved' %}
+                        {% if user.role == 'owner' and project.status == 'Approved' and not is_demo %}
                         <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
                             <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition">
                                 Mark as Final Delivery
@@ -217,6 +217,18 @@
     </nav>
     
     <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6 sm:p-6 md:gap-8">
+
+        {% if is_demo %}
+        <section class="md:col-span-3 flex flex-col gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm font-bold text-teal-300">Read-only project demo</p>
+                <p class="mt-1 text-xs text-gray-400-fix">Video playback, version history, project details, and activity remain fully available.</p>
+            </div>
+            {% if not is_public_link %}
+            <a href="/dashboard" class="shrink-0 rounded-lg border border-teal-500/30 px-3 py-2 text-center text-xs font-bold text-teal-300 transition hover:bg-teal-500/10">Back to workspace</a>
+            {% endif %}
+        </section>
+        {% endif %}
         
         <div class="md:col-span-2 space-y-6">
             
@@ -251,7 +263,7 @@
                     {% endfor %}
                 </div>
 
-                {% if project.status != 'Published' and user.role == 'owner' %}
+                {% if project.status != 'Published' and user.role == 'owner' and not is_demo %}
                 <form
                     action="/projects/{{ project.id }}/attachments"
                     method="post"
@@ -314,7 +326,7 @@
                     <p class="text-xs text-gray-400-fix mt-0.5">This project has been finalized, delivered, and archived. Historical versions and event streams have been converted to read-only, irrefutable evidence.</p>
                 </div>
             </div>
-            {% elif user.role == 'owner' %}
+            {% elif user.role == 'owner' and not is_demo %}
             <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-3">
                 <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                     <h3 class="text-sm font-semibold text-white-fix">Upload New Version</h3>
@@ -422,6 +434,11 @@
                         </div>
                         {% else %}
                         <p class="text-xs font-semibold text-gray-400-fix">Review & Actions:</p>
+                        {% if is_demo %}
+                        <div class="rounded-xl border border-gray-700 bg-gray-900/40 px-4 py-3 text-xs text-gray-400-fix">
+                            Review actions are disabled in the shared demo so its seeded history stays intact.
+                        </div>
+                        {% else %}
                         <form action="/versions/{{ v.id }}/action" method="post" novalidate class="space-y-3" onsubmit="return validateComment(this)">
                             <textarea name="body" required placeholder="Type feedback or approval notes here..." class="input-fix w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-16 focus:outline-none focus:border-indigo-500 text-white"></textarea>
                             
@@ -439,6 +456,7 @@
                                 {% endif %}
                             </div>
                         </form>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -530,10 +548,10 @@
                     </div>
                 </div>
 
-                {% if project.status == 'Approved' or project.status == 'Published' %}
+                {% if is_demo or project.status == 'Approved' or project.status == 'Published' %}
                 <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-center space-y-1">
                     <p class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
-                    <p class="text-[11px] text-gray-500">This version has been approved by the client, and the timeline has been fully secured for read-only access.</p>
+                    <p class="text-[11px] text-gray-500">{% if is_demo %}Timestamp comments are disabled in the shared demo.{% else %}This version has been approved by the client, and the timeline has been secured for read-only access.{% endif %}</p>
                 </div>
                 {% else %}
                 <form id="modal-comment-form" method="post" novalidate class="space-y-3 m-0" onsubmit="return validateComment(this)">

@@ -8,7 +8,7 @@
     const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
     if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
   </script>
-  <link rel="stylesheet" href="/static/styles.css?v=20260723-theme-menu">
+  <link rel="stylesheet" href="/static/styles.css?v=20260723-demo-ready-2">
 </head>
 <body {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
   <header class="topbar">
@@ -21,8 +21,19 @@
       <div class="site-menu hidden" id="site-menu-panel">
         <button class="ghost menu-row" type="button" data-theme-toggle>Toggle theme</button>
       {% if user %}
+        {% if is_demo %}
+        <span class="demo-menu-label">Read-only demo</span>
+        {% endif %}
         <a href="/logout" class="ghost menu-row danger-row">Logout</a>
       {% else %}
+        {% if demo_enabled %}
+        <form class="menu-form" method="post" action="/demo-login/owner">
+          <button class="top-primary menu-row" type="submit">Studio demo</button>
+        </form>
+        <form class="menu-form" method="post" action="/demo-login/client">
+          <button class="ghost menu-row" type="submit">Client demo</button>
+        </form>
+        {% endif %}
         <a href="/login" class="ghost menu-row">Login</a>
         <a href="/register" class="top-primary menu-row">Create account</a>
       {% endif %}
@@ -30,8 +41,14 @@
     </div>
   </header>
   <main class="container">
+    {% if is_demo %}
+    <div class="demo-notice" role="status">
+      <strong>Read-only shared demo</strong>
+      <span>Explore the complete workflow without changing the seeded portfolio data.</span>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js?v=20260723-theme-menu"></script>
+  <script src="/static/app.js?v=20260723-demo-ready-2"></script>
 </body>
 </html>

@@ -24,8 +24,15 @@
       </div>
     </div>
     <div class="landing-actions">
-      <a class="primary cta-link" href="/login">Login</a>
-      <a class="ghost cta-link" href="/register">Create account</a>
+      {% if demo_enabled %}
+      <form class="landing-demo-form" method="post" action="/demo-login/owner">
+        <button class="primary cta-link" type="submit">Explore studio demo</button>
+      </form>
+      <form class="landing-demo-form" method="post" action="/demo-login/client">
+        <button class="ghost cta-link" type="submit">Open client view</button>
+      </form>
+      {% endif %}
+      <a class="landing-login-link" href="/login">Sign in to your workspace</a>
     </div>
   </div>
 

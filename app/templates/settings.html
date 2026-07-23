@@ -23,6 +23,7 @@
   {% endif %}
 
   <form class="panel settings-form" method="post" action="/settings" novalidate>
+    <fieldset class="settings-readonly" {% if is_demo %}disabled{% endif %}>
     <div class="settings-layout">
       <div class="settings-fields">
         <div class="field-group">
@@ -90,6 +91,7 @@
       <p class="muted small">Changes apply to your dashboard, client portal, public review pages, and future client invitation emails.</p>
       <button class="primary" type="submit">Save settings</button>
     </div>
+    </fieldset>
   </form>
 </section>
 <script src="/static/settings.js?v=20260723-lumaire-brand"></script>
