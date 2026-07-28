@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% set title = 'Clients - Lumaire' %}
+{% block content %}
+<section class="management-shell">
+  <div class="page-crumb">
+    <a href="/dashboard">&larr; Dashboard</a>
+    <span>/</span>
+    <strong>Clients</strong>
+  </div>
+
+  <header class="management-header">
+    <div>
+      <p class="eyebrow">Client management</p>
+      <h1>Clients</h1>
+      <p class="muted">Create client workspaces and keep access details in one place.</p>
+    </div>
+    {% if not is_demo %}
+    <button class="primary" type="button" data-focus-client-form>New client</button>
+    {% endif %}
+  </header>
+
+  {% if success %}
+  <div class="success-box">{{ success }}</div>
+  {% endif %}
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+
+  <div class="management-grid">
+    {% if not is_demo %}
+    <section class="management-panel client-create-panel" id="new-client">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">New workspace</p>
+          <h2>Add client</h2>
+        </div>
+      </div>
+      <form action="/clients" method="post" novalidate class="management-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <label>
+          <span>Client name</span>
+          <input id="client-name" type="text" name="name" required placeholder="Acme Studio">
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" required placeholder="client@example.com">
+        </label>
+        <label>
+          <span>Contact information</span>
+          <input type="text" name="contact" placeholder="Phone, role, or preferred channel">
+        </label>
+        <label>
+          <span>Notes</span>
+          <textarea name="notes" rows="4" placeholder="Internal context for your studio"></textarea>
+        </label>
+        <button type="submit" class="primary management-submit">Create client and send invitation</button>
+      </form>
+    </section>
+    {% endif %}
+
+    <section class="management-panel client-directory {% if is_demo %}client-directory-wide{% endif %}">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Directory</p>
+          <h2>Client access</h2>
+        </div>
+        <span class="badge">{{ clients|length }} clients</span>
+      </div>
+
+      <div class="client-directory-list">
+        {% for client in clients %}
+        <article class="client-directory-row">
+          <div class="client-avatar" aria-hidden="true">{{ client.name[:2].upper() }}</div>
+          <div class="client-identity">
+            <strong>{{ client.name }}</strong>
+            <span>{{ client.email }}</span>
+            {% if client.contact %}<small>{{ client.contact }}</small>{% endif %}
+          </div>
+          <div class="client-project-count">
+            <strong>{{ client.project_count }}</strong>
+            <span>project{% if client.project_count != 1 %}s{% endif %}</span>
+          </div>
+          {% if not is_demo %}
+          <button
+            type="button"
+            class="ghost resend-invitation-trigger"
+            data-resend-url="/clients/{{ client.id }}/resend-invitation"
+            data-client-name="{{ client.name }}"
+          >
+            Resend invitation
+          </button>
+          {% endif %}
+        </article>
+        {% else %}
+        <div class="management-empty">
+          <strong>No clients yet</strong>
+          <p class="muted">Add your first client to create a project workspace.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</section>
+
+{% if not is_demo %}
+<div id="resend-invitation-modal" class="site-dialog hidden" aria-hidden="true">
+  <button type="button" class="site-dialog-backdrop" data-close-resend-modal aria-label="Close dialog"></button>
+  <section class="site-dialog-card" role="dialog" aria-modal="true" aria-labelledby="resend-modal-title" aria-describedby="resend-modal-description">
+    <div class="site-dialog-heading">
+      <span class="site-dialog-icon" aria-hidden="true">!</span>
+      <div>
+        <p class="eyebrow">Client access</p>
+        <h2 id="resend-modal-title">Resend invitation?</h2>
+      </div>
+    </div>
+    <p id="resend-modal-description" class="muted">
+      A new temporary password will replace the current one for
+      <strong id="resend-client-name"></strong>.
+    </p>
+    <form id="resend-invitation-form" method="post" class="site-dialog-actions">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+      <button type="button" class="ghost" data-close-resend-modal>Cancel</button>
+      <button id="confirm-resend-invitation" type="submit" class="primary">Resend invitation</button>
+    </form>
+  </section>
+</div>
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const clientNameInput = document.getElementById("client-name");
+    document.querySelector("[data-focus-client-form]")?.addEventListener("click", () => {
+      document.getElementById("new-client")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.setTimeout(() => clientNameInput?.focus(), 350);
+    });
+
+    const modal = document.getElementById("resend-invitation-modal");
+    const form = document.getElementById("resend-invitation-form");
+    const clientName = document.getElementById("resend-client-name");
+    const confirmButton = document.getElementById("confirm-resend-invitation");
+
+    const closeModal = () => {
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("dialog-open");
+    };
+
+    document.querySelectorAll(".resend-invitation-trigger").forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        if (!modal || !form || !clientName) return;
+        form.action = trigger.dataset.resendUrl;
+        clientName.textContent = trigger.dataset.clientName;
+        modal.classList.remove("hidden");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("dialog-open");
+        confirmButton?.focus();
+      });
+    });
+
+    document.querySelectorAll("[data-close-resend-modal]").forEach((button) => {
+      button.addEventListener("click", closeModal);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && modal?.getAttribute("aria-hidden") === "false") closeModal();
+    });
+  });
+</script>
+{% endblock %}

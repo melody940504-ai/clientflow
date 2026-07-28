@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260729-error-pages">
+  <link rel="stylesheet" href="/static/styles.css?v=20260729-management">
 </head>
 <body {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
   <header class="topbar">
@@ -26,6 +26,15 @@
       <div class="site-menu hidden" id="site-menu-panel">
         <button class="ghost menu-row" type="button" data-theme-toggle>Toggle theme</button>
       {% if user %}
+        <a href="/dashboard" class="ghost menu-row">Dashboard</a>
+        {% if user.role == 'owner' %}
+        <a href="/clients" class="ghost menu-row">Clients</a>
+        {% if not is_demo %}
+        <a href="/projects/new" class="top-primary menu-row">New project</a>
+        {% endif %}
+        <a href="/analytics" class="ghost menu-row">Analytics</a>
+        <a href="/settings" class="ghost menu-row">Studio settings</a>
+        {% endif %}
         {% if is_demo %}
         <span class="demo-menu-label">Read-only demo</span>
         {% else %}

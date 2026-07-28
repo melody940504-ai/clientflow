@@ -2133,13 +2133,13 @@ def create_client(
         raise HTTPException(status_code=403, detail="Only studio owners can create clients.")
 
     if is_demo_user(user):
-        return demo_read_only_redirect("/dashboard")
+        return demo_read_only_redirect("/clients")
 
     if not name or not name.strip():
-        return redirect("/dashboard?error=Client+name+is+required.")
+        return redirect("/clients?error=Client+name+is+required.")
 
     if not email or not email.strip():
-        return redirect("/dashboard?error=Client+email+is+required.")
+        return redirect("/clients?error=Client+email+is+required.")
 
     email_clean = email.strip().lower()
     client_password = secrets.token_urlsafe(9)
@@ -2152,7 +2152,7 @@ def create_client(
             ).fetchone()
 
             if existing_user:
-                return redirect("/dashboard?error=This+email+is+already+registered.")
+                return redirect("/clients?error=This+email+is+already+registered.")
 
             cur = db.execute(
                 "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
@@ -2204,10 +2204,10 @@ def create_client(
                 raise InvitationDeliveryError
     except InvitationDeliveryError:
         return redirect(
-            "/dashboard?error=Client+was+not+created+because+the+invitation+could+not+be+sent."
+            "/clients?error=Client+was+not+created+because+the+invitation+could+not+be+sent."
         )
 
-    return redirect("/dashboard?success=Client+created+and+invitation+sent.")
+    return redirect("/clients?success=Client+created+and+invitation+sent.")
 
 
 @app.post("/clients/{client_id}/resend-invitation")
@@ -2223,7 +2223,7 @@ def resend_client_invitation(
         raise HTTPException(status_code=403, detail="Only studio owners can resend invitations.")
 
     if is_demo_user(user):
-        return demo_read_only_redirect("/dashboard")
+        return demo_read_only_redirect("/clients")
 
     temporary_password = secrets.token_urlsafe(9)
 
@@ -2249,7 +2249,7 @@ def resend_client_invitation(
                 raise HTTPException(status_code=404, detail="Client not found.")
 
             if not client["email"]:
-                return redirect("/dashboard?error=This+client+does+not+have+an+email+address.")
+                return redirect("/clients?error=This+client+does+not+have+an+email+address.")
 
             db.execute(
                 """
@@ -2278,11 +2278,93 @@ def resend_client_invitation(
                 raise InvitationDeliveryError
     except InvitationDeliveryError:
         return redirect(
-            "/dashboard?error=Invitation+could+not+be+sent.+The+current+password+was+not+changed."
+            "/clients?error=Invitation+could+not+be+sent.+The+current+password+was+not+changed."
         )
 
     return redirect(
-        "/dashboard?success=Invitation+resent+with+a+new+temporary+password."
+        "/clients?success=Invitation+resent+with+a+new+temporary+password."
+    )
+
+
+@app.get("/clients", response_class=HTMLResponse)
+def clients_page(
+    request: Request,
+    success: str = "",
+    error: str = "",
+):
+    user = require_user(request)
+
+    if owner_needs_setup(user):
+        return redirect("/setup")
+
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+
+    with get_db() as db:
+        clients = db.execute(
+            """
+            SELECT
+                c.*,
+                COUNT(p.id) AS project_count,
+                MAX(p.created_at) AS latest_project_at
+            FROM clients c
+            LEFT JOIN projects p ON p.client_id = c.id
+            WHERE c.user_id = ?
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+            """,
+            (user["id"],),
+        ).fetchall()
+        branding = get_branding_for_user(db, user)
+
+    return templates.TemplateResponse(
+        "clients.html",
+        {
+            "request": request,
+            "user": user,
+            "clients": clients,
+            "branding": branding,
+            "is_demo": is_demo_user(user),
+            "success": success,
+            "error": error,
+        },
+    )
+
+
+@app.get("/projects/new", response_class=HTMLResponse)
+def new_project_page(
+    request: Request,
+    error: str = "",
+):
+    user = require_user(request)
+
+    if owner_needs_setup(user):
+        return redirect("/setup")
+
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+
+    with get_db() as db:
+        clients = db.execute(
+            "SELECT id, name, email FROM clients WHERE user_id = ? ORDER BY name",
+            (user["id"],),
+        ).fetchall()
+        branding = get_branding_for_user(db, user)
+
+    return templates.TemplateResponse(
+        "new_project.html",
+        {
+            "request": request,
+            "user": user,
+            "clients": clients,
+            "branding": branding,
+            "is_demo": False,
+            "error": error,
+            "category_options": CATEGORY_OPTIONS,
+        },
     )
 
 
@@ -2303,10 +2385,10 @@ def create_project(
         raise HTTPException(status_code=403)
 
     if is_demo_user(user):
-        return demo_read_only_redirect("/dashboard")
+        return demo_read_only_redirect("/projects/new")
 
     if not client_id or not client_id.strip():
-        return redirect("/dashboard?error=Please+select+a+client.")
+        return redirect("/projects/new?error=Please+select+a+client.")
 
     try:
         client_id_int = int(client_id)
@@ -2314,7 +2396,7 @@ def create_project(
         raise HTTPException(status_code=400, detail="Invalid client selected.")
 
     if not name or not name.strip():
-        return redirect("/dashboard?error=Project+title+is+required.")
+        return redirect("/projects/new?error=Project+title+is+required.")
 
     with get_db() as db:
         client = db.execute(
@@ -2342,7 +2424,7 @@ def create_project(
             ),
         )
 
-    return redirect("/dashboard")
+    return redirect("/dashboard?success=Project+created+successfully.")
 
 
 @app.get("/projects/{project_id}", response_class=HTMLResponse)

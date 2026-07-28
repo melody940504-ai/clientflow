@@ -200,7 +200,7 @@
             border-color: #fca5a5 !important;
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260723-visual-refresh">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260729-management">
 </head>
 <body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
 
@@ -274,6 +274,10 @@
                             Toggle Theme
                         </button>
                     {% if user.role != 'client' %}
+                    <a href="/clients" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Clients</a>
+                    {% if not is_demo %}
+                    <a href="/projects/new" class="brand-bg-fix menu-item-fix text-center text-xs px-3 py-2 rounded-xl transition text-white font-semibold">New project</a>
+                    {% endif %}
                     <a href="/analytics" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Analytics</a>
                     <a href="/settings" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Settings</a>
                     {% endif %}
@@ -312,13 +316,21 @@
                     {% if user.role == 'client' %}Projects ready for review{% else %}Workspace overview{% endif %}
                 </h1>
             </div>
-            <p>
-                {% if user.role == 'client' %}
-                    Review current versions and keep every decision attached to the project.
-                {% else %}
-                    A focused view of active client work, review status, and delivery progress.
+            <div class="workspace-heading-copy">
+                <p>
+                    {% if user.role == 'client' %}
+                        Review current versions and keep every decision attached to the project.
+                    {% else %}
+                        A focused view of active client work, review status, and delivery progress.
+                    {% endif %}
+                </p>
+                {% if user.role != 'client' and not is_demo %}
+                <div class="workspace-heading-actions">
+                    <a href="/clients" class="nav-action-fix">Clients</a>
+                    <a href="/projects/new" class="brand-bg-fix">New project</a>
+                </div>
                 {% endif %}
-            </p>
+            </div>
         </section>
         
         {% if user.role != 'client' %}
@@ -345,96 +357,6 @@
                 <p class="text-3xl font-black text-purple-400 mt-1">{{ stats.published }}</p>
             </div>
         </div>
-        {% endif %}
-
-        {% if user.role != 'client' and not is_demo %}
-        <div class="workspace-actions-grid grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-            <!-- 👥 Add Client -->
-            <div class="workspace-form-panel bg-card-fix bg-gray-900/40 border border-gray-900 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
-                <div>
-                    <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">✨ Add Client</h3>
-                    <form action="/clients" method="post" novalidate class="space-y-3 m-0">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <input type="text" name="name" required placeholder="Client Name (Required)" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                        <input type="email" name="email" required placeholder="Client Email" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                        <input type="text" name="contact" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                        <textarea name="notes" placeholder="Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
-                        <button type="submit" class="brand-bg-fix w-full text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-indigo-600/10 mt-2 opacity-95 hover:opacity-100">
-                            Save Client & Generate Pass
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- 📁 Add Project -->
-            <div class="workspace-form-panel bg-card-fix bg-gray-900/40 border border-gray-800 p-4 sm:p-6 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between">
-                <div>
-                    <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">🚀 Add Project</h3>
-                    <form action="/projects" method="post" novalidate class="space-y-3 m-0">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <!-- 🔒 解決下拉選單問題 -->
-                        <select name="client_id" required class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none text-gray-300 cursor-pointer">
-                            <option value="">Select Client</option>
-                            {% for c in clients %}
-                            <option value="{{ c.id }}">{{ c.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <input type="text" name="name" required placeholder="Project Title" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <select name="category" class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none text-white-fix">
-                                <option value="Shorts">Shorts</option>
-                                <option value="Reels">Reels</option>
-                                <option value="TikTok">TikTok</option>
-                                <option value="Ad">Ad</option>
-                                <option value="YouTube">YouTube</option>
-                                <option value="Other">Other</option>
-                            </select>
-                            <select name="status" class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none text-white-fix">
-                                <option value="Awaiting Review">Awaiting Review</option>
-                                <option value="In Revision">In Revision</option>
-                            </select>
-                        </div>
-                        <textarea name="notes" placeholder="Project Scope / Notes..." class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-indigo-500 text-white"></textarea>
-                        <button type="submit" class="brand-bg-fix w-full text-white font-bold rounded-xl py-2 transition text-sm shadow-md shadow-purple-600/10 mt-2 opacity-95 hover:opacity-100">
-                            Create Project
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if user.role != 'client' and not is_demo and clients %}
-        <section class="workspace-projects bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-4 pb-4 border-b border-gray-800">
-                <h3 class="text-base font-bold text-white-fix">Client access</h3>
-                <span class="text-xs text-gray-400-fix">{{ clients|length }} clients</span>
-            </div>
-            <div class="divide-y divide-gray-800">
-                {% for c in clients %}
-                <div class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="min-w-0">
-                        <p class="font-semibold text-white-fix break-words">{{ c.name }}</p>
-                        <p class="text-sm text-gray-400-fix break-all">{{ c.email }}</p>
-                    </div>
-                    <form
-                        action="/clients/{{ c.id }}/resend-invitation"
-                        method="post"
-                        class="m-0 shrink-0"
-                        onsubmit="return confirm('Resending creates a new temporary password. Continue?')"
-                    >
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <button
-                            type="submit"
-                            class="nav-action-fix w-full sm:w-auto border border-gray-700 rounded-xl px-4 py-2.5 text-sm font-semibold text-white-fix transition hover:border-indigo-400 hover:text-indigo-300"
-                        >
-                            Resend invitation
-                        </button>
-                    </form>
-                </div>
-                {% endfor %}
-            </div>
-        </section>
         {% endif %}
 
         <!-- 📂 專案列表 -->
@@ -476,7 +398,12 @@
                     </div>
                 </a>
                 {% else %}
-                <p class="text-sm text-gray-500 py-4 col-span-full text-center">No active projects found. Create your first one above!</p>
+                <div class="col-span-full py-8 text-center">
+                    <p class="text-sm text-gray-500">No active projects found.</p>
+                    {% if user.role != 'client' and not is_demo %}
+                    <a href="/projects/new" class="mt-3 inline-flex text-sm font-bold text-indigo-400 transition hover:text-indigo-300">Create your first project</a>
+                    {% endif %}
+                </div>
                 {% endfor %}
             </div>
         </div>

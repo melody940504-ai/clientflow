@@ -193,7 +193,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260723-visual-refresh">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260729-management">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -233,6 +233,27 @@
                         <button id="theme-toggle" type="button" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
                             Toggle Theme
                         </button>
+                        {% if not is_public_link %}
+                        <a href="/dashboard" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                            Dashboard
+                        </a>
+                        {% endif %}
+                        {% if user and user.role == 'owner' and not is_public_link %}
+                        <a href="/clients" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                            Clients
+                        </a>
+                        {% if not is_demo %}
+                        <a href="/projects/new" class="brand-bg-fix w-full justify-center text-center text-sm px-3 py-2 rounded-xl transition text-white font-semibold">
+                            New project
+                        </a>
+                        {% endif %}
+                        <a href="/analytics" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                            Analytics
+                        </a>
+                        <a href="/settings" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                            Studio settings
+                        </a>
+                        {% endif %}
                         {% if not is_public_link and not is_demo %}
                         <a href="/account" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
                             Account settings

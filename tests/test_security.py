@@ -369,16 +369,46 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn('/review/{{ project.review_token }}', project_template)
         self.assertNotIn('/review/{{ project.id }}', project_template)
 
-    def test_dashboard_has_resend_invitation_action(self):
+    def test_client_management_owns_invitation_actions(self):
+        dashboard_template = (
+            Path(__file__).parents[1] / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+        clients_template = (
+            Path(__file__).parents[1] / "app" / "templates" / "clients.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            '/clients/{{ client.id }}/resend-invitation',
+            clients_template,
+        )
+        self.assertIn("Resend invitation", clients_template)
+        self.assertIn('id="resend-invitation-modal"', clients_template)
+        self.assertNotIn("return confirm(", clients_template)
+        self.assertNotIn('action="/clients"', dashboard_template)
+        self.assertNotIn('action="/projects"', dashboard_template)
+
+    def test_dashboard_links_to_dedicated_management_pages(self):
         dashboard_template = (
             Path(__file__).parents[1] / "app" / "templates" / "dashboard.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn(
-            '/clients/{{ c.id }}/resend-invitation',
-            dashboard_template,
+        self.assertIn('href="/clients"', dashboard_template)
+        self.assertIn('href="/projects/new"', dashboard_template)
+
+    def test_management_routes_and_menu_are_available(self):
+        route_paths = [route.path for route in main.app.routes]
+        base_template = (
+            Path(__file__).parents[1] / "app" / "templates" / "base.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("/clients", route_paths)
+        self.assertIn("/projects/new", route_paths)
+        self.assertLess(
+            route_paths.index("/projects/new"),
+            route_paths.index("/projects/{project_id}"),
         )
-        self.assertIn("Resend invitation", dashboard_template)
+        self.assertIn('href="/clients"', base_template)
+        self.assertIn('href="/projects/new"', base_template)
 
 
 if __name__ == "__main__":

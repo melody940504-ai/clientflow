@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% set title = 'New Project - Lumaire' %}
+{% block content %}
+<section class="management-shell project-create-shell">
+  <div class="page-crumb">
+    <a href="/dashboard">&larr; Dashboard</a>
+    <span>/</span>
+    <strong>New project</strong>
+  </div>
+
+  <header class="management-header project-create-header">
+    <div>
+      <p class="eyebrow">Project setup</p>
+      <h1>New project</h1>
+      <p class="muted">Start with the client, then define the work entering your review pipeline.</p>
+    </div>
+  </header>
+
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+
+  {% if clients %}
+  <form action="/projects" method="post" novalidate class="management-panel project-create-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <div class="project-form-section">
+      <div class="project-form-index">01</div>
+      <div>
+        <h2>Client</h2>
+        <p class="muted small">Choose the workspace this project belongs to.</p>
+      </div>
+      <label class="project-form-control">
+        <span>Client workspace</span>
+        <select name="client_id" required>
+          <option value="">Select client</option>
+          {% for client in clients %}
+          <option value="{{ client.id }}">{{ client.name }}{% if client.email %} / {{ client.email }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="project-form-section">
+      <div class="project-form-index">02</div>
+      <div>
+        <h2>Project details</h2>
+        <p class="muted small">Name the work and place it in the right pipeline.</p>
+      </div>
+      <div class="project-form-fields">
+        <label>
+          <span>Project title</span>
+          <input type="text" name="name" required placeholder="Launch reels package">
+        </label>
+        <div class="project-form-pair">
+          <label>
+            <span>Category</span>
+            <select name="category">
+              {% for category in category_options %}
+              <option value="{{ category }}">{{ category }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Starting status</span>
+            <select name="status">
+              <option value="Awaiting Review">Awaiting Review</option>
+              <option value="In Revision">In Revision</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="project-form-section">
+      <div class="project-form-index">03</div>
+      <div>
+        <h2>Scope</h2>
+        <p class="muted small">Add the context your studio needs before the first upload.</p>
+      </div>
+      <label class="project-form-control">
+        <span>Project notes</span>
+        <textarea name="notes" rows="6" placeholder="Deliverables, references, deadlines, or review notes"></textarea>
+      </label>
+    </div>
+
+    <div class="project-create-actions">
+      <a href="/dashboard" class="ghost">Cancel</a>
+      <button type="submit" class="primary">Create project</button>
+    </div>
+  </form>
+  {% else %}
+  <section class="management-panel management-empty project-empty">
+    <strong>Add a client before creating a project</strong>
+    <p class="muted">Every project needs a client workspace for reviews and invitations.</p>
+    <a href="/clients" class="primary">Go to clients</a>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}
