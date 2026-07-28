@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Lumaire</title>
+  <rect width="64" height="64" rx="15" fill="#111936"/>
+  <path d="M16 15 24 10v32h5v8H16V15Z" fill="#fff"/>
+  <path d="M29 42 53 50H29v-8Z" fill="#6366f1"/>
+  <path d="M29 32c.8 6.6 2.9 8.8 9.5 10-6.6 1.2-8.7 3.4-9.5 10-.8-6.6-2.9-8.8-9.5-10 6.6-1.2 8.7-3.4 9.5-10Z" fill="#d9fbff"/>
+</svg>
