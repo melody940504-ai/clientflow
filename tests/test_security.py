@@ -183,6 +183,80 @@ class UploadSecurityTests(unittest.TestCase):
         self.assertEqual(context.exception.status_code, 413)
 
 
+class EmailTemplateTests(unittest.TestCase):
+    def capture_email(self, callback):
+        payloads = []
+        original_send = main.resend.Emails.send
+        main.resend.Emails.send = lambda payload: payloads.append(payload)
+        try:
+            callback()
+        finally:
+            main.resend.Emails.send = original_send
+        self.assertEqual(len(payloads), 1)
+        return payloads[0]
+
+    def test_invitation_uses_branding_and_escapes_user_content(self):
+        payload = self.capture_email(
+            lambda: main.send_client_invitation_email(
+                to_email="client@example.com",
+                client_name="<script>alert(1)</script>",
+                login_email="client+demo@example.com",
+                temporary_password="<temporary>",
+                login_url="https://example.com/login",
+                sender_name="Northstar\r\nBcc: bad@example.com",
+                studio_name="Northstar & Co.",
+                brand_color="#f5c84c",
+                logo_url="https://example.com/northstar-logo.png",
+            )
+        )
+
+        self.assertNotIn("\r", payload["from"])
+        self.assertNotIn("\n", payload["from"])
+        self.assertIn("Northstar &amp; Co.", payload["html"])
+        self.assertIn("&lt;script&gt;", payload["html"])
+        self.assertNotIn("<script>", payload["html"])
+        self.assertIn("&lt;temporary&gt;", payload["html"])
+        self.assertIn("color:#111827", payload["html"])
+        self.assertIn("https://example.com/northstar-logo.png", payload["html"])
+        self.assertNotIn("test invitation", payload["html"].lower())
+        self.assertIn("Open client portal:", payload["text"])
+
+    def test_activity_email_rejects_unsafe_links(self):
+        payload = self.capture_email(
+            lambda: main.send_activity_email(
+                to_email="owner@example.com",
+                subject="Project activity\r\nBcc: bad@example.com",
+                project_name="<Launch>",
+                action_text="Client said <great>",
+                link_url="javascript:alert(1)",
+                sender_name="Northstar",
+                brand_name="Northstar Studio",
+                brand_color="#6366f1",
+            )
+        )
+
+        self.assertIn("&lt;Launch&gt;", payload["html"])
+        self.assertIn("Client said &lt;great&gt;", payload["html"])
+        self.assertIn('href="#"', payload["html"])
+        self.assertNotIn("javascript:", payload["html"])
+        self.assertNotIn("javascript:", payload["text"])
+        self.assertIn("Link unavailable", payload["text"])
+        self.assertNotIn("\r", payload["subject"])
+        self.assertNotIn("\n", payload["subject"])
+
+    def test_system_email_keeps_lumaire_brand(self):
+        payload = self.capture_email(
+            lambda: main.send_verification_email(
+                "owner@example.com",
+                "https://example.com/verify/token",
+            )
+        )
+
+        self.assertEqual(payload["from"], "Lumaire <onboarding@resend.dev>")
+        self.assertIn("Confirm your email address", payload["html"])
+        self.assertIn("https://example.com/verify/token", payload["html"])
+
+
 class ErrorResponseTests(unittest.TestCase):
     @staticmethod
     def request_with_accept(accept: str):

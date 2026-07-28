@@ -6,6 +6,7 @@ import logging
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from html import escape
 from pathlib import Path
 from typing import Optional
 
@@ -115,6 +116,112 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
         },
     )
 
+
+def clean_email_sender_name(value: str) -> str:
+    cleaned = "".join(
+        character
+        for character in str(value or "")
+        if character not in "\r\n<>"
+    ).strip()
+    return cleaned[:60] or DEFAULT_EMAIL_SENDER_NAME
+
+
+def clean_email_subject(value: str) -> str:
+    cleaned = " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
+    return cleaned[:160] or "Lumaire notification"
+
+
+def clean_email_brand_color(value: str) -> str:
+    value = str(value or "").strip()
+    if (
+        len(value) == 7
+        and value.startswith("#")
+        and all(character in "0123456789abcdefABCDEF" for character in value[1:])
+    ):
+        return value.lower()
+    return DEFAULT_BRAND_COLOR
+
+
+def email_button_text_color(background: str) -> str:
+    color = clean_email_brand_color(background)
+    red, green, blue = (
+        int(color[index:index + 2], 16)
+        for index in (1, 3, 5)
+    )
+    luminance = (0.299 * red) + (0.587 * green) + (0.114 * blue)
+    return "#111827" if luminance > 170 else "#ffffff"
+
+
+def validated_email_url(value: str) -> str:
+    value = str(value or "").strip()
+    if not value.lower().startswith(("https://", "http://")):
+        return ""
+    return value
+
+
+def safe_email_url(value: str) -> str:
+    return escape(validated_email_url(value), quote=True) or "#"
+
+
+def build_email_html(
+    *,
+    brand_name: str,
+    brand_color: str,
+    eyebrow: str,
+    heading: str,
+    body_html: str,
+    action_label: str,
+    action_url: str,
+    footer: str,
+    logo_url: str = "",
+) -> str:
+    safe_brand_name = escape(clean_email_sender_name(brand_name))
+    safe_brand_color = clean_email_brand_color(brand_color)
+    button_text = email_button_text_color(safe_brand_color)
+    safe_action_url = safe_email_url(action_url)
+    safe_logo_url = safe_email_url(logo_url)
+    brand_header = (
+        f'<img src="{safe_logo_url}" alt="{safe_brand_name}" '
+        'style="display:block;max-width:180px;max-height:48px;border:0;">'
+        if safe_logo_url != "#"
+        else f'<div style="font-size:17px;font-weight:700;color:#172033;">{safe_brand_name}</div>'
+    )
+
+    return f"""
+    <!doctype html>
+    <html lang="en">
+      <body style="margin:0;background:#f4f6fb;color:#172033;font-family:Arial,sans-serif;">
+        <div style="display:none;max-height:0;overflow:hidden;color:transparent;">{escape(heading)}</div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6fb;padding:32px 16px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #e4e8f0;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="height:6px;background:{safe_brand_color};font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td style="padding:36px 40px 18px;">
+                    {brand_header}
+                    <div style="margin-top:34px;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:{safe_brand_color};">{escape(eyebrow)}</div>
+                    <h1 style="margin:12px 0 18px;font-size:30px;line-height:1.2;color:#111827;">{escape(heading)}</h1>
+                    <div style="font-size:16px;line-height:1.7;color:#526078;">{body_html}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 40px 36px;">
+                    <a href="{safe_action_url}" style="display:inline-block;padding:13px 20px;border-radius:8px;background:{safe_brand_color};color:{button_text};font-size:15px;font-weight:700;text-decoration:none;">{escape(action_label)}</a>
+                    <p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#7b879d;">{escape(footer)}</p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:18px 0 0;font-size:11px;color:#8b96a9;">Sent securely through Lumaire</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+    """
+
 # ==========================================
 # 📬 Email 自動通知模擬引擎
 # ==========================================
@@ -123,49 +230,41 @@ def send_activity_email(
     subject: str,
     project_name: str,
     action_text: str,
-    link_url: str
-):
+    link_url: str,
+    sender_name: str = DEFAULT_EMAIL_SENDER_NAME,
+    brand_name: str = DEFAULT_STUDIO_NAME,
+    brand_color: str = DEFAULT_BRAND_COLOR,
+    logo_url: str = "",
+) -> None:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
+        safe_project_name = escape(str(project_name or "Untitled project"))
+        safe_action_text = escape(str(action_text or "")).replace("\n", "<br>")
+        plain_link = validated_email_url(link_url) or "Link unavailable"
 
         resend.Emails.send({
-            "from": "Lumaire <onboarding@resend.dev>",
+            "from": f"{clean_email_sender_name(sender_name)} <onboarding@resend.dev>",
             "to": [recipient],
-            "subject": subject,
-            "html": f"""
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-
-                <h2 style="color:#4f46e5;">
-                    Lumaire Notification
-                </h2>
-
-                <p>
-                    <strong>Project:</strong>
-                    {project_name}
-                </p>
-
-                <p>
-                    {action_text}
-                </p>
-
-                <p style="margin-top:24px">
-                    <a
-                        href="{link_url}"
-                        style="
-                            background:#4f46e5;
-                            color:white;
-                            padding:12px 20px;
-                            text-decoration:none;
-                            border-radius:8px;
-                            display:inline-block;
-                        "
-                    >
-                        Open Project
-                    </a>
-                </p>
-
-            </div>
-            """
+            "subject": clean_email_subject(subject),
+            "text": (
+                f"{project_name}\n\n{action_text}\n\n"
+                f"Open project: {plain_link}"
+            ),
+            "html": build_email_html(
+                brand_name=brand_name,
+                brand_color=brand_color,
+                eyebrow="Project activity",
+                heading=project_name,
+                body_html=(
+                    f'<p style="margin:0 0 12px;"><strong style="color:#172033;">'
+                    f"Project:</strong> {safe_project_name}</p>"
+                    f'<p style="margin:0;">{safe_action_text}</p>'
+                ),
+                action_label="Open project",
+                action_url=link_url,
+                footer="You received this message because you are part of this project workspace.",
+                logo_url=logo_url,
+            ),
         })
 
         print(f"Email sent successfully to {recipient}")
@@ -180,66 +279,46 @@ def send_client_invitation_email(
     temporary_password: str,
     login_url: str,
     sender_name: str = DEFAULT_EMAIL_SENDER_NAME,
-):
+    studio_name: str = DEFAULT_STUDIO_NAME,
+    brand_color: str = DEFAULT_BRAND_COLOR,
+    logo_url: str = "",
+) -> None:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
+        safe_client_name = escape(str(client_name or "there"))
+        safe_login_email = escape(str(login_email or ""))
+        safe_password = escape(str(temporary_password or ""))
+        plain_link = validated_email_url(login_url) or "Link unavailable"
 
         resend.Emails.send({
-            "from": f"{sender_name} <onboarding@resend.dev>",
+            "from": f"{clean_email_sender_name(sender_name)} <onboarding@resend.dev>",
             "to": [recipient],
-            "subject": "You have been invited to Lumaire",
-            "html": f"""
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-
-                <h2 style="color:#4f46e5;">
-                    Welcome to Lumaire
-                </h2>
-
-                <p>
-                    Hi {client_name},
-                </p>
-
-                <p>
-                    You have been invited to review projects on Lumaire.
-                </p>
-
-                <div style="
-                    background:#f5f5f5;
-                    padding:16px;
-                    border-radius:8px;
-                    margin:20px 0;
-                    color:#111827;
-                ">
-                    <p><strong>Login Email:</strong> {login_email}</p>
-                    <p><strong>Temporary Password:</strong> {temporary_password}</p>
-                </div>
-
-                <p>
-                    Use the button below to access your client portal.
-                </p>
-
-                <p style="margin-top:24px">
-                    <a
-                        href="{login_url}"
-                        style="
-                            background:#4f46e5;
-                            color:white;
-                            padding:12px 20px;
-                            text-decoration:none;
-                            border-radius:8px;
-                            display:inline-block;
-                        "
-                    >
-                        Open Client Portal
-                    </a>
-                </p>
-
-                <p style="font-size:12px;color:#6b7280;margin-top:24px;">
-                    This is a test invitation sent by Lumaire.
-                </p>
-
-            </div>
-            """
+            "subject": f"You have been invited by {clean_email_sender_name(studio_name)}",
+            "text": (
+                f"Hi {client_name},\n\n"
+                "Your client review workspace is ready.\n\n"
+                f"Login email: {login_email}\n"
+                f"Temporary password: {temporary_password}\n\n"
+                f"Open client portal: {plain_link}"
+            ),
+            "html": build_email_html(
+                brand_name=studio_name,
+                brand_color=brand_color,
+                eyebrow="Client invitation",
+                heading="Your review workspace is ready",
+                body_html=f"""
+                  <p style="margin:0 0 16px;">Hi {safe_client_name},</p>
+                  <p style="margin:0 0 18px;">You have been invited to review projects and share feedback in Lumaire.</p>
+                  <div style="padding:18px;background:#f7f8fb;border:1px solid #e4e8f0;border-radius:8px;color:#172033;">
+                    <p style="margin:0 0 8px;"><strong>Login email:</strong> {safe_login_email}</p>
+                    <p style="margin:0;"><strong>Temporary password:</strong> {safe_password}</p>
+                  </div>
+                """,
+                action_label="Open client portal",
+                action_url=login_url,
+                footer="For security, sign in and change your temporary password from Account settings.",
+                logo_url=logo_url,
+            ),
         })
 
         print(f"Client invitation email sent successfully to {recipient}")
@@ -253,7 +332,37 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 🎯 不論是在本機 Windows 還是雲端 Linux，都能精準拼出正確的資料庫絕對路徑
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 
-def send_password_reset_email(to_email: str, reset_url: str):
+def send_verification_email(to_email: str, verify_url: str) -> None:
+    try:
+        recipient = EMAIL_TEST_RECIPIENT or to_email
+
+        resend.Emails.send({
+            "from": "Lumaire <onboarding@resend.dev>",
+            "to": [recipient],
+            "subject": "Verify your Lumaire email",
+            "text": (
+                "Confirm your email address to finish creating your workspace.\n\n"
+                f"Verify email: {validated_email_url(verify_url) or 'Link unavailable'}"
+            ),
+            "html": build_email_html(
+                brand_name="Lumaire",
+                brand_color=DEFAULT_BRAND_COLOR,
+                eyebrow="Email verification",
+                heading="Confirm your email address",
+                body_html="<p style=\"margin:0;\">Verify your email to finish creating your workspace.</p>",
+                action_label="Verify email",
+                action_url=verify_url,
+                footer="If you did not create a Lumaire account, you can safely ignore this email.",
+            ),
+        })
+
+        print(f"Verification email sent to {recipient}")
+
+    except Exception as e:
+        print(f"Verification email failed: {e}")
+
+
+def send_password_reset_email(to_email: str, reset_url: str) -> None:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
 
@@ -261,39 +370,21 @@ def send_password_reset_email(to_email: str, reset_url: str):
             "from": "Lumaire <onboarding@resend.dev>",
             "to": [recipient],
             "subject": "Reset your Lumaire password",
-            "html": f"""
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-
-                <h2 style="color:#4f46e5;">
-                    Reset your Lumaire password
-                </h2>
-
-                <p>
-                    We received a request to reset your Lumaire password.
-                </p>
-
-                <p style="margin-top:24px">
-                    <a
-                        href="{reset_url}"
-                        style="
-                            background:#4f46e5;
-                            color:white;
-                            padding:12px 20px;
-                            text-decoration:none;
-                            border-radius:8px;
-                            display:inline-block;
-                        "
-                    >
-                        Reset Password
-                    </a>
-                </p>
-
-                <p style="font-size:12px;color:#6b7280;margin-top:24px;">
-                    This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.
-                </p>
-
-            </div>
-            """
+            "text": (
+                "We received a request to reset your Lumaire password.\n\n"
+                f"Reset password: {validated_email_url(reset_url) or 'Link unavailable'}\n\n"
+                "This link expires in 1 hour."
+            ),
+            "html": build_email_html(
+                brand_name="Lumaire",
+                brand_color=DEFAULT_BRAND_COLOR,
+                eyebrow="Account security",
+                heading="Reset your password",
+                body_html="<p style=\"margin:0;\">We received a request to reset your Lumaire password.</p>",
+                action_label="Reset password",
+                action_url=reset_url,
+                footer="This link expires in 1 hour. If you did not request a reset, you can safely ignore this email.",
+            ),
         })
 
         print(f"Password reset email sent to {recipient}")
@@ -1184,13 +1275,7 @@ def register(
     
     verify_url = f"{request.base_url}verify-email/{verification_token}"
 
-    send_activity_email(
-        email.strip().lower(),
-        "Verify your email",
-        "Lumaire",
-        f"Please verify your email address.\n\n{verify_url}",
-        verify_url
-    )
+    send_verification_email(email.strip().lower(), verify_url)
 
     return redirect("/login?success=verification-sent")
 
@@ -2106,6 +2191,9 @@ def create_client(
             temporary_password=client_password,
             login_url=str(request.base_url),
             sender_name=branding["email_sender_name"],
+            studio_name=branding["studio_name"],
+            brand_color=branding["brand_color"],
+            logo_url=branding["logo_url"],
         )
 
     return redirect("/dashboard")
@@ -2372,9 +2460,11 @@ async def create_version(
 
         project_info = db.execute(
             """
-            SELECT p.name AS p_name, p.review_token, c.email AS c_email
+            SELECT p.name AS p_name, p.review_token, c.email AS c_email,
+                   u.studio_name, u.brand_color, u.email_sender_name, u.logo_url
             FROM projects p
             JOIN clients c ON p.client_id=c.id
+            JOIN users u ON p.user_id=u.id
             WHERE p.id=?
             """,
             (project_id,),
@@ -2387,10 +2477,17 @@ async def create_version(
 
             send_activity_email(
                 to_email=project_info["c_email"],
-                subject=f"[Lumaire] New version {version_label.strip()} uploaded",
+                subject=(
+                    f"[{clean_email_sender_name(project_info['studio_name'])}] "
+                    f"New version {version_label.strip()} uploaded"
+                ),
                 project_name=project_info["p_name"],
                 action_text=f"Studio uploaded a new version ({version_label.strip()}). Please review it when available.",
                 link_url=public_review_url,
+                sender_name=project_info["email_sender_name"],
+                brand_name=project_info["studio_name"],
+                brand_color=project_info["brand_color"],
+                logo_url=project_info["logo_url"],
             )
 
     return redirect(f"/projects/{project_id}?success=Version+uploaded+successfully.")
@@ -2424,7 +2521,8 @@ def version_decision(
 
         project = db.execute(
             """
-            SELECT p.*, c.name AS client_name, u.email AS owner_email
+            SELECT p.*, c.name AS client_name, u.email AS owner_email,
+                   u.studio_name, u.brand_color, u.email_sender_name, u.logo_url
             FROM projects p
             JOIN clients c ON p.client_id = c.id
             JOIN users u ON p.user_id = u.id
@@ -2512,7 +2610,10 @@ def version_decision(
 
             send_activity_email(
                 to_email=project["owner_email"],
-                subject=f"[Lumaire] Project Activity Update: {action_display}",
+                subject=(
+                    f"[{clean_email_sender_name(project['studio_name'])}] "
+                    f"Project activity: {action_display}"
+                ),
                 project_name=project["name"],
                 action_text=(
                     f"Client ({author_name}) has submitted an action "
@@ -2520,6 +2621,10 @@ def version_decision(
                     f"Feedback: \"{final_body}\""
                 ),
                 link_url=project_url,
+                sender_name=project["email_sender_name"],
+                brand_name=project["studio_name"],
+                brand_color=project["brand_color"],
+                logo_url=project["logo_url"],
             )
 
     return redirect(target_path)
@@ -2622,14 +2727,22 @@ def deliver_project(
         db.execute("UPDATE projects SET status='Published' WHERE id=?", (project_id,))
         
         # 📬 【加分功能】：同時自動觸發一封結案信通知客戶前來下載最終成片！
+        branding = get_owner_branding(db, user["id"])
         client_info = db.execute("SELECT email FROM clients WHERE id=?", (project["client_id"],)).fetchone()
         if client_info and client_info["email"]:
             send_activity_email(
                 to_email=client_info["email"],
-                subject=f"[Lumaire] Final Delivery Completed for '{project['name']}'!",
+                subject=(
+                    f"[{clean_email_sender_name(branding['studio_name'])}] "
+                    f"Final delivery completed for '{project['name']}'"
+                ),
                 project_name=project["name"],
                 action_text="Studio has marked this project as Final Delivered! All approved master files have been successfully dispatched and archived.",
-                link_url=f"{request.base_url}review/{project['review_token']}"
+                link_url=f"{request.base_url}review/{project['review_token']}",
+                sender_name=branding["email_sender_name"],
+                brand_name=branding["studio_name"],
+                brand_color=branding["brand_color"],
+                logo_url=branding["logo_url"],
             )
             
     return redirect(f"/projects/{project_id}")
