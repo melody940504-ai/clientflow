@@ -189,14 +189,14 @@ class EmailTemplateTests(unittest.TestCase):
         original_send = main.resend.Emails.send
         main.resend.Emails.send = lambda payload: payloads.append(payload)
         try:
-            callback()
+            result = callback()
         finally:
             main.resend.Emails.send = original_send
         self.assertEqual(len(payloads), 1)
-        return payloads[0]
+        return payloads[0], result
 
     def test_invitation_uses_branding_and_escapes_user_content(self):
-        payload = self.capture_email(
+        payload, sent = self.capture_email(
             lambda: main.send_client_invitation_email(
                 to_email="client@example.com",
                 client_name="<script>alert(1)</script>",
@@ -210,6 +210,7 @@ class EmailTemplateTests(unittest.TestCase):
             )
         )
 
+        self.assertTrue(sent)
         self.assertNotIn("\r", payload["from"])
         self.assertNotIn("\n", payload["from"])
         self.assertIn("Northstar &amp; Co.", payload["html"])
@@ -222,7 +223,7 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertIn("Open client portal:", payload["text"])
 
     def test_activity_email_rejects_unsafe_links(self):
-        payload = self.capture_email(
+        payload, _ = self.capture_email(
             lambda: main.send_activity_email(
                 to_email="owner@example.com",
                 subject="Project activity\r\nBcc: bad@example.com",
@@ -245,7 +246,7 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertNotIn("\n", payload["subject"])
 
     def test_system_email_keeps_lumaire_brand(self):
-        payload = self.capture_email(
+        payload, _ = self.capture_email(
             lambda: main.send_verification_email(
                 "owner@example.com",
                 "https://example.com/verify/token",
@@ -255,6 +256,24 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertEqual(payload["from"], "Lumaire <onboarding@resend.dev>")
         self.assertIn("Confirm your email address", payload["html"])
         self.assertIn("https://example.com/verify/token", payload["html"])
+
+    def test_invitation_reports_delivery_failure(self):
+        original_send = main.resend.Emails.send
+        main.resend.Emails.send = lambda payload: (_ for _ in ()).throw(
+            RuntimeError("delivery failed")
+        )
+        try:
+            sent = main.send_client_invitation_email(
+                to_email="client@example.com",
+                client_name="Client",
+                login_email="client@example.com",
+                temporary_password="temporary-password",
+                login_url="https://example.com/login",
+            )
+        finally:
+            main.resend.Emails.send = original_send
+
+        self.assertFalse(sent)
 
 
 class ErrorResponseTests(unittest.TestCase):
@@ -349,6 +368,17 @@ class TemplateSecurityTests(unittest.TestCase):
 
         self.assertIn('/review/{{ project.review_token }}', project_template)
         self.assertNotIn('/review/{{ project.id }}', project_template)
+
+    def test_dashboard_has_resend_invitation_action(self):
+        dashboard_template = (
+            Path(__file__).parents[1] / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            '/clients/{{ c.id }}/resend-invitation',
+            dashboard_template,
+        )
+        self.assertIn("Resend invitation", dashboard_template)
 
 
 if __name__ == "__main__":

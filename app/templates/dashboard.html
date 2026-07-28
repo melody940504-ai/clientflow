@@ -404,6 +404,39 @@
         </div>
         {% endif %}
 
+        {% if user.role != 'client' and not is_demo and clients %}
+        <section class="workspace-projects bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <div class="flex items-center justify-between gap-4 pb-4 border-b border-gray-800">
+                <h3 class="text-base font-bold text-white-fix">Client access</h3>
+                <span class="text-xs text-gray-400-fix">{{ clients|length }} clients</span>
+            </div>
+            <div class="divide-y divide-gray-800">
+                {% for c in clients %}
+                <div class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <p class="font-semibold text-white-fix break-words">{{ c.name }}</p>
+                        <p class="text-sm text-gray-400-fix break-all">{{ c.email }}</p>
+                    </div>
+                    <form
+                        action="/clients/{{ c.id }}/resend-invitation"
+                        method="post"
+                        class="m-0 shrink-0"
+                        onsubmit="return confirm('Resending creates a new temporary password. Continue?')"
+                    >
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button
+                            type="submit"
+                            class="nav-action-fix w-full sm:w-auto border border-gray-700 rounded-xl px-4 py-2.5 text-sm font-semibold text-white-fix transition hover:border-indigo-400 hover:text-indigo-300"
+                        >
+                            Resend invitation
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
         <!-- 📂 專案列表 -->
         <div class="workspace-projects bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <h3 class="text-base font-bold text-white-fix">

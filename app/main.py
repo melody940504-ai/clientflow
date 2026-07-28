@@ -282,7 +282,7 @@ def send_client_invitation_email(
     studio_name: str = DEFAULT_STUDIO_NAME,
     brand_color: str = DEFAULT_BRAND_COLOR,
     logo_url: str = "",
-) -> None:
+) -> bool:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
         safe_client_name = escape(str(client_name or "there"))
@@ -322,9 +322,15 @@ def send_client_invitation_email(
         })
 
         print(f"Client invitation email sent successfully to {recipient}")
+        return True
 
     except Exception as e:
-        print(f"❌ Client invitation email failed: {e}")
+        print(f"Client invitation email failed: {e}")
+        return False
+
+
+class InvitationDeliveryError(RuntimeError):
+    pass
 
 # 🎯 取得當前這個 main.py 檔案所在的資料夾絕對路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -2136,67 +2142,148 @@ def create_client(
         return redirect("/dashboard?error=Client+email+is+required.")
 
     email_clean = email.strip().lower()
-    client_password = secrets.token_hex(4)
+    client_password = secrets.token_urlsafe(9)
 
-    with get_db() as db:
-        existing_user = db.execute(
-            "SELECT id FROM users WHERE email = ?",
-            (email_clean,)
-        ).fetchone()
+    try:
+        with get_db() as db:
+            existing_user = db.execute(
+                "SELECT id FROM users WHERE email = ?",
+                (email_clean,)
+            ).fetchone()
 
-        if existing_user:
-            return redirect("/dashboard?error=This+email+is+already+registered.")
-        
-        cur = db.execute(
-            "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-            (
-                user["id"],
-                name.strip(),
-                email_clean,
-                contact.strip(),
-                notes.strip(),
-                datetime.utcnow().isoformat(),
-            ),
-        )
-        client_id = cur.fetchone()["id"]
+            if existing_user:
+                return redirect("/dashboard?error=This+email+is+already+registered.")
 
-        login_email = email_clean
-
-        db.execute(
-            """
-            INSERT INTO users
-            (
-                email,
-                password_hash,
-                role,
-                client_reference_id,
-                is_verified,
-                created_at
+            cur = db.execute(
+                "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                (
+                    user["id"],
+                    name.strip(),
+                    email_clean,
+                    contact.strip(),
+                    notes.strip(),
+                    datetime.utcnow().isoformat(),
+                ),
             )
-            VALUES (?, ?, 'client', ?, TRUE, ?)
-            """,
-            (
-                login_email,
-                hash_password(client_password),
-                client_id,
-                datetime.utcnow().isoformat(),
-            ),
+            client_id = cur.fetchone()["id"]
+
+            db.execute(
+                """
+                INSERT INTO users
+                (
+                    email,
+                    password_hash,
+                    role,
+                    client_reference_id,
+                    is_verified,
+                    created_at
+                )
+                VALUES (?, ?, 'client', ?, TRUE, ?)
+                """,
+                (
+                    email_clean,
+                    hash_password(client_password),
+                    client_id,
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+
+            branding = get_branding_for_user(db, user)
+            sent = send_client_invitation_email(
+                to_email=email_clean,
+                client_name=name.strip(),
+                login_email=email_clean,
+                temporary_password=client_password,
+                login_url=str(request.base_url),
+                sender_name=branding["email_sender_name"],
+                studio_name=branding["studio_name"],
+                brand_color=branding["brand_color"],
+                logo_url=branding["logo_url"],
+            )
+            if not sent:
+                raise InvitationDeliveryError
+    except InvitationDeliveryError:
+        return redirect(
+            "/dashboard?error=Client+was+not+created+because+the+invitation+could+not+be+sent."
         )
 
-        branding = get_branding_for_user(db, user)
-        send_client_invitation_email(
-            to_email=login_email,
-            client_name=name.strip(),
-            login_email=login_email,
-            temporary_password=client_password,
-            login_url=str(request.base_url),
-            sender_name=branding["email_sender_name"],
-            studio_name=branding["studio_name"],
-            brand_color=branding["brand_color"],
-            logo_url=branding["logo_url"],
+    return redirect("/dashboard?success=Client+created+and+invitation+sent.")
+
+
+@app.post("/clients/{client_id}/resend-invitation")
+def resend_client_invitation(
+    request: Request,
+    client_id: int,
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only studio owners can resend invitations.")
+
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+
+    temporary_password = secrets.token_urlsafe(9)
+
+    try:
+        with get_db() as db:
+            client = db.execute(
+                """
+                SELECT
+                    c.id,
+                    c.name,
+                    c.email,
+                    u.id AS client_user_id
+                FROM clients c
+                JOIN users u
+                    ON u.client_reference_id = c.id
+                   AND u.role = 'client'
+                WHERE c.id = ? AND c.user_id = ?
+                """,
+                (client_id, user["id"]),
+            ).fetchone()
+
+            if not client:
+                raise HTTPException(status_code=404, detail="Client not found.")
+
+            if not client["email"]:
+                return redirect("/dashboard?error=This+client+does+not+have+an+email+address.")
+
+            db.execute(
+                """
+                UPDATE users
+                SET password_hash = ?,
+                    reset_token = NULL,
+                    reset_token_expires_at = NULL
+                WHERE id = ?
+                """,
+                (hash_password(temporary_password), client["client_user_id"]),
+            )
+
+            branding = get_branding_for_user(db, user)
+            sent = send_client_invitation_email(
+                to_email=client["email"],
+                client_name=client["name"],
+                login_email=client["email"],
+                temporary_password=temporary_password,
+                login_url=str(request.base_url),
+                sender_name=branding["email_sender_name"],
+                studio_name=branding["studio_name"],
+                brand_color=branding["brand_color"],
+                logo_url=branding["logo_url"],
+            )
+            if not sent:
+                raise InvitationDeliveryError
+    except InvitationDeliveryError:
+        return redirect(
+            "/dashboard?error=Invitation+could+not+be+sent.+The+current+password+was+not+changed."
         )
 
-    return redirect("/dashboard")
+    return redirect(
+        "/dashboard?success=Invitation+resent+with+a+new+temporary+password."
+    )
 
 
 @app.post("/projects")
