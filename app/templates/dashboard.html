@@ -201,6 +201,7 @@
         }
     </style>
     <link rel="stylesheet" href="/static/workspace.css?v=20260729-management">
+    <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
 
@@ -317,13 +318,6 @@
                 </h1>
             </div>
             <div class="workspace-heading-copy">
-                <p>
-                    {% if user.role == 'client' %}
-                        Review current versions and keep every decision attached to the project.
-                    {% else %}
-                        A focused view of active client work, review status, and delivery progress.
-                    {% endif %}
-                </p>
                 {% if user.role != 'client' and not is_demo %}
                 <div class="workspace-heading-actions">
                     <a href="/clients" class="nav-action-fix">Clients</a>
@@ -410,6 +404,28 @@
 
     </main>
 
+    <script id="lumaire-onboarding-data" type="application/json">
+    {
+      "userId": "{{ user.id }}",
+      "key": "dashboard-{{ user.role }}",
+      "label": "{% if user.role == 'client' %}Client workspace{% else %}Studio workspace{% endif %}",
+      "steps": [
+        {
+          "title": "{% if user.role == 'client' %}Projects ready for review{% else %}Your workspace at a glance{% endif %}",
+          "body": "{% if user.role == 'client' %}Projects waiting for your review appear here with their current status and version history.{% else %}The status strip shows how work is moving from review through revision, approval, and delivery.{% endif %}"
+        },
+        {
+          "title": "Projects stay central",
+          "body": "Open any project card to manage versions, attachments, feedback, approvals, and activity in one place."
+        }{% if user.role != 'client' %},
+        {
+          "title": "Create work when you need it",
+          "body": "Use Clients to manage access, or New project to start the next review workflow."
+        }{% endif %}
+      ]
+    }
+    </script>
+    <script src="/static/onboarding.js?v=20260729"></script>
     <script>
         const btn = document.getElementById('theme-toggle');
         if (btn) {

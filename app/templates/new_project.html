@@ -12,7 +12,6 @@
     <div>
       <p class="eyebrow">Project setup</p>
       <h1>New project</h1>
-      <p class="muted">Start with the client, then define the work entering your review pipeline.</p>
     </div>
   </header>
 
@@ -96,4 +95,26 @@
   </section>
   {% endif %}
 </section>
+
+<script id="lumaire-onboarding-data" type="application/json">
+{
+  "userId": "{{ user.id }}",
+  "key": "new-project",
+  "label": "Project setup",
+  "steps": [
+    {
+      "title": "Choose the client first",
+      "body": "Every project belongs to one client workspace so reviews, invitations, and activity stay correctly separated."
+    },
+    {
+      "title": "Define the workflow",
+      "body": "Set the title, content category, and starting status that best match the work entering review."
+    },
+    {
+      "title": "Add useful context",
+      "body": "Use project notes for deliverables, references, deadlines, or anything the studio needs before uploading V1."
+    }
+  ]
+}
+</script>
 {% endblock %}

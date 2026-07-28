@@ -633,8 +633,8 @@ h3 { margin: 10px 0; }
 }
 .analytics-hero h1 {
   max-width: 900px;
-  font-size: clamp(3.2rem, 5vw, 5.8rem);
-  line-height: 1;
+  font-size: clamp(2.5rem, 4vw, 4.2rem);
+  line-height: 1.04;
   overflow-wrap: break-word;
 }
 .analytics-hero .muted {
@@ -643,12 +643,18 @@ h3 { margin: 10px 0; }
   line-height: 1.7;
 }
 .analytics-hero-card {
+  position: relative;
+  overflow: hidden;
   min-width: min(320px, 100%);
   padding: 26px;
   border: 1px solid var(--border);
   border-radius: 24px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--primary) 8%, transparent), transparent 46%),
+    var(--surface);
+  box-shadow:
+    0 20px 48px color-mix(in srgb, var(--text) 8%, transparent),
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset;
 }
 .analytics-hero-card span,
 .analytics-hero-card strong {
@@ -673,8 +679,12 @@ h3 { margin: 10px 0; }
 .analytics-panel {
   border: 1px solid var(--border);
   border-radius: 24px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--primary) 4%, transparent), transparent 36%),
+    var(--surface);
+  box-shadow:
+    0 18px 42px color-mix(in srgb, var(--text) 7%, transparent),
+    0 1px 0 color-mix(in srgb, white 7%, transparent) inset;
 }
 .analytics-kpi-grid article {
   padding: 26px;
@@ -1614,7 +1624,7 @@ select {
 
 .project-header h1,
 .analytics-hero h1 {
-  font-size: clamp(3rem, 5.4vw, 6rem);
+  font-size: clamp(2.5rem, 4vw, 4.2rem);
 }
 
 .settings-form,
@@ -1640,10 +1650,18 @@ select {
 }
 
 .field-group {
+  position: relative;
+  overflow: hidden;
   min-height: 100%;
   padding: 30px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 38%),
+    var(--surface);
+  box-shadow:
+    0 16px 40px color-mix(in srgb, var(--text) 6%, transparent),
+    0 1px 0 color-mix(in srgb, white 7%, transparent) inset;
 }
 
 .brand-preview .preview-card {
@@ -1898,7 +1916,8 @@ select {
 }
 
 .management-header h1 {
-  font-size: clamp(3rem, 6vw, 6.4rem);
+  font-size: clamp(2.45rem, 4vw, 4.1rem);
+  line-height: 1.04;
 }
 
 .management-header .muted {
@@ -1916,11 +1935,17 @@ select {
 }
 
 .management-panel {
+  position: relative;
+  overflow: hidden;
   padding: 30px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
-  box-shadow: 0 16px 42px color-mix(in srgb, var(--text) 6%, transparent);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 38%),
+    var(--surface);
+  box-shadow:
+    0 20px 48px color-mix(in srgb, var(--text) 8%, transparent),
+    0 1px 0 color-mix(in srgb, white 7%, transparent) inset;
 }
 
 .management-form {
@@ -1949,10 +1974,17 @@ select {
   min-height: 94px;
   padding: 18px 0;
   border-top: 1px solid var(--border);
+  transition: padding 160ms ease, background 160ms ease;
 }
 
 .client-directory-row:first-child {
   border-top: 0;
+}
+
+.client-directory-row:hover {
+  padding-right: 12px;
+  padding-left: 12px;
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
 }
 
 .client-avatar {
@@ -2130,10 +2162,15 @@ body.dialog-open {
   gap: 24px;
   padding: 32px;
   border-top: 1px solid var(--border);
+  transition: background 180ms ease;
 }
 
 .project-form-section:first-of-type {
   border-top: 0;
+}
+
+.project-form-section:focus-within {
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
 }
 
 .project-form-index {
@@ -2211,7 +2248,7 @@ body.dialog-open {
   }
 
   .management-header h1 {
-    font-size: 3.4rem;
+    font-size: 2.75rem;
   }
 
   .management-grid {

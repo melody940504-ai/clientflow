@@ -410,6 +410,57 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn('href="/clients"', base_template)
         self.assertIn('href="/projects/new"', base_template)
 
+    def test_primary_pages_use_first_visit_onboarding(self):
+        templates_dir = Path(__file__).parents[1] / "app" / "templates"
+        expected_pages = {
+            "dashboard.html": "dashboard-{{ user.role }}",
+            "clients.html": "clients",
+            "new_project.html": "new-project",
+            "analytics.html": "analytics",
+            "settings.html": "studio-settings",
+        }
+
+        for template_name, onboarding_key in expected_pages.items():
+            source = (templates_dir / template_name).read_text(encoding="utf-8")
+            with self.subTest(template=template_name):
+                self.assertIn('id="lumaire-onboarding-data"', source)
+                self.assertIn(f'"key": "{onboarding_key}"', source)
+                self.assertIn('"userId": "{{ user.id }}"', source)
+
+    def test_onboarding_assets_and_per_user_storage_are_available(self):
+        project_root = Path(__file__).parents[1]
+        base_template = (
+            project_root / "app" / "templates" / "base.html"
+        ).read_text(encoding="utf-8")
+        dashboard_template = (
+            project_root / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+        onboarding_script = (
+            project_root / "app" / "static" / "onboarding.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("/static/onboarding.css", base_template)
+        self.assertIn("/static/onboarding.js", base_template)
+        self.assertIn("/static/onboarding.css", dashboard_template)
+        self.assertIn("/static/onboarding.js", dashboard_template)
+        self.assertIn("${config.userId || \"shared\"}", onboarding_script)
+        self.assertIn("localStorage.setItem(storageKey, \"complete\")", onboarding_script)
+
+    def test_page_level_intro_copy_is_not_permanently_rendered(self):
+        templates_dir = Path(__file__).parents[1] / "app" / "templates"
+        removed_copy = {
+            "clients.html": "Create client workspaces",
+            "new_project.html": "Start with the client",
+            "analytics.html": "A compact view",
+            "settings.html": "Control the name",
+            "dashboard.html": "A focused view",
+        }
+
+        for template_name, old_copy in removed_copy.items():
+            source = (templates_dir / template_name).read_text(encoding="utf-8")
+            with self.subTest(template=template_name):
+                self.assertNotIn(old_copy, source)
+
 
 if __name__ == "__main__":
     unittest.main()
