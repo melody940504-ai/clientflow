@@ -23,6 +23,7 @@
   {% endif %}
 
   <form class="panel settings-form" method="post" action="/settings" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
     <fieldset class="settings-readonly" {% if is_demo %}disabled{% endif %}>
     <div class="settings-layout">
       <div class="settings-fields">

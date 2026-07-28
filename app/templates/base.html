@@ -29,13 +29,18 @@
         {% else %}
         <a href="/account" class="ghost menu-row">Account settings</a>
         {% endif %}
-        <a href="/logout" class="ghost menu-row danger-row">Logout</a>
+        <form class="menu-form" method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+          <button class="ghost menu-row danger-row" type="submit">Logout</button>
+        </form>
       {% else %}
         {% if demo_enabled %}
         <form class="menu-form" method="post" action="/demo-login/owner">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
           <button class="top-primary menu-row" type="submit">Studio demo</button>
         </form>
         <form class="menu-form" method="post" action="/demo-login/client">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
           <button class="ghost menu-row" type="submit">Client demo</button>
         </form>
         {% endif %}

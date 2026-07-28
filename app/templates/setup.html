@@ -15,6 +15,7 @@
   {% endif %}
 
   <form class="panel settings-form" method="post" action="/setup" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
     <div class="settings-layout">
       <div class="settings-fields">
         <div class="field-group">

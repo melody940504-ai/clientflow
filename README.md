@@ -75,7 +75,7 @@ The frontend stays intentionally lightweight: FastAPI renders Jinja templates, w
 | Database | PostgreSQL with `psycopg2` |
 | Storage | Supabase Storage |
 | Email | Resend |
-| Authentication | Password hashing, signed cookies, Google OAuth via Authlib |
+| Authentication | PBKDF2 password hashing, signed cookies, CSRF protection, Google OAuth via Authlib |
 | Frontend | Server-rendered HTML, CSS, vanilla JavaScript |
 | Deployment | Render |
 
@@ -124,12 +124,23 @@ Open `http://127.0.0.1:8000` after filling in the required values from `.env.exa
 | `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth client secret |
 | `SUPABASE_URL` | For uploads | Supabase project URL |
 | `SUPABASE_KEY` | For uploads | Supabase server-side API key |
+| `MAX_VIDEO_UPLOAD_MB` | No | Video upload limit in MB; defaults to `250` |
+| `MAX_ATTACHMENT_UPLOAD_MB` | No | Attachment upload limit in MB; defaults to `25` |
 | `DEMO_ENABLED` | No | Enables one-click shared demo access |
 | `DEMO_OWNER_EMAIL` | For demo | Seeded owner identity protected as read-only |
 | `DEMO_CLIENT_EMAIL` | For demo | Seeded client identity protected as read-only |
 | `ENABLE_DB_TEST` | No | Enables the diagnostic database route; keep off publicly |
 
 Never commit real secrets. `.env` files, local databases, virtual environments, and Python caches are excluded by `.gitignore`.
+
+## Tests
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+The security suite covers password migration, CSRF validation, review-token access,
+cross-workspace isolation, client-only approvals, and upload-size enforcement.
 
 ## Deploy on Render
 
@@ -144,4 +155,4 @@ Never commit real secrets. `.env` files, local databases, virtual environments, 
 
 Lumaire is a portfolio-ready MVP, not a full video hosting platform. It supports hosted video links and Supabase uploads so the core experience stays focused on client review and delivery.
 
-Natural next steps are paid plan limits, team roles, durable notification records across devices, deeper review-time analytics, and automated end-to-end tests.
+Natural next steps are paid plan limits, team roles, durable notification records across devices, deeper review-time analytics, and browser-level end-to-end tests.

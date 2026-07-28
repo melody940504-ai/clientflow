@@ -188,12 +188,12 @@
         }
 
         /* 🏃‍♂️ 修正二：翻修原本醜醜的 Logout 按鈕，改成高對比清爽紅框質感 */
-        .light-theme a[href="/logout"] {
+        .light-theme .logout-action {
             background-color: #fef2f2 !important; /* 優雅淡紅底 */
             border-color: #fee2e2 !important;
             color: #ef4444 !important; /* 明確的警示紅字 */
         }
-        .light-theme a[href="/logout"]:hover {
+        .light-theme .logout-action:hover {
             background-color: #fee2e2 !important;
             border-color: #fca5a5 !important;
         }
@@ -278,7 +278,10 @@
                     {% if not is_demo %}
                     <a href="/account" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Account settings</a>
                     {% endif %}
-                    <a href="/logout" class="menu-item-fix text-center text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</a>
+                    <form action="/logout" method="post" class="m-0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="logout-action menu-item-fix w-full text-center text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -349,6 +352,7 @@
                 <div>
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">✨ Add Client</h3>
                     <form action="/clients" method="post" novalidate class="space-y-3 m-0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                         <input type="text" name="name" required placeholder="Client Name (Required)" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <input type="email" name="email" required placeholder="Client Email" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
                         <input type="text" name="contact" placeholder="Contact Info" class="input-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white">
@@ -365,6 +369,7 @@
                 <div>
                     <h3 class="text-base font-bold text-white-fix mb-4 flex items-center gap-2">🚀 Add Project</h3>
                     <form action="/projects" method="post" novalidate class="space-y-3 m-0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                         <!-- 🔒 解決下拉選單問題 -->
                         <select name="client_id" required class="input-fix select-fix w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none text-gray-300 cursor-pointer">
                             <option value="">Select Client</option>

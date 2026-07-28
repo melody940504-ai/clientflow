@@ -35,7 +35,7 @@
             {% elif request.query_params.get('error') == 'session-expired' %}
                 Your session expired after the latest update. Please log in again.
             {% elif request.query_params.get('error') == 'password-too-short' %}
-                Passwords must contain at least 6 characters.
+                Passwords must contain at least 8 characters.
             {% else %}
                 Login failed. Please check your information.
             {% endif %}
@@ -69,12 +69,13 @@
     </a>
     
     <form class="stack" method="post" action="{% if mode == 'register' %}/register{% else %}/login{% endif %}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <label>Email
         <input type="email" name="email" id="email" required placeholder="studio@example.com" autocomplete="email">
       </label>
   
       <label>Password
-        <input type="password" name="password" id="password" required minlength="6" placeholder="At least 6 characters" autocomplete="{% if mode == 'register' %}new-password{% else %}current-password{% endif %}">
+        <input type="password" name="password" id="password" required minlength="8" placeholder="At least 8 characters" autocomplete="{% if mode == 'register' %}new-password{% else %}current-password{% endif %}">
       </label>
   
       <button class="primary" type="submit">

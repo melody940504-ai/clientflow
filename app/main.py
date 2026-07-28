@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -24,7 +25,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "clientflow.db"
-SESSION_SECRET = os.getenv("SESSION_SECRET") or secrets.token_urlsafe(32)
+IS_PRODUCTION = os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes"}
+SESSION_SECRET = os.getenv("SESSION_SECRET")
+if not SESSION_SECRET:
+    if IS_PRODUCTION:
+        raise RuntimeError("SESSION_SECRET must be configured in production.")
+    SESSION_SECRET = secrets.token_urlsafe(32)
 serializer = URLSafeSerializer(SESSION_SECRET, salt="clientflow-session")
 
 app = FastAPI(title="Lumaire")
@@ -32,7 +38,9 @@ app = FastAPI(title="Lumaire")
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
-    session_cookie="oauth_session"
+    session_cookie="oauth_session",
+    same_site="lax",
+    https_only=IS_PRODUCTION,
 )
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -66,6 +74,10 @@ DEFAULT_STUDIO_NAME = "Lumaire Studio"
 DEFAULT_BRAND_COLOR = "#6366f1"
 DEFAULT_EMAIL_SENDER_NAME = "Lumaire"
 EMAIL_TEST_RECIPIENT = os.getenv("EMAIL_TEST_RECIPIENT", "").strip()
+PASSWORD_ITERATIONS = 600_000
+MAX_VIDEO_UPLOAD_BYTES = int(os.getenv("MAX_VIDEO_UPLOAD_MB", "250")) * 1024 * 1024
+MAX_ATTACHMENT_UPLOAD_BYTES = int(os.getenv("MAX_ATTACHMENT_UPLOAD_MB", "25")) * 1024 * 1024
+SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 DEMO_ENABLED = os.getenv("DEMO_ENABLED", "true").strip().lower() in {
     "1",
     "true",
@@ -390,11 +402,33 @@ def init_db() -> None:
                 category TEXT NOT NULL DEFAULT 'Shorts',
                 status TEXT NOT NULL DEFAULT 'Awaiting Review',
                 notes TEXT,
+                review_token TEXT,
+                review_token_expires_at TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id),
                 FOREIGN KEY(client_id) REFERENCES clients(id)
             )
         """)
+        db.execute(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_token TEXT"
+        )
+        db.execute(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_token_expires_at TEXT"
+        )
+        projects_without_tokens = db.execute(
+            "SELECT id FROM projects WHERE review_token IS NULL OR review_token = ''"
+        ).fetchall()
+        for project in projects_without_tokens:
+            db.execute(
+                "UPDATE projects SET review_token = ? WHERE id = ?",
+                (secrets.token_urlsafe(32), project["id"]),
+            )
+        db.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS projects_review_token_idx
+            ON projects(review_token)
+            """
+        )
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS video_versions (
@@ -663,16 +697,150 @@ def startup() -> None:
         print(f"Demo history seed skipped: {exc}")
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-    return f"{salt}${digest}"
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        PASSWORD_ITERATIONS,
+    )
+    return (
+        f"pbkdf2_sha256${PASSWORD_ITERATIONS}$"
+        f"{salt.hex()}${digest.hex()}"
+    )
+
 
 def verify_password(password: str, stored: str) -> bool:
+    if not stored:
+        return False
+
+    if stored.startswith("pbkdf2_sha256$"):
+        try:
+            _, iterations, salt_hex, expected_hex = stored.split("$", 3)
+            actual = hashlib.pbkdf2_hmac(
+                "sha256",
+                password.encode("utf-8"),
+                bytes.fromhex(salt_hex),
+                int(iterations),
+            )
+            return hmac.compare_digest(actual.hex(), expected_hex)
+        except (TypeError, ValueError):
+            return False
+
+    # Legacy salted SHA-256 hashes remain valid until the next successful login.
     try:
-        salt, digest = stored.split("$", 1)
+        salt, expected = stored.split("$", 1)
     except ValueError:
         return False
-    return hashlib.sha256((salt + password).encode("utf-8")).hexdigest() == digest
+    actual = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+    return hmac.compare_digest(actual, expected)
+
+
+def password_needs_upgrade(stored: str) -> bool:
+    if not stored.startswith("pbkdf2_sha256$"):
+        return True
+    try:
+        return int(stored.split("$", 3)[1]) < PASSWORD_ITERATIONS
+    except (IndexError, ValueError):
+        return True
+
+
+def get_csrf_token(request: Request) -> str:
+    token = request.session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        request.session["csrf_token"] = token
+    return token
+
+
+def validate_csrf(request: Request, submitted_token: str) -> None:
+    expected = request.session.get("csrf_token")
+    if (
+        not expected
+        or not submitted_token
+        or not hmac.compare_digest(expected, submitted_token)
+    ):
+        raise HTTPException(status_code=403, detail="Invalid or expired form token.")
+
+
+def set_session_cookie(response: Response, request: Request, user_id: int) -> None:
+    response.set_cookie(
+        "session",
+        serializer.dumps(user_id),
+        max_age=SESSION_MAX_AGE_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=IS_PRODUCTION or request.url.scheme == "https",
+    )
+
+
+def review_token_is_valid(project: object, submitted_token: str) -> bool:
+    stored_token = project["review_token"]
+    if (
+        not stored_token
+        or not submitted_token
+        or not hmac.compare_digest(stored_token, submitted_token)
+    ):
+        return False
+
+    expires_at = project["review_token_expires_at"]
+    if not expires_at:
+        return True
+    try:
+        expiration = datetime.fromisoformat(expires_at)
+        now_utc = datetime.now(timezone.utc)
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+        return expiration >= now_utc
+    except (TypeError, ValueError):
+        return False
+
+
+def get_review_actor(
+    user: Optional[object],
+    project: object,
+    submitted_token: str,
+    action_type: str,
+) -> tuple[str, str]:
+    if not user:
+        if not review_token_is_valid(project, submitted_token):
+            raise HTTPException(
+                status_code=403,
+                detail="Review link invalid or expired.",
+            )
+        return "client", project["client_name"]
+
+    owner_access = (
+        user["role"] == "owner" and user["id"] == project["user_id"]
+    )
+    client_access = (
+        user["role"] == "client"
+        and user["client_reference_id"] == project["client_id"]
+    )
+    if not owner_access and not client_access:
+        raise HTTPException(status_code=403, detail="Project access denied.")
+    if owner_access and action_type in {"approve", "reject"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the assigned client can approve or reject a version.",
+        )
+    if client_access:
+        return "client", project["client_name"]
+    return "studio", normalize_branding(user)["studio_name"]
+
+
+async def read_upload_with_limit(file: UploadFile, max_bytes: int) -> bytes:
+    content = bytearray()
+    while True:
+        chunk = await file.read(min(1024 * 1024, max_bytes + 1 - len(content)))
+        if not chunk:
+            return bytes(content)
+        content.extend(chunk)
+        if len(content) > max_bytes:
+            raise HTTPException(status_code=413, detail="Uploaded file is too large.")
+
+
+templates.env.globals["csrf_token"] = get_csrf_token
 
 def get_user_from_session_token(token: Optional[str]) -> Optional[sqlite3.Row]:
     if not token:
@@ -878,8 +1046,14 @@ def register_page(request: Request):
     )
 
 @app.post("/register")
-def register(request: Request, email: str = Form(...), password: str = Form(...)):
-    if len(password) < 6:
+def register(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    if len(password) < 8:
         return redirect("/register?error=password-too-short")
     try:
         with get_db() as db:
@@ -929,7 +1103,13 @@ import logging
 logger = logging.getLogger("uvicorn.error")
 
 @app.post("/login")
-def login(request: Request, email: str = Form(...), password: str = Form(...)):
+def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
     logger.info(f"Login attempt for: {email}") # 這行會出現在 Logs
     with get_db() as db:
         user = db.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
@@ -945,21 +1125,23 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         
     if not verify_password(password, user["password_hash"]):
         return RedirectResponse(url="/login?error=wrong_password", status_code=303)
+
+    if password_needs_upgrade(user["password_hash"]):
+        with get_db() as db:
+            db.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (hash_password(password), user["id"]),
+            )
     
     response = RedirectResponse(url=post_login_path(user), status_code=303)
-    response.set_cookie(
-        "session",
-        serializer.dumps(user["id"]),
-        httponly=True,
-        samesite="lax",
-        secure=request.url.scheme == "https",
-    )
+    set_session_cookie(response, request, user["id"])
     response.delete_cookie("return_session")
     return response
 
 
 @app.post("/demo-login/{role}")
-def demo_login(request: Request, role: str):
+def demo_login(request: Request, role: str, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
     if not DEMO_ENABLED:
         raise HTTPException(status_code=404)
 
@@ -987,17 +1169,12 @@ def demo_login(request: Request, role: str):
         response.set_cookie(
             "return_session",
             current_session,
+            max_age=SESSION_MAX_AGE_SECONDS,
             httponly=True,
             samesite="lax",
-            secure=request.url.scheme == "https",
+            secure=IS_PRODUCTION or request.url.scheme == "https",
         )
-    response.set_cookie(
-        "session",
-        serializer.dumps(user["id"]),
-        httponly=True,
-        samesite="lax",
-        secure=request.url.scheme == "https",
-    )
+    set_session_cookie(response, request, user["id"])
     return response
 
 @app.get("/forgot-password", response_class=HTMLResponse)
@@ -1008,7 +1185,12 @@ def forgot_password_page(request: Request):
     )
 
 @app.post("/forgot-password")
-def forgot_password(request: Request, email: str = Form(...)):
+def forgot_password(
+    request: Request,
+    email: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
     email_clean = email.strip().lower()
     if is_demo_email(email_clean):
         return redirect("/forgot-password?success=reset-link-sent")
@@ -1077,8 +1259,14 @@ def reset_password_page(request: Request, token: str):
     )
 
 @app.post("/reset-password/{token}")
-def reset_password(token: str, password: str = Form(...)):
-    if len(password) < 6:
+def reset_password(
+    request: Request,
+    token: str,
+    password: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    if len(password) < 8:
         return redirect(f"/reset-password/{token}?error=password-too-short")
 
     with get_db() as db:
@@ -1165,13 +1353,7 @@ async def auth_google_callback(request: Request):
             ).fetchone()
 
     response = RedirectResponse(url=post_login_path(user), status_code=303)
-    response.set_cookie(
-        "session",
-        serializer.dumps(user["id"]),
-        httponly=True,
-        samesite="lax",
-        secure=request.url.scheme == "https",
-    )
+    set_session_cookie(response, request, user["id"])
     response.delete_cookie("return_session")
 
     return response
@@ -1206,8 +1388,9 @@ def verify_email(token: str):
 
     return redirect("/login?success=email-verified")
 
-@app.get("/logout")
-def logout(request: Request):
+@app.post("/logout")
+def logout(request: Request, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
     current_user = get_current_user(request)
     return_token = request.cookies.get("return_session")
     return_user = get_user_from_session_token(return_token)
@@ -1219,13 +1402,7 @@ def logout(request: Request):
         and return_token
     ):
         response = redirect(post_login_path(return_user))
-        response.set_cookie(
-            "session",
-            return_token,
-            httponly=True,
-            samesite="lax",
-            secure=request.url.scheme == "https",
-        )
+        set_session_cookie(response, request, return_user["id"])
         response.delete_cookie("return_session")
         return response
 
@@ -1552,7 +1729,9 @@ def complete_setup(
     brand_color: str = Form(DEFAULT_BRAND_COLOR),
     logo_url: str = Form(""),
     email_sender_name: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
 
     if user["role"] != "owner":
@@ -1605,7 +1784,9 @@ def update_settings(
     brand_color: str = Form(DEFAULT_BRAND_COLOR),
     logo_url: str = Form(""),
     email_sender_name: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
 
     if user["role"] != "owner":
@@ -1672,7 +1853,9 @@ def update_account_email(
     request: Request,
     email: str = Form(""),
     current_password: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
     if is_demo_user(user):
         return demo_read_only_redirect("/dashboard")
@@ -1715,7 +1898,9 @@ def update_account_password(
     current_password: str = Form(""),
     new_password: str = Form(""),
     confirm_password: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
     if is_demo_user(user):
         return demo_read_only_redirect("/dashboard")
@@ -1749,8 +1934,10 @@ def create_client(
     name: str = Form(""),
     email: str = Form(""),
     contact: str = Form(""),
-    notes: str = Form("")
+    notes: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
 
     if user["role"] != "owner":
@@ -1834,7 +2021,9 @@ def create_project(
     category: str = Form("Shorts"),
     status: str = Form("Awaiting Review"),
     notes: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
 
     if user["role"] != "owner":
@@ -1863,7 +2052,11 @@ def create_project(
             raise HTTPException(status_code=404, detail="Client not found.")
 
         db.execute(
-            "INSERT INTO projects (user_id, client_id, name, category, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            """
+            INSERT INTO projects
+            (user_id, client_id, name, category, status, notes, review_token, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
             (
                 user["id"],
                 client_id_int,
@@ -1871,6 +2064,7 @@ def create_project(
                 category,
                 status,
                 notes.strip(),
+                secrets.token_urlsafe(32),
                 datetime.utcnow().isoformat(),
             ),
         )
@@ -1990,7 +2184,9 @@ async def create_version(
     video_url: str = Form(""),
     video_file: UploadFile = File(None),
     notes: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     if not version_label or not version_label.strip():
         return redirect(f"/projects/{project_id}?warning=Version+label+is+required.")
 
@@ -2025,7 +2221,16 @@ async def create_version(
         storage_path = f"projects/{project_id}/{uuid.uuid4().hex}{extension}"
         upload_url = f"{SUPABASE_URL}/storage/v1/object/videos/{storage_path}"
 
-        video_bytes = await video_file.read()
+        try:
+            video_bytes = await read_upload_with_limit(
+                video_file,
+                MAX_VIDEO_UPLOAD_BYTES,
+            )
+        except HTTPException:
+            max_mb = MAX_VIDEO_UPLOAD_BYTES // (1024 * 1024)
+            return redirect(
+                f"/projects/{project_id}?error=Video+must+be+smaller+than+{max_mb}+MB."
+            )
 
         headers = {
             "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -2069,7 +2274,7 @@ async def create_version(
 
         project_info = db.execute(
             """
-            SELECT p.name AS p_name, c.email AS c_email
+            SELECT p.name AS p_name, p.review_token, c.email AS c_email
             FROM projects p
             JOIN clients c ON p.client_id=c.id
             WHERE p.id=?
@@ -2078,7 +2283,9 @@ async def create_version(
         ).fetchone()
 
         if project_info and project_info["c_email"]:
-            public_review_url = f"{request.base_url}review/{project_id}"
+            public_review_url = (
+                f"{request.base_url}review/{project_info['review_token']}"
+            )
 
             send_activity_email(
                 to_email=project_info["c_email"],
@@ -2099,27 +2306,16 @@ def version_decision(
     body: str = Form(...),
     video_time: Optional[str] = Form(None),
     time_str: Optional[str] = Form(None),
+    review_token: str = Form(""),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     user = get_current_user(request)
 
     if action_type not in {"comment", "approve", "reject"}:
         raise HTTPException(status_code=400, detail="Invalid review action.")
 
     with get_db() as db:
-        if user:
-            author_role = "client" if user["role"] == "client" else "studio"
-            if user["role"] == "client" and user["client_reference_id"]:
-                client = db.execute(
-                    "SELECT name FROM clients WHERE id = ?",
-                    (user["client_reference_id"],),
-                ).fetchone()
-                author_name = client["name"] if client else "Client"
-            else:
-                author_name = normalize_branding(user)["studio_name"]
-        else:
-            author_role = "client"
-            author_name = "Anonymous Client"
-
         version = db.execute(
             "SELECT * FROM video_versions WHERE id = ?",
             (version_id,)
@@ -2128,25 +2324,41 @@ def version_decision(
         if not version:
             raise HTTPException(status_code=404)
 
-        project_owner = db.execute(
+        project = db.execute(
             """
-            SELECT u.email
+            SELECT p.*, c.name AS client_name, u.email AS owner_email
             FROM projects p
+            JOIN clients c ON p.client_id = c.id
             JOIN users u ON p.user_id = u.id
             WHERE p.id = ?
             """,
             (version["project_id"],),
         ).fetchone()
-        if project_owner and is_demo_email(project_owner["email"]):
+
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found.")
+
+        author_role, author_name = get_review_actor(
+            user,
+            project,
+            review_token,
+            action_type,
+        )
+        target_path = (
+            f"/projects/{version['project_id']}"
+            if user
+            else f"/review/{project['review_token']}"
+        )
+
+        if is_demo_email(project["owner_email"]):
             target_path = (
                 f"/projects/{version['project_id']}"
                 if user
-                else f"/review/{version['project_id']}"
+                else f"/review/{project['review_token']}"
             )
             return demo_read_only_redirect(target_path)
 
         if not body or not body.strip():
-            target_path = f"/projects/{version['project_id']}" if user else f"/review/{version['project_id']}"
             return redirect(f"{target_path}?error=Comment+cannot+be+empty.")
 
         if version["status"] == "Approved":
@@ -2191,17 +2403,7 @@ def version_decision(
                 (version["project_id"],)
             )
 
-        studio_info = db.execute(
-            """
-            SELECT p.name AS p_name, u.email AS u_email
-            FROM projects p
-            JOIN users u ON p.user_id = u.id
-            WHERE p.id = ?
-            """,
-            (version["project_id"],)
-        ).fetchone()
-
-        if studio_info:
+        if project["owner_email"]:
             project_url = f"{request.base_url}projects/{version['project_id']}"
             status_emojis = {
                 "approve": "✅ Approved",
@@ -2211,9 +2413,9 @@ def version_decision(
             action_display = status_emojis.get(action_type, action_type)
 
             send_activity_email(
-                to_email=studio_info["u_email"],
+                to_email=project["owner_email"],
                 subject=f"[Lumaire] Project Activity Update: {action_display}",
-                project_name=studio_info["p_name"],
+                project_name=project["name"],
                 action_text=(
                     f"Client ({author_name}) has submitted an action "
                     f"[{action_display}] on {version['version_label']}.\n"
@@ -2222,18 +2424,15 @@ def version_decision(
                 link_url=project_url,
             )
 
-    if not user:
-        return redirect(f"/review/{version['project_id']}")
-
-    return redirect(f"/projects/{version['project_id']}")
+    return redirect(target_path)
 
 
 # ==========================================
 # 客戶免登入公開審片連結路由 (Frame.io 模式)
 # ==========================================
 
-@app.get("/review/{project_id}", response_class=HTMLResponse)
-def public_review_page(request: Request, project_id: int):
+@app.get("/review/{review_token}", response_class=HTMLResponse)
+def public_review_page(request: Request, review_token: str):
     with get_db() as db:
         project = db.execute(
             """
@@ -2241,11 +2440,16 @@ def public_review_page(request: Request, project_id: int):
             FROM projects p
             JOIN clients c ON p.client_id = c.id
             JOIN users u ON p.user_id = u.id
-            WHERE p.id = ?
+            WHERE p.review_token = ?
             """,
-            (project_id,),
+            (review_token,),
         ).fetchone()
-        if not project: raise HTTPException(status_code=404, detail="Review link invalid or expired")
+        if not project or not review_token_is_valid(project, review_token):
+            raise HTTPException(
+                status_code=404,
+                detail="Review link invalid or expired",
+            )
+        project_id = project["id"]
         versions = db.execute("SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
         comments = db.execute(
             """SELECT cm.author_name, cm.author_role, cm.body, cm.type, cm.created_at, vv.version_label
@@ -2285,6 +2489,7 @@ def public_review_page(request: Request, project_id: int):
             "comments": comments,
             "status_options": STATUS_OPTIONS,
             "is_public_link": True,
+            "review_token": review_token,
             "is_demo": is_demo_email(project["owner_email"]),
         },
     )
@@ -2294,7 +2499,12 @@ def public_review_page(request: Request, project_id: int):
 # 專案最終交付結案路由
 # ==========================================
 @app.post("/projects/{project_id}/deliver")
-def deliver_project(project_id: int, request: Request):
+def deliver_project(
+    project_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
     user = require_user(request)
     if user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only owners can mark final delivery.")
@@ -2321,7 +2531,7 @@ def deliver_project(project_id: int, request: Request):
                 subject=f"[Lumaire] Final Delivery Completed for '{project['name']}'!",
                 project_name=project["name"],
                 action_text="Studio has marked this project as Final Delivered! All approved master files have been successfully dispatched and archived.",
-                link_url=f"{request.base_url}review/{project_id}"
+                link_url=f"{request.base_url}review/{project['review_token']}"
             )
             
     return redirect(f"/projects/{project_id}")
@@ -2336,7 +2546,9 @@ async def add_project_attachment(
     request: Request,
     file_title: str = Form(...),
     file: UploadFile = File(...),
+    csrf_token: str = Form(...),
 ):
+    validate_csrf(request, csrf_token)
     if not file_title or not file_title.strip():
         return redirect(f"/projects/{project_id}?error=File+name+cannot+be+empty.")
 
@@ -2369,7 +2581,16 @@ async def add_project_attachment(
     storage_path = f"projects/{project_id}/{uuid.uuid4().hex}{extension}"
     upload_url = f"{SUPABASE_URL}/storage/v1/object/attachments/{storage_path}"
 
-    file_bytes = await file.read()
+    try:
+        file_bytes = await read_upload_with_limit(
+            file,
+            MAX_ATTACHMENT_UPLOAD_BYTES,
+        )
+    except HTTPException:
+        max_mb = MAX_ATTACHMENT_UPLOAD_BYTES // (1024 * 1024)
+        return redirect(
+            f"/projects/{project_id}?error=Attachment+must+be+smaller+than+{max_mb}+MB."
+        )
 
     headers = {
         "Authorization": f"Bearer {SUPABASE_KEY}",

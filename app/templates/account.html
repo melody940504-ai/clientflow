@@ -26,6 +26,7 @@
 
   <div class="account-grid">
     <form class="panel account-form" method="post" action="/account/email" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <div>
         <p class="eyebrow">Sign-in email</p>
         <h2>Email address</h2>
@@ -48,6 +49,7 @@
     </form>
 
     <form class="panel account-form" method="post" action="/account/password" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <div>
         <p class="eyebrow">Security</p>
         <h2>Change password</h2>

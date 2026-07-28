@@ -238,6 +238,7 @@
                         {% endif %}
                         {% if user.role == 'owner' and project.status == 'Approved' and not is_demo %}
                         <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                             <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition">
                                 Mark as Final Delivery
                             </button>
@@ -303,7 +304,8 @@
                     enctype="multipart/form-data"
                     novalidate
                     class="border-t border-gray-800/50 pt-3 flex flex-col gap-3 sm:flex-row sm:items-center"
-        >
+                >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                     <input
                         type="text"
                         name="file_title"
@@ -374,6 +376,7 @@
                     novalidate
                     class="grid grid-cols-1 gap-3 md:grid-cols-3"
                 >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
 
                     <input
                         type="text"
@@ -473,6 +476,10 @@
                         </div>
                         {% else %}
                         <form action="/versions/{{ v.id }}/action" method="post" novalidate class="space-y-3" onsubmit="return validateComment(this)">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                            {% if is_public_link %}
+                            <input type="hidden" name="review_token" value="{{ review_token }}">
+                            {% endif %}
                             <textarea name="body" required placeholder="Type feedback or approval notes here..." class="input-fix w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-16 focus:outline-none focus:border-indigo-500 text-white"></textarea>
                             
                             <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -588,6 +595,10 @@
                 </div>
                 {% else %}
                 <form id="modal-comment-form" method="post" novalidate class="space-y-3 m-0" onsubmit="return validateComment(this)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                    {% if is_public_link %}
+                    <input type="hidden" name="review_token" value="{{ review_token }}">
+                    {% endif %}
                     <input type="hidden" name="action_type" value="comment">
                     <input type="hidden" id="modal-video-time" name="video_time" value="0">
                     <input type="hidden" id="modal-time-str" name="time_str" value="00:00">
@@ -926,7 +937,7 @@
         }
 
         function copyReviewLink() {
-            const publicUrl = window.location.origin + "/review/{{ project.id }}";
+            const publicUrl = window.location.origin + "/review/{{ project.review_token }}";
             navigator.clipboard.writeText(publicUrl).then(() => {
                 showToast("Link copied successfully.", "success");
             }).catch(err => {
