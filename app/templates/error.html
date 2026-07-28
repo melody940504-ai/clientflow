@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% set title = status_code ~ ' - Lumaire' %}
+{% block content %}
+<section class="error-shell">
+  <div class="error-emblem" aria-hidden="true">
+    <img src="/static/lumaire-mark.svg?v=20260729" alt="">
+    <span>{{ status_code }}</span>
+  </div>
+  <p class="eyebrow">Lumaire workspace</p>
+  <h1>{{ headline }}</h1>
+  <p class="error-message">{{ message }}</p>
+  <div class="error-actions">
+    <a class="primary" href="{{ primary_href }}">{{ primary_label }}</a>
+    <button class="ghost" type="button" onclick="history.back()">Go back</button>
+  </div>
+</section>
+{% endblock %}

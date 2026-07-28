@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Form, Request, Response, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -21,6 +22,7 @@ import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from authlib.integrations.starlette_client import OAuth
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -34,6 +36,7 @@ if not SESSION_SECRET:
 serializer = URLSafeSerializer(SESSION_SECRET, salt="clientflow-session")
 
 app = FastAPI(title="Lumaire")
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     SessionMiddleware,
@@ -1005,6 +1008,101 @@ def redirect(path: str):
 def demo_read_only_redirect(path: str):
     separator = "&" if "?" in path else "?"
     return redirect(f"{path}{separator}error=Shared+demo+is+read-only.")
+
+
+ERROR_PAGE_CONTENT = {
+    400: (
+        "Request needs another look",
+        "We could not complete that request. Check the information and try again.",
+    ),
+    401: (
+        "Sign in required",
+        "Your session may have expired. Sign in again to continue.",
+    ),
+    403: (
+        "This area is out of reach",
+        "You do not have access to this workspace or action.",
+    ),
+    404: (
+        "That page is not here",
+        "The link may be outdated, or the item may no longer be available.",
+    ),
+    410: (
+        "This link has expired",
+        "Request a new link from the studio and try again.",
+    ),
+    413: (
+        "That file is too large",
+        "Choose a smaller file and upload it again.",
+    ),
+    500: (
+        "Something interrupted the flow",
+        "The workspace hit an unexpected problem. Please try again shortly.",
+    ),
+}
+
+
+def request_prefers_html(request: Request) -> bool:
+    return "text/html" in request.headers.get("accept", "").lower()
+
+
+def render_error_page(request: Request, status_code: int):
+    headline, message = ERROR_PAGE_CONTENT.get(
+        status_code,
+        ERROR_PAGE_CONTENT[500 if status_code >= 500 else 400],
+    )
+    try:
+        user = get_current_user(request)
+    except Exception:
+        user = None
+
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {
+            "user": user,
+            "is_demo": is_demo_user(user),
+            "demo_enabled": DEMO_ENABLED,
+            "status_code": status_code,
+            "headline": headline,
+            "message": message,
+            "primary_href": "/dashboard" if user else "/",
+            "primary_label": "Back to dashboard" if user else "Return home",
+        },
+        status_code=status_code,
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def browser_http_exception(
+    request: Request,
+    exc: StarletteHTTPException,
+):
+    location = (exc.headers or {}).get("Location")
+    if 300 <= exc.status_code < 400 and location:
+        return RedirectResponse(location, status_code=exc.status_code)
+    if request_prefers_html(request):
+        return render_error_page(request, exc.status_code)
+    return JSONResponse(
+        {"detail": exc.detail},
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
+
+
+@app.exception_handler(Exception)
+async def browser_server_exception(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled request error",
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    if request_prefers_html(request):
+        return render_error_page(request, 500)
+    return JSONResponse(
+        {"detail": "Internal Server Error"},
+        status_code=500,
+    )
+
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):

@@ -183,6 +183,73 @@ class UploadSecurityTests(unittest.TestCase):
         self.assertEqual(context.exception.status_code, 413)
 
 
+class ErrorResponseTests(unittest.TestCase):
+    @staticmethod
+    def request_with_accept(accept: str):
+        return main.Request(
+            {
+                "type": "http",
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "https",
+                "path": "/missing",
+                "raw_path": b"/missing",
+                "query_string": b"",
+                "headers": [(b"accept", accept.encode("ascii"))],
+                "client": ("test", 50000),
+                "server": ("test", 443),
+                "root_path": "",
+                "session": {},
+            }
+        )
+
+    def test_browser_errors_render_branded_html(self):
+        response = asyncio.run(
+            main.browser_http_exception(
+                self.request_with_accept("text/html"),
+                main.StarletteHTTPException(status_code=404),
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn(b"That page is not here", response.body)
+        self.assertIn(b"lumaire-mark.svg", response.body)
+
+    def test_json_clients_keep_standard_error_shape(self):
+        response = asyncio.run(
+            main.browser_http_exception(
+                self.request_with_accept("application/json"),
+                main.StarletteHTTPException(
+                    status_code=403,
+                    detail="Project access denied.",
+                ),
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.body,
+            b'{"detail":"Project access denied."}',
+        )
+
+    def test_redirect_exceptions_stay_redirects(self):
+        response = asyncio.run(
+            main.browser_http_exception(
+                self.request_with_accept("text/html"),
+                main.StarletteHTTPException(
+                    status_code=303,
+                    headers={"Location": "/login?error=session-expired"},
+                ),
+            )
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            "/login?error=session-expired",
+        )
+
+
 class TemplateSecurityTests(unittest.TestCase):
     def test_every_post_form_includes_csrf_token(self):
         templates_dir = Path(__file__).parents[1] / "app" / "templates"
