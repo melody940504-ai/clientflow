@@ -75,7 +75,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 DEFAULT_STUDIO_NAME = "Lumaire Studio"
-DEFAULT_BRAND_COLOR = "#6366f1"
+DEFAULT_BRAND_COLOR = "#9b8cf6"
 DEFAULT_EMAIL_SENDER_NAME = "Lumaire"
 EMAIL_TEST_RECIPIENT = os.getenv("EMAIL_TEST_RECIPIENT", "").strip()
 PASSWORD_ITERATIONS = 600_000
@@ -442,7 +442,7 @@ def init_db() -> None:
                 reset_token TEXT,
                 reset_token_expires_at TEXT,
                 studio_name TEXT DEFAULT 'Lumaire Studio',
-                brand_color TEXT DEFAULT '#6366f1',
+                brand_color TEXT DEFAULT '#9b8cf6',
                 logo_url TEXT,
                 email_sender_name TEXT DEFAULT 'Lumaire',
                 setup_completed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -466,7 +466,7 @@ def init_db() -> None:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS studio_name TEXT DEFAULT 'Lumaire Studio'"
             )
             db.execute(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_color TEXT DEFAULT '#6366f1'"
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_color TEXT DEFAULT '#9b8cf6'"
             )
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS logo_url TEXT"

@@ -105,7 +105,7 @@ class RequestSecurityTests(unittest.TestCase):
             "role": "owner",
             "client_reference_id": None,
             "studio_name": "Northstar Creative",
-            "brand_color": "#6366f1",
+            "brand_color": "#9b8cf6",
             "logo_url": "",
             "email_sender_name": "Northstar Creative",
             "setup_completed": True,
@@ -268,7 +268,7 @@ class EmailTemplateTests(unittest.TestCase):
                 link_url="javascript:alert(1)",
                 sender_name="Northstar",
                 brand_name="Northstar Studio",
-                brand_color="#6366f1",
+                brand_color="#9b8cf6",
             )
         )
 

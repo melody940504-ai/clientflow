@@ -1,11 +1,14 @@
 :root {
-  --workspace-bg: #0d0b14;
-  --workspace-surface: #151220;
-  --workspace-surface-raised: #1d192b;
-  --workspace-border: #302a42;
-  --workspace-text: #f5f2fb;
-  --workspace-muted: #a29bad;
-  --workspace-shadow: 0 22px 55px rgba(0, 0, 0, 0.24);
+  --workspace-bg: #08080a;
+  --workspace-surface: #111114;
+  --workspace-surface-raised: #19191e;
+  --workspace-border: #29282f;
+  --workspace-text: #f4f2f8;
+  --workspace-muted: #9997a2;
+  --workspace-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.52),
+    0 3px 12px rgba(0, 0, 0, 0.32),
+    0 1px 0 rgba(255, 255, 255, 0.055) inset;
 }
 
 html {
@@ -16,8 +19,8 @@ html {
   min-height: 100vh;
   font-family: "Manrope", ui-sans-serif, system-ui, sans-serif !important;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-color, #7c8cff) 8%, transparent), transparent 34%),
-    linear-gradient(180deg, #0d0b14 0%, #12101b 55%, #0d0b14 100%) !important;
+    radial-gradient(ellipse 70% 42% at 50% -18%, color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent), transparent),
+    linear-gradient(180deg, #08080a 0%, #0c0c0f 52%, #08080a 100%) !important;
   color: var(--workspace-text) !important;
 }
 
@@ -44,10 +47,12 @@ html {
   z-index: 30;
   min-height: 72px;
   padding: 16px clamp(20px, 3vw, 52px) !important;
-  border-color: color-mix(in srgb, var(--workspace-border) 78%, transparent) !important;
-  background: color-mix(in srgb, var(--workspace-bg) 88%, transparent) !important;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(22px) saturate(130%);
+  border-color: color-mix(in srgb, var(--workspace-border) 74%, transparent) !important;
+  background: color-mix(in srgb, var(--workspace-bg) 78%, transparent) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.025),
+    0 12px 38px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(28px) saturate(145%);
 }
 
 .workspace-nav .brand-text-fix {
@@ -59,10 +64,14 @@ html {
 .workspace-nav .menu-item-fix {
   min-height: 40px;
   border-radius: 8px !important;
-  background: var(--workspace-surface) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--workspace-surface) !important;
   border-color: var(--workspace-border) !important;
   color: var(--workspace-text) !important;
-  box-shadow: none !important;
+  box-shadow:
+    0 7px 20px rgba(0, 0, 0, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.045) inset !important;
 }
 
 .workspace-nav .nav-action-fix:hover,
@@ -76,8 +85,11 @@ html {
   padding: 12px !important;
   border-radius: 8px !important;
   border-color: var(--workspace-border) !important;
-  background: color-mix(in srgb, var(--workspace-surface) 96%, transparent) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 42%),
+    color-mix(in srgb, var(--workspace-surface) 91%, transparent) !important;
   box-shadow: var(--workspace-shadow) !important;
+  backdrop-filter: blur(28px) saturate(145%);
 }
 
 .workspace-main,
@@ -190,11 +202,11 @@ html {
   border: 1px solid var(--workspace-border);
   border-radius: 8px;
   background:
-    linear-gradient(150deg, color-mix(in srgb, var(--brand-color, #7c8cff) 5%, transparent), transparent 36%),
-    color-mix(in srgb, var(--workspace-surface) 88%, transparent);
-  box-shadow:
-    0 18px 46px rgba(0, 0, 0, 0.13),
-    0 1px 0 rgba(255, 255, 255, 0.035) inset;
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 44%),
+    color-mix(in srgb, var(--workspace-surface) 92%, transparent);
+  box-shadow: var(--workspace-shadow);
+  backdrop-filter: blur(22px) saturate(135%);
 }
 
 .workspace-stat {
@@ -254,8 +266,11 @@ html {
 .project-content .bg-card-fix {
   border: 1px solid var(--workspace-border) !important;
   border-radius: 8px !important;
-  background: color-mix(in srgb, var(--workspace-surface) 92%, transparent) !important;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.032), transparent 42%),
+    color-mix(in srgb, var(--workspace-surface) 93%, transparent) !important;
+  box-shadow: var(--workspace-shadow) !important;
+  backdrop-filter: blur(22px) saturate(135%);
 }
 
 .workspace-form-panel {
@@ -280,9 +295,13 @@ html {
   padding: 12px 14px !important;
   border: 1px solid var(--workspace-border) !important;
   border-radius: 8px !important;
-  background-color: color-mix(in srgb, var(--workspace-bg) 62%, var(--workspace-surface)) !important;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.16), transparent),
+    color-mix(in srgb, var(--workspace-bg) 62%, var(--workspace-surface)) !important;
   color: var(--workspace-text) !important;
-  box-shadow: none !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 1px 2px rgba(0, 0, 0, 0.18) !important;
 }
 
 .workspace-page textarea.input-fix {
@@ -302,15 +321,22 @@ html {
 .workspace-page .brand-bg-fix {
   min-height: 48px;
   border-radius: 8px !important;
+  border: 1px solid color-mix(in srgb, var(--brand-color, #9b8cf6) 78%, white) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 88%, white), var(--brand-color, #9b8cf6)) !important;
   color: #fff !important;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--brand-color, #7c8cff) 18%, transparent) !important;
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--brand-color, #9b8cf6) 24%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.34) inset !important;
   transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease !important;
 }
 
 .workspace-page .brand-bg-fix:hover {
-  transform: translateY(-2px);
-  filter: saturate(1.08);
-  box-shadow: 0 15px 32px color-mix(in srgb, var(--brand-color, #7c8cff) 24%, transparent) !important;
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--brand-color, #9b8cf6) 30%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.38) inset !important;
 }
 
 .workspace-projects {
@@ -326,16 +352,24 @@ html {
   padding: 24px !important;
   border: 1px solid var(--workspace-border) !important;
   border-radius: 8px !important;
-  background: color-mix(in srgb, var(--workspace-surface-raised) 72%, transparent) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    color-mix(in srgb, var(--workspace-surface-raised) 78%, transparent) !important;
   color: inherit;
   text-decoration: none;
-  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease !important;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset !important;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease !important;
 }
 
 .workspace-project-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   border-color: color-mix(in srgb, var(--brand-color, #7c8cff) 48%, var(--workspace-border)) !important;
   background: var(--workspace-surface-raised) !important;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.045) inset !important;
 }
 
 .workspace-project-card h4 {
@@ -432,25 +466,28 @@ html {
 }
 
 .light-theme {
-  --workspace-bg: #f6f5fb;
+  --workspace-bg: #f7f7fa;
   --workspace-surface: #ffffff;
-  --workspace-surface-raised: #efedf7;
-  --workspace-border: #ddd9eb;
-  --workspace-text: #211d31;
-  --workspace-muted: #706a82;
-  --workspace-shadow: 0 20px 50px rgba(44, 38, 72, 0.1);
+  --workspace-surface-raised: #f0f0f5;
+  --workspace-border: #dedee7;
+  --workspace-text: #1c1c22;
+  --workspace-muted: #71717d;
+  --workspace-shadow:
+    0 24px 64px rgba(28, 24, 48, 0.11),
+    0 2px 8px rgba(28, 24, 48, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
 }
 
 .light-theme .workspace-page {
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-color, #6758d9) 10%, transparent), transparent 38%),
-    linear-gradient(180deg, #fbfaff 0%, #f2f0f8 100%) !important;
+    radial-gradient(ellipse 72% 38% at 50% -14%, color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent), transparent),
+    linear-gradient(180deg, #fbfbfd 0%, #f3f3f7 100%) !important;
   color: var(--workspace-text) !important;
 }
 
 .light-theme .workspace-nav {
   border-color: color-mix(in srgb, var(--workspace-border) 82%, transparent) !important;
-  background: rgba(251, 250, 255, 0.9) !important;
+  background: rgba(250, 250, 252, 0.84) !important;
   box-shadow: 0 1px 0 rgba(53, 45, 86, 0.06), 0 10px 30px rgba(53, 45, 86, 0.04) !important;
 }
 
@@ -461,24 +498,27 @@ html {
 .light-theme .workspace-page .project-activity > .bg-card-fix {
   border-color: var(--workspace-border) !important;
   background:
-    linear-gradient(155deg, color-mix(in srgb, var(--brand-color, #6758d9) 3%, white), white 46%) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 249, 252, 0.95)) !important;
   color: var(--workspace-text) !important;
   box-shadow:
-    0 18px 42px rgba(44, 38, 72, 0.08),
+    0 22px 54px rgba(35, 31, 58, 0.09),
+    0 2px 8px rgba(35, 31, 58, 0.04),
     0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
 }
 
 .light-theme .workspace-page .bg-inner-card,
 .light-theme .workspace-project-card {
-  border-color: color-mix(in srgb, var(--brand-color, #6758d9) 10%, var(--workspace-border)) !important;
-  background: #f8f7fc !important;
-  box-shadow: 0 8px 22px rgba(44, 38, 72, 0.05) !important;
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 8%, var(--workspace-border)) !important;
+  background: #f7f7fa !important;
+  box-shadow:
+    0 10px 26px rgba(35, 31, 58, 0.055),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset !important;
 }
 
 .light-theme .workspace-page .input-fix,
 .light-theme .workspace-page select.input-fix {
   border-color: var(--workspace-border) !important;
-  background-color: #fcfbff !important;
+  background: #f7f7fa !important;
   color: var(--workspace-text) !important;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
 }
@@ -486,7 +526,7 @@ html {
 .light-theme .workspace-page .nav-action-fix,
 .light-theme .workspace-page .menu-item-fix {
   border-color: var(--workspace-border) !important;
-  background: linear-gradient(180deg, #ffffff, #faf9fd) !important;
+  background: linear-gradient(180deg, #ffffff, #f4f4f8) !important;
   color: var(--workspace-text) !important;
   box-shadow: 0 7px 18px rgba(44, 38, 72, 0.05) !important;
 }
