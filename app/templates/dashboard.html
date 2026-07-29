@@ -226,10 +226,11 @@
         </div>
         <div class="flex w-full items-center justify-end gap-2 md:w-auto">
             {% if user.role != 'client' %}
+            {% set unread_count = notifications|rejectattr('is_read')|list|length %}
             <div class="relative">
                 <button id="notification-toggle" type="button" class="nav-action-fix menu-item-fix relative text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-2 shadow-sm sm:py-1.5" aria-label="Notifications">
                     <span class="text-sm leading-none">🔔</span>
-                    <span id="notification-count" class="hidden min-w-5 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-black text-white"></span>
+                    <span id="notification-count" class="{% if unread_count == 0 %}hidden {% endif %}min-w-5 rounded-full bg-indigo-500 px-1.5 py-0.5 text-[10px] font-black text-white">{{ unread_count if unread_count else '' }}</span>
                 </button>
                 <div id="notification-panel" class="bg-card-fix hidden fixed left-4 right-4 top-24 z-40 max-h-[70vh] overflow-y-auto rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96">
                     <div class="theme-divider-fix flex items-center justify-between border-b border-gray-900 pb-3">
@@ -238,7 +239,7 @@
                     </div>
                     <div class="mt-2 space-y-2">
                         {% for n in notifications %}
-                        <a href="/projects/{{ n.project_id }}" data-notification-id="{{ n.notification_id }}" data-notification-project-id="{{ n.project_id }}" class="notification-item bg-inner-card block rounded-xl border border-gray-900 bg-gray-900/40 p-3 transition hover:border-gray-700 hover:bg-gray-900">
+                        <a href="/projects/{{ n.project_id }}" data-notification-id="{{ n.notification_id }}" class="notification-item {% if n.is_read %}is-read {% endif %}bg-inner-card block rounded-xl border border-gray-900 bg-gray-900/40 p-3 transition hover:border-gray-700 hover:bg-gray-900">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-white-fix">
@@ -532,42 +533,6 @@
             const userMenuPanel = document.getElementById("user-menu-panel");
             const notificationToggle = document.getElementById("notification-toggle");
             const notificationPanel = document.getElementById("notification-panel");
-            const notificationCount = document.getElementById("notification-count");
-            const notificationItems = Array.from(document.querySelectorAll("[data-notification-project-id]"));
-            const readNotificationKey = "lumaire-read-notification-projects";
-
-            const getReadNotifications = () => {
-                try {
-                    return new Set(JSON.parse(localStorage.getItem(readNotificationKey) || "[]"));
-                } catch {
-                    return new Set();
-                }
-            };
-
-            const saveReadNotifications = (readIds) => {
-                localStorage.setItem(readNotificationKey, JSON.stringify(Array.from(readIds)));
-            };
-
-            const updateNotificationState = () => {
-                const readIds = getReadNotifications();
-                let unreadCount = 0;
-
-                notificationItems.forEach((item) => {
-                    const isRead = readIds.has(item.dataset.notificationProjectId);
-                    item.classList.toggle("is-read", isRead);
-                    if (!isRead) unreadCount += 1;
-                });
-
-                if (unreadCount > 0) {
-                    if (!notificationCount) return;
-                    notificationCount.textContent = String(unreadCount);
-                    notificationCount.classList.remove("hidden");
-                } else {
-                    if (!notificationCount) return;
-                    notificationCount.textContent = "";
-                    notificationCount.classList.add("hidden");
-                }
-            };
 
             if (userMenuToggle && userMenuPanel) {
                 userMenuToggle.addEventListener("click", (event) => {
@@ -598,17 +563,6 @@
                 if (userMenuPanel) userMenuPanel.classList.add("hidden");
                 if (userMenuToggle) userMenuToggle.setAttribute("aria-expanded", "false");
             });
-
-            notificationItems.forEach((item) => {
-                item.addEventListener("click", () => {
-                    const readIds = getReadNotifications();
-                    readIds.add(item.dataset.notificationProjectId);
-                    saveReadNotifications(readIds);
-                    updateNotificationState();
-                });
-            });
-
-            updateNotificationState();
 
             const padDatePart = (value) => String(value).padStart(2, "0");
             const formatLocalDateTime = (date) => {

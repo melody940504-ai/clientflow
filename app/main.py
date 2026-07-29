@@ -557,6 +557,109 @@ def init_db() -> None:
             )
         """)
 
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS project_notification_reads (
+                user_id INTEGER NOT NULL,
+                project_id INTEGER NOT NULL,
+                last_read_at TEXT NOT NULL,
+                PRIMARY KEY(user_id, project_id),
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            )
+        """)
+
+
+def mark_project_notifications_read(db, user_id: int, project_id: int) -> None:
+    db.execute(
+        """
+        INSERT INTO project_notification_reads
+        (user_id, project_id, last_read_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT (user_id, project_id)
+        DO UPDATE SET last_read_at = EXCLUDED.last_read_at
+        """,
+        (
+            user_id,
+            project_id,
+            datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        ),
+    )
+
+
+def get_owner_notifications(db, user_id: int, limit: int = 8):
+    return db.execute(
+        """
+        WITH events AS (
+            SELECT
+                'comment-' || CAST(cm.id AS TEXT) AS notification_id,
+                cm.author_name,
+                cm.author_role,
+                cm.body,
+                cm.type,
+                cm.created_at,
+                vv.version_label,
+                p.id AS project_id,
+                p.name AS project_name,
+                c.name AS client_name
+            FROM comments cm
+            JOIN video_versions vv ON cm.video_version_id = vv.id
+            JOIN projects p ON vv.project_id = p.id
+            JOIN clients c ON p.client_id = c.id
+            WHERE p.user_id = ?
+
+            UNION ALL
+
+            SELECT
+                'upload-' || CAST(vv.id AS TEXT) AS notification_id,
+                'Studio' AS author_name,
+                'studio' AS author_role,
+                'Uploaded ' || vv.version_label AS body,
+                'upload' AS type,
+                vv.created_at,
+                vv.version_label,
+                p.id AS project_id,
+                p.name AS project_name,
+                c.name AS client_name
+            FROM video_versions vv
+            JOIN projects p ON vv.project_id = p.id
+            JOIN clients c ON p.client_id = c.id
+            WHERE p.user_id = ?
+
+            UNION ALL
+
+            SELECT
+                'project-' || CAST(p.id AS TEXT) AS notification_id,
+                'System' AS author_name,
+                'system' AS author_role,
+                'Project Created' AS body,
+                'create' AS type,
+                p.created_at,
+                '' AS version_label,
+                p.id AS project_id,
+                p.name AS project_name,
+                c.name AS client_name
+            FROM projects p
+            JOIN clients c ON p.client_id = c.id
+            WHERE p.user_id = ?
+        )
+        SELECT
+            events.*,
+            CASE
+                WHEN reads.last_read_at IS NOT NULL
+                    AND events.created_at <= reads.last_read_at
+                THEN TRUE
+                ELSE FALSE
+            END AS is_read
+        FROM events
+        LEFT JOIN project_notification_reads reads
+            ON reads.user_id = ?
+            AND reads.project_id = events.project_id
+        ORDER BY events.created_at DESC
+        LIMIT ?
+        """,
+        (user_id, user_id, user_id, user_id, limit),
+    ).fetchall()
+
 
 def seed_demo_review_history() -> None:
     if not DEMO_ENABLED:
@@ -1646,72 +1749,11 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
         query += " ORDER BY p.created_at DESC"
         projects = db.execute(query, params).fetchall()
 
-        if user["role"] == "client":
-            notification_where = "p.client_id = ?"
-            notification_params = [user["client_reference_id"]] * 3
-        else:
-            notification_where = "p.user_id = ?"
-            notification_params = [user["id"]] * 3
-
-        notifications = db.execute(
-            f"""
-            SELECT
-                'comment-' || CAST(cm.id AS TEXT) AS notification_id,
-                cm.author_name,
-                cm.author_role,
-                cm.body,
-                cm.type,
-                cm.created_at,
-                vv.version_label,
-                p.id AS project_id,
-                p.name AS project_name,
-                c.name AS client_name
-            FROM comments cm
-            JOIN video_versions vv ON cm.video_version_id = vv.id
-            JOIN projects p ON vv.project_id = p.id
-            JOIN clients c ON p.client_id = c.id
-            WHERE {notification_where}
-
-            UNION ALL
-
-            SELECT
-                'upload-' || CAST(vv.id AS TEXT) AS notification_id,
-                'Studio' AS author_name,
-                'studio' AS author_role,
-                'Uploaded ' || vv.version_label AS body,
-                'upload' AS type,
-                vv.created_at,
-                vv.version_label,
-                p.id AS project_id,
-                p.name AS project_name,
-                c.name AS client_name
-            FROM video_versions vv
-            JOIN projects p ON vv.project_id = p.id
-            JOIN clients c ON p.client_id = c.id
-            WHERE {notification_where}
-
-            UNION ALL
-
-            SELECT
-                'project-' || CAST(p.id AS TEXT) AS notification_id,
-                'System' AS author_name,
-                'system' AS author_role,
-                'Project Created' AS body,
-                'create' AS type,
-                p.created_at,
-                '' AS version_label,
-                p.id AS project_id,
-                p.name AS project_name,
-                c.name AS client_name
-            FROM projects p
-            JOIN clients c ON p.client_id = c.id
-            WHERE {notification_where}
-
-            ORDER BY created_at DESC
-            LIMIT 8
-            """,
-            notification_params,
-        ).fetchall()
+        notifications = (
+            []
+            if user["role"] == "client"
+            else get_owner_notifications(db, user["id"])
+        )
         
         # 統計數據卡片
         target_id = user["client_reference_id"] if user["role"] == "client" else user["id"]
@@ -2446,7 +2488,10 @@ def project_detail(request: Request, project_id: int):
             return redirect(
                 "/dashboard?error=This+project+is+not+available+for+the+active+account."
             )
-            
+
+        if user["role"] == "owner":
+            mark_project_notifications_read(db, user["id"], project_id)
+
         # 撈取版本時間軸（由新到舊）
         versions = db.execute(
             "SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC",

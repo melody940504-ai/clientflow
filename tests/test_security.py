@@ -167,6 +167,42 @@ class RequestSecurityTests(unittest.TestCase):
         )
 
 
+class NotificationReadTests(unittest.TestCase):
+    class RecordingCursor:
+        def fetchall(self):
+            return []
+
+    class RecordingDB:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=()):
+            self.calls.append((query, params))
+            return NotificationReadTests.RecordingCursor()
+
+    def test_marking_project_read_uses_per_user_upsert(self):
+        db = self.RecordingDB()
+
+        main.mark_project_notifications_read(db, user_id=12, project_id=34)
+
+        query, params = db.calls[0]
+        self.assertIn("project_notification_reads", query)
+        self.assertIn("ON CONFLICT (user_id, project_id)", query)
+        self.assertEqual(params[:2], (12, 34))
+        datetime.fromisoformat(params[2])
+
+    def test_owner_notifications_compare_events_to_last_read_time(self):
+        db = self.RecordingDB()
+
+        notifications = main.get_owner_notifications(db, user_id=12)
+
+        self.assertEqual(notifications, [])
+        query, params = db.calls[0]
+        self.assertIn("events.created_at <= reads.last_read_at", query)
+        self.assertIn("LEFT JOIN project_notification_reads", query)
+        self.assertEqual(params, (12, 12, 12, 12, 8))
+
+
 class UploadSecurityTests(unittest.TestCase):
     def test_upload_at_limit_is_accepted(self):
         payload = b"a" * 32
@@ -394,6 +430,22 @@ class TemplateSecurityTests(unittest.TestCase):
 
         self.assertIn('href="/clients"', dashboard_template)
         self.assertIn('href="/projects/new"', dashboard_template)
+
+    def test_notification_reads_are_server_managed(self):
+        project_root = Path(__file__).parents[1]
+        dashboard_template = (
+            project_root / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+        project_template = (
+            project_root / "app" / "templates" / "project.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("unread_count", dashboard_template)
+        self.assertIn("{% if n.is_read %}is-read", dashboard_template)
+        self.assertNotIn(
+            "lumaire-read-notification-projects",
+            dashboard_template + project_template,
+        )
 
     def test_management_routes_and_menu_are_available(self):
         route_paths = [route.path for route in main.app.routes]
