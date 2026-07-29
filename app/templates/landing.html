@@ -2,8 +2,9 @@
 {% set title = 'Lumaire - Creative Client Delivery' %}
 {% set body_class = 'landing-page' %}
 {% block content %}
-<section class="lumaire-stage">
-  <img class="lumaire-stage-backdrop" src="/static/images/lumaire-stage.png" alt="">
+<section class="lumaire-stage" data-stage-parallax>
+  <img class="lumaire-stage-backdrop stage-backdrop-dark" src="/static/images/lumaire-stage.png" alt="">
+  <img class="lumaire-stage-backdrop stage-backdrop-light" src="/static/images/lumaire-stage-light.png" alt="">
   <div class="lumaire-stage-shade"></div>
 
   <div class="lumaire-stage-copy">
@@ -62,24 +63,26 @@
   </a>
 </section>
 
-<section class="workflow-motion" id="workflow">
-  <div class="workflow-ribbons" aria-hidden="true">
-    <i></i>
-    <i></i>
-    <i></i>
-    <i></i>
+<section class="workflow-motion" id="workflow" data-workflow-motion>
+  <div class="workflow-sticky">
+    <div class="workflow-ribbons" aria-hidden="true">
+      <i></i>
+      <i></i>
+      <i></i>
+      <i></i>
+    </div>
+    <div class="workflow-motion-copy">
+      <p class="stage-kicker">One path from upload to sign-off</p>
+      <h2>Keep every decision moving with the work.</h2>
+      <p>Versions, feedback, revisions, and approvals stay in one visible sequence from the first cut to final delivery.</p>
+    </div>
+    <ol class="workflow-steps" aria-label="Lumaire workflow">
+      <li><span>01</span><strong>Upload</strong><small>Share the next cut</small></li>
+      <li><span>02</span><strong>Review</strong><small>Collect focused notes</small></li>
+      <li><span>03</span><strong>Revise</strong><small>Keep context attached</small></li>
+      <li><span>04</span><strong>Approve</strong><small>Lock the final decision</small></li>
+    </ol>
   </div>
-  <div class="workflow-motion-copy">
-    <p class="stage-kicker">One path from upload to sign-off</p>
-    <h2>Keep every decision moving with the work.</h2>
-    <p>Versions, feedback, revisions, and approvals stay in one visible sequence from the first cut to final delivery.</p>
-  </div>
-  <ol class="workflow-steps" aria-label="Lumaire workflow">
-    <li><span>01</span><strong>Upload</strong><small>Share the next cut</small></li>
-    <li><span>02</span><strong>Review</strong><small>Collect focused notes</small></li>
-    <li><span>03</span><strong>Revise</strong><small>Keep context attached</small></li>
-    <li><span>04</span><strong>Approve</strong><small>Lock the final decision</small></li>
-  </ol>
 </section>
 
 <section class="product-showcase" id="product-tour" data-product-showcase>
