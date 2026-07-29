@@ -570,6 +570,8 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn("Only feedback notes can be resolved.", source)
         self.assertIn("Approved projects are read-only.", source)
         self.assertIn("ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_resolved", source)
+        self.assertEqual(source.count("LIKE 'timestamp_%%'"), 2)
+        self.assertNotIn("LIKE 'timestamp_%'", source)
         self.assertIn('action="/comments/{{ c.id }}/resolve"', project_template)
         self.assertIn("Mark resolved", project_template)
         self.assertIn("p.unresolved_count", dashboard_template)

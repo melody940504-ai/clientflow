@@ -1734,7 +1734,7 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
                      WHERE vv.project_id = p.id AND cm.author_role = 'client'
                      AND cm.is_resolved = FALSE
-                     AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%')) AS unresolved_count
+                     AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%%')) AS unresolved_count
                 FROM projects p
                 JOIN clients c ON p.client_id = c.id
                 WHERE p.client_id = ?
@@ -1750,7 +1750,7 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
                      WHERE vv.project_id = p.id AND cm.author_role = 'client'
                      AND cm.is_resolved = FALSE
-                     AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%')) AS unresolved_count
+                     AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%%')) AS unresolved_count
                 FROM projects p
                 JOIN clients c ON p.client_id = c.id
                 WHERE p.user_id = ?
