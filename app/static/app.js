@@ -113,8 +113,6 @@
       });
     });
 
-    showcase.addEventListener('mouseenter', stopRotation);
-    showcase.addEventListener('mouseleave', startRotation);
     showcase.addEventListener('focusin', stopRotation);
     showcase.addEventListener('focusout', startRotation);
     document.addEventListener('visibilitychange', startRotation);
