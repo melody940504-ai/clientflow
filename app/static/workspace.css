@@ -16,12 +16,45 @@ html {
 }
 
 .workspace-page {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   font-family: "Manrope", ui-sans-serif, system-ui, sans-serif !important;
   background:
-    radial-gradient(ellipse 70% 42% at 50% -18%, color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent), transparent),
-    linear-gradient(180deg, #08080a 0%, #0c0c0f 52%, #08080a 100%) !important;
+    radial-gradient(ellipse 72% 48% at 50% -20%, color-mix(in srgb, var(--brand-color, #9b8cf6) 14%, transparent), transparent 68%),
+    linear-gradient(180deg, rgba(8, 8, 10, 0.72) 0%, rgba(12, 12, 15, 0.94) 44%, #08080a 100%),
+    url("/static/images/lumaire-stage.png") center top / 100% auto no-repeat,
+    #08080a !important;
   color: var(--workspace-text) !important;
+}
+
+.workspace-page::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.58), transparent 72%);
+  opacity: 0.34;
+}
+
+.workspace-page::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  top: 18vh;
+  left: 50%;
+  width: min(900px, 82vw);
+  height: 480px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 9%, transparent);
+  filter: blur(120px);
+  transform: translateX(-50%);
+  opacity: 0.38;
 }
 
 .workspace-page h1,
@@ -48,7 +81,9 @@ html {
   min-height: 72px;
   padding: 16px clamp(20px, 3vw, 52px) !important;
   border-color: color-mix(in srgb, var(--workspace-border) 74%, transparent) !important;
-  background: color-mix(in srgb, var(--workspace-bg) 78%, transparent) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    color-mix(in srgb, var(--workspace-bg) 76%, transparent) !important;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.025),
     0 12px 38px rgba(0, 0, 0, 0.16);
@@ -155,13 +190,21 @@ html {
   font-weight: 800;
   text-align: center;
   text-decoration: none;
-  transition: transform 160ms ease, border-color 160ms ease, filter 160ms ease;
+  transition: transform 160ms ease, border-color 160ms ease, filter 160ms ease, box-shadow 160ms ease;
 }
 
 .workspace-heading-actions a:hover {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--brand-color) 62%, var(--workspace-border));
   filter: brightness(1.05);
+}
+
+.workspace-nav .nav-action-fix:focus-visible,
+.workspace-nav .menu-item-fix:focus-visible,
+.workspace-heading-actions a:focus-visible,
+.workspace-project-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-color, #9b8cf6) 78%, white);
+  outline-offset: 3px;
 }
 
 .demo-banner-fix {
@@ -195,6 +238,7 @@ html {
 }
 
 .workspace-stats {
+  position: relative;
   overflow: hidden;
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -209,6 +253,15 @@ html {
   backdrop-filter: blur(22px) saturate(135%);
 }
 
+.workspace-stats::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.075) inset;
+}
+
 .workspace-stat {
   position: relative;
   min-height: 132px;
@@ -218,6 +271,11 @@ html {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+  transition: background-color 180ms ease;
+}
+
+.workspace-stat:hover {
+  background: rgba(255, 255, 255, 0.026) !important;
 }
 
 .workspace-stat:last-child {
@@ -273,6 +331,36 @@ html {
   backdrop-filter: blur(22px) saturate(135%);
 }
 
+.workspace-form-panel,
+.workspace-projects,
+.project-content > .bg-card-fix,
+.project-activity > .bg-card-fix,
+.project-content .bg-card-fix {
+  position: relative;
+  overflow: clip;
+}
+
+.workspace-form-panel::before,
+.workspace-projects::before,
+.project-content > .bg-card-fix::before,
+.project-activity > .bg-card-fix::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 auto;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-color, #9b8cf6) 30%, rgba(255, 255, 255, 0.3)), transparent);
+}
+
+.workspace-form-panel > *,
+.workspace-projects > *,
+.project-content > .bg-card-fix > *,
+.project-activity > .bg-card-fix > * {
+  position: relative;
+  z-index: 1;
+}
+
 .workspace-form-panel {
   padding: clamp(24px, 3vw, 36px) !important;
 }
@@ -319,6 +407,8 @@ html {
 }
 
 .workspace-page .brand-bg-fix {
+  position: relative;
+  overflow: hidden;
   min-height: 48px;
   border-radius: 8px !important;
   border: 1px solid color-mix(in srgb, var(--brand-color, #9b8cf6) 78%, white) !important;
@@ -331,12 +421,26 @@ html {
   transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease !important;
 }
 
+.workspace-page .brand-bg-fix::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 22%, rgba(255, 255, 255, 0.22) 48%, transparent 74%);
+  transform: translateX(-130%);
+  transition: transform 520ms ease;
+}
+
 .workspace-page .brand-bg-fix:hover {
   transform: translateY(-1px);
   filter: brightness(1.06);
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--brand-color, #9b8cf6) 30%, transparent),
     0 1px 0 rgba(255, 255, 255, 0.38) inset !important;
+}
+
+.workspace-page .brand-bg-fix:hover::after {
+  transform: translateX(130%);
 }
 
 .workspace-projects {
@@ -348,6 +452,8 @@ html {
 }
 
 .workspace-project-card {
+  position: relative;
+  overflow: hidden;
   min-height: 190px;
   padding: 24px !important;
   border: 1px solid var(--workspace-border) !important;
@@ -363,6 +469,18 @@ html {
   transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease !important;
 }
 
+.workspace-project-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 24px;
+  width: 54px;
+  height: 2px;
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 76%, white);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--brand-color, #9b8cf6) 36%, transparent);
+  transition: width 220ms ease;
+}
+
 .workspace-project-card:hover {
   transform: translateY(-3px);
   border-color: color-mix(in srgb, var(--brand-color, #7c8cff) 48%, var(--workspace-border)) !important;
@@ -370,6 +488,10 @@ html {
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.22),
     0 1px 0 rgba(255, 255, 255, 0.045) inset !important;
+}
+
+.workspace-project-card:hover::before {
+  width: calc(100% - 48px);
 }
 
 .workspace-project-card h4 {
@@ -460,6 +582,22 @@ html {
   background: color-mix(in srgb, var(--workspace-surface-raised) 68%, transparent) !important;
 }
 
+.project-activity .group > div:last-child,
+.project-content button,
+.project-content label[for] {
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease !important;
+}
+
+.project-activity .group:hover > div:last-child {
+  transform: translateX(3px);
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 32%, var(--workspace-border)) !important;
+}
+
+.project-content button:not(:disabled):hover,
+.project-content label[for]:hover {
+  transform: translateY(-1px);
+}
+
 .workspace-page #video-modal > div {
   border-radius: 8px !important;
   border-color: var(--workspace-border) !important;
@@ -480,9 +618,21 @@ html {
 
 .light-theme .workspace-page {
   background:
-    radial-gradient(ellipse 72% 38% at 50% -14%, color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent), transparent),
-    linear-gradient(180deg, #fbfbfd 0%, #f3f3f7 100%) !important;
+    radial-gradient(ellipse 72% 42% at 50% -14%, color-mix(in srgb, var(--brand-color, #9b8cf6) 11%, transparent), transparent 72%),
+    linear-gradient(180deg, rgba(253, 253, 255, 0.92) 0%, rgba(245, 245, 249, 0.98) 56%, #f3f3f7 100%),
+    url("/static/images/lumaire-stage.png") center top / 100% auto no-repeat !important;
   color: var(--workspace-text) !important;
+}
+
+.light-theme .workspace-page::before {
+  background:
+    linear-gradient(90deg, rgba(38, 30, 72, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(38, 30, 72, 0.028) 1px, transparent 1px);
+  opacity: 0.42;
+}
+
+.light-theme .workspace-page::after {
+  opacity: 0.18;
 }
 
 .light-theme .workspace-nav {
@@ -513,6 +663,10 @@ html {
   box-shadow:
     0 10px 26px rgba(35, 31, 58, 0.055),
     0 1px 0 rgba(255, 255, 255, 0.95) inset !important;
+}
+
+.light-theme .workspace-stat:hover {
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 3%, white) !important;
 }
 
 .light-theme .workspace-page .input-fix,
