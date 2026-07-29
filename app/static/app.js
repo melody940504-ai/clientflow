@@ -63,16 +63,16 @@
 
     const renderParallax = () => {
       parallaxFrame = null;
-      parallaxStage.style.setProperty('--stage-bg-x', `${(targetX * 12).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-bg-y', `${(targetY * 8).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-copy-x', `${(targetX * 8).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-copy-y', `${(targetY * 5).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-window-x', `${(targetX * 44).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-window-y', `${(targetY * 22).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-rotate-x', `${(-targetY * 1.8).toFixed(2)}deg`);
-      parallaxStage.style.setProperty('--stage-rotate-y', `${(targetX * 2.8).toFixed(2)}deg`);
-      parallaxStage.style.setProperty('--stage-pin-x', `${(targetX * 16).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-pin-y', `${(targetY * 10).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-bg-x', `${(targetX * 8).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-bg-y', `${(targetY * 6).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-copy-x', `${(targetX * 5).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-copy-y', `${(targetY * 4).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-window-x', `${(targetX * 30).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-window-y', `${(targetY * 16).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-rotate-x', `${(-targetY * 1.2).toFixed(2)}deg`);
+      parallaxStage.style.setProperty('--stage-rotate-y', `${(targetX * 2).toFixed(2)}deg`);
+      parallaxStage.style.setProperty('--stage-pin-x', `${(targetX * 10).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-pin-y', `${(targetY * 7).toFixed(2)}px`);
     };
 
     const requestParallax = () => {
@@ -147,7 +147,7 @@
       stopRotation();
       showcase.classList.remove('is-paused');
       if (document.visibilityState === 'visible') {
-        rotationTimer = window.setInterval(() => showScene(activeIndex + 1), 5200);
+        rotationTimer = window.setInterval(() => showScene(activeIndex + 1), 10000);
       }
     };
 
@@ -193,17 +193,13 @@
       const progress = Math.min(1, Math.max(0, -rect.top / scrollRange));
 
       workflowMotion.style.setProperty('--workflow-progress', progress.toFixed(3));
-      workflowMotion.style.setProperty('--workflow-scale', (0.84 + progress * 0.16).toFixed(3));
-      workflowMotion.style.setProperty('--workflow-radius', `${Math.round(48 * (1 - progress))}px`);
-      workflowMotion.classList.toggle('is-expanded', progress > 0.72);
-
       const ribbonOffsets = [-150, -54, 62, 148];
       ribbons.forEach((ribbon, index) => {
         ribbon.style.setProperty('--ribbon-shift', `${Math.round(ribbonOffsets[index] * (1 - progress))}px`);
       });
 
       steps.forEach((step, index) => {
-        step.classList.toggle('is-active', progress >= 0.28 + index * 0.13);
+        step.classList.toggle('is-active', progress >= index * 0.22);
       });
     };
 

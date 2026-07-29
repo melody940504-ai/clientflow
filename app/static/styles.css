@@ -3311,7 +3311,7 @@ html:not([data-theme="dark"]) :is(
 }
 
 .showcase-switcher.is-progressing::after {
-  animation: switcher-progress 5.2s linear forwards;
+  animation: switcher-progress 10s linear forwards;
 }
 
 .product-showcase.is-paused .showcase-switcher::after {
@@ -3619,8 +3619,8 @@ html:not([data-theme="dark"]) .landing-page {
 }
 
 html:not([data-theme="dark"]) .landing-page .lumaire-stage-backdrop {
-  opacity: 0.9;
-  filter: none;
+  opacity: 1;
+  filter: saturate(1.12) contrast(1.04);
 }
 
 html:not([data-theme="dark"]) .landing-page .stage-backdrop-dark {
@@ -3633,8 +3633,8 @@ html:not([data-theme="dark"]) .landing-page .stage-backdrop-light {
 
 html:not([data-theme="dark"]) .landing-page .lumaire-stage-shade {
   background:
-    linear-gradient(180deg, rgba(248, 247, 251, 0.58) 0%, rgba(248, 247, 251, 0.82) 54%, #f6f5f9 97%),
-    radial-gradient(ellipse 58% 46% at 50% 32%, rgba(255, 255, 255, 0.12), rgba(246, 245, 249, 0.55));
+    linear-gradient(180deg, rgba(248, 247, 251, 0.12) 0%, rgba(248, 247, 251, 0.38) 58%, #f6f5f9 98%),
+    radial-gradient(ellipse 58% 46% at 50% 32%, rgba(255, 255, 255, 0.04), rgba(246, 245, 249, 0.24));
 }
 
 html:not([data-theme="dark"]) .landing-page .stage-kicker {
@@ -3739,17 +3739,15 @@ html:not([data-theme="dark"]) .landing-page .capability-grid p {
 
 html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   background:
-    linear-gradient(180deg, #f6f5f9, rgba(246, 245, 249, 0.86)),
-    url("/static/images/lumaire-stage-light.png") center bottom / cover;
+    linear-gradient(180deg, rgba(246, 245, 249, 0.46), rgba(246, 245, 249, 0.16)),
+    url("/static/images/lumaire-stage-light.png") center top / cover;
   color: #19181d;
 }
 
 .workflow-motion {
   --workflow-progress: 0;
-  --workflow-scale: 0.84;
-  --workflow-radius: 48px;
   position: relative;
-  min-height: 172svh;
+  min-height: 150svh;
   padding: 0;
   background: #050506;
   color: #f7f5fb;
@@ -3768,12 +3766,22 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   padding: 110px clamp(24px, 7vw, 130px) 70px;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid rgba(218, 211, 255, calc(0.18 - var(--workflow-progress) * 0.12));
-  border-radius: var(--workflow-radius);
+  border-block: 1px solid rgba(218, 211, 255, 0.12);
   background: #050506;
-  transform: scale(var(--workflow-scale));
-  transform-origin: center center;
-  transition: border-radius 100ms linear, border-color 180ms ease;
+}
+
+.workflow-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  filter: brightness(0.58) contrast(1.24) saturate(0.92);
+  pointer-events: none;
+}
+
+.workflow-motion.has-webgl-scene .workflow-ribbons {
+  opacity: 0;
 }
 
 .workflow-ribbons {
@@ -3845,8 +3853,7 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   width: min(980px, 100%);
   margin: 0 auto;
   text-align: center;
-  opacity: calc(0.38 + var(--workflow-progress) * 0.62);
-  transform: translateY(calc(72px - var(--workflow-progress) * 72px));
+  opacity: 1;
 }
 
 .workflow-motion-copy h2,
@@ -4361,8 +4368,19 @@ html:not([data-theme="dark"]) .landing-page .landing-faq {
 
 html:not([data-theme="dark"]) .landing-page .workflow-motion,
 html:not([data-theme="dark"]) .landing-page .workflow-sticky {
-  background: #f7f6fa;
+  background: #f1eff7;
   color: #19181d;
+}
+
+html:not([data-theme="dark"]) .landing-page .workflow-sticky {
+  background:
+    radial-gradient(circle at var(--pointer-x) var(--pointer-y), rgba(126, 103, 226, 0.08), transparent 36%),
+    linear-gradient(180deg, rgba(250, 249, 252, 0.78), rgba(241, 239, 247, 0.84));
+}
+
+html:not([data-theme="dark"]) .landing-page .workflow-canvas {
+  opacity: 0.64;
+  filter: saturate(0.72) brightness(1.16);
 }
 
 html:not([data-theme="dark"]) .landing-page .workflow-ribbons {
@@ -4395,7 +4413,11 @@ html:not([data-theme="dark"]) .landing-page .landing-faq h2 {
 
 html:not([data-theme="dark"]) .landing-page .workflow-motion-copy > p:last-child,
 html:not([data-theme="dark"]) .landing-page .approval-proof-copy > p:not(.stage-kicker) {
-  color: #68646f;
+  color: #48444f;
+}
+
+html:not([data-theme="dark"]) .landing-page .workflow-motion-copy .stage-kicker {
+  color: #5643b4;
 }
 
 html:not([data-theme="dark"]) .landing-page .workflow-steps {
@@ -5181,7 +5203,7 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
   }
 
   .showcase-switcher.is-progressing::after {
-    animation-duration: 5.2s !important;
+    animation-duration: 10s !important;
     animation-iteration-count: 1 !important;
   }
 
