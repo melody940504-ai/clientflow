@@ -5227,3 +5227,102 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
     transition-duration: 180ms !important;
   }
 }
+/* Raycast-inspired studio surfaces */
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(.management-panel, .panel, .analytics-panel) {
+  position: relative;
+  overflow: clip;
+  border-color: color-mix(in srgb, var(--primary) 10%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 3%, transparent), transparent 32%),
+    var(--surface);
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.045) inset;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(.management-panel, .panel, .analytics-panel)::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 auto;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--primary) 34%, rgba(255, 255, 255, 0.22)),
+    transparent
+  );
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(.management-panel, .panel, .analytics-panel) > * {
+  position: relative;
+  z-index: 1;
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(input, textarea, select) {
+  border-color: color-mix(in srgb, var(--primary) 7%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 2%, transparent), transparent),
+    var(--surface-2);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(input, textarea, select):focus {
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent),
+    0 14px 30px rgba(0, 0, 0, 0.1);
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 78%, white);
+  outline-offset: 3px;
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(.primary, .ghost, .secondary) {
+  min-height: 40px;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.065) inset;
+}
+
+:is(.management-shell, .settings-shell, .analytics-shell)
+  :is(.primary, .ghost, .secondary):active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.site-menu {
+  border-color: color-mix(in srgb, var(--primary) 12%, var(--border));
+  box-shadow:
+    0 28px 68px rgba(0, 0, 0, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.055) inset;
+  backdrop-filter: blur(24px) saturate(140%);
+}
+
+[data-theme="light"]
+  :is(.management-shell, .settings-shell, .analytics-shell)
+  :is(.management-panel, .panel, .analytics-panel) {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 3%, white), transparent 34%),
+    rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 22px 54px rgba(35, 31, 58, 0.085),
+    0 2px 8px rgba(35, 31, 58, 0.04),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset;
+}

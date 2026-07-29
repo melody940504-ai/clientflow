@@ -80,7 +80,14 @@
         <div class="project-form-pair">
           <label>
             <span>Review due</span>
-            <input type="date" name="review_due_at">
+            <input
+              type="text"
+              name="review_due_at"
+              placeholder="YYYY-MM-DD"
+              inputmode="numeric"
+              pattern="\d{4}-\d{2}-\d{2}"
+              title="Enter a date in YYYY-MM-DD format"
+            >
           </label>
           <label>
             <span>Public link access</span>

@@ -632,6 +632,12 @@ html {
   grid-row: 1;
 }
 
+.project-activity > .review-plan-card {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 0 !important;
+}
+
 .project-activity > div:last-child {
   grid-column: 1 / -1;
   margin-top: 0 !important;
@@ -1125,6 +1131,218 @@ html {
     min-height: 164px;
     padding: 20px !important;
   }
+}
+
+/* Raycast-inspired workspace interaction layer */
+.workspace-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-color, #9b8cf6) 78%, white);
+  outline-offset: 3px;
+}
+
+.workspace-page :is(.input-fix, .select-fix, input, select, textarea) {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.workspace-page :is(.input-fix, .select-fix, input, select, textarea):focus {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 58%, var(--workspace-border)) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--brand-color, #9b8cf6) 14%, transparent),
+    0 12px 30px rgba(0, 0, 0, 0.14) !important;
+}
+
+.workspace-page :is(.workspace-project-card, .management-panel, .analytics-panel) {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.workspace-page .workspace-project-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.055) inset !important;
+}
+
+.workspace-page :is(.nav-action-fix, .menu-item-fix, .neutral-action-fix, .brand-bg-fix) {
+  min-height: 38px;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.055) inset;
+}
+
+.workspace-page :is(.nav-action-fix, .menu-item-fix, .neutral-action-fix, .brand-bg-fix):active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.delivery-readiness-card {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent), transparent 44%),
+    color-mix(in srgb, var(--workspace-surface) 96%, transparent) !important;
+}
+
+.delivery-readiness-heading {
+  align-items: center;
+}
+
+.delivery-readiness-count {
+  padding: 0.38rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--brand-color, #9b8cf6) 24%, var(--workspace-border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 7%, transparent);
+  color: var(--workspace-text) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.delivery-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--workspace-border) 72%, transparent);
+}
+
+.delivery-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand-color, #9b8cf6) 76%, #ffffff),
+    var(--brand-color, #9b8cf6)
+  );
+  box-shadow: 0 0 18px color-mix(in srgb, var(--brand-color, #9b8cf6) 48%, transparent);
+  transition: width 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.delivery-check-item {
+  position: relative;
+  min-height: 66px;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    color-mix(in srgb, var(--workspace-surface-raised) 72%, transparent) !important;
+  transition:
+    transform 170ms ease,
+    border-color 170ms ease,
+    background-color 170ms ease,
+    box-shadow 170ms ease !important;
+}
+
+.delivery-check-item:hover {
+  z-index: 1;
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 40%, var(--workspace-border)) !important;
+  box-shadow: 0 15px 34px rgba(0, 0, 0, 0.16);
+}
+
+.delivery-check-item:has(.delivery-check-input:checked) {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 46%, var(--workspace-border)) !important;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 13%, transparent), transparent 68%),
+    color-mix(in srgb, var(--workspace-surface-raised) 78%, transparent) !important;
+}
+
+.delivery-check-input {
+  appearance: none;
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-content: center;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--workspace-muted) 48%, var(--workspace-border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--workspace-surface) 88%, black);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 6px 14px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.delivery-check-input::after {
+  content: "";
+  width: 6px;
+  height: 11px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: translateY(-1px) rotate(45deg) scale(0.5);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+.delivery-check-input:checked {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 74%, white);
+  background: var(--brand-color, #9b8cf6);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--brand-color, #9b8cf6) 15%, transparent),
+    0 8px 20px color-mix(in srgb, var(--brand-color, #9b8cf6) 26%, transparent);
+}
+
+.delivery-check-input:checked::after {
+  opacity: 1;
+  transform: translateY(-1px) rotate(45deg) scale(1);
+}
+
+.delivery-check-input:disabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
+.delivery-check-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.delivery-check-copy strong {
+  color: var(--workspace-text);
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.delivery-check-copy small {
+  color: var(--workspace-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.delivery-check-item:has(.delivery-check-input:checked) .delivery-check-copy small {
+  color: color-mix(in srgb, var(--brand-color, #9b8cf6) 72%, var(--workspace-text));
+}
+
+.delivery-save-action,
+.delivery-final-action {
+  min-width: 138px;
+}
+
+.light-theme .delivery-readiness-card {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 8%, white), transparent 48%),
+    rgba(255, 255, 255, 0.96) !important;
+}
+
+.light-theme .delivery-check-item {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 247, 251, 0.92)) !important;
+  box-shadow: 0 8px 22px rgba(35, 31, 58, 0.055);
+}
+
+.light-theme .delivery-check-input {
+  background: #ffffff;
+  border-color: #c8c7d2;
 }
 
 @media (prefers-reduced-motion: reduce) {

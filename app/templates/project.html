@@ -192,7 +192,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260730-project-archive">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260730-studio-polish">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -452,28 +452,34 @@
             {% endif %}
 
             {% if user.role == 'owner' and project.status in ['Approved', 'Published'] %}
-            <section class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-4">
-                <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <section class="delivery-readiness-card bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-4">
+                <div class="delivery-readiness-heading flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Final delivery</p>
                         <h3 class="mt-1 text-sm font-semibold text-white-fix">Delivery readiness</h3>
                     </div>
-                    <span class="text-xs text-gray-400-fix">{{ delivery_completed|length }} of {{ delivery_checklist_items|length }} ready</span>
+                    <span class="delivery-readiness-count text-xs text-gray-400-fix">{{ delivery_completed|length }} / {{ delivery_checklist_items|length }} ready</span>
+                </div>
+                <div class="delivery-progress" aria-hidden="true">
+                    <i style="width: {{ (((delivery_completed|length) / (delivery_checklist_items|length)) * 100)|round }}%"></i>
                 </div>
                 <form action="/projects/{{ project.id }}/delivery-checklist" method="post" class="space-y-4">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div class="delivery-check-grid grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {% for item_key, item_label in delivery_checklist_items %}
-                        <label class="theme-surface-fix flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-950/20 px-3 py-3 text-xs text-white-fix">
+                        <label class="delivery-check-item theme-surface-fix flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-950/20 px-3 py-3 text-xs text-white-fix">
                             <input
                                 type="checkbox"
                                 name="delivery_items"
                                 value="{{ item_key }}"
-                                class="h-4 w-4 accent-indigo-500"
+                                class="delivery-check-input"
                                 {% if item_key in delivery_completed %}checked{% endif %}
                                 {% if project.status == 'Published' or is_demo %}disabled{% endif %}
                             >
-                            <span>{{ item_label }}</span>
+                            <span class="delivery-check-copy">
+                                <strong>{{ item_label }}</strong>
+                                <small>{% if item_key in delivery_completed %}Ready{% else %}Required{% endif %}</small>
+                            </span>
                         </label>
                         {% endfor %}
                     </div>
@@ -482,11 +488,11 @@
                     <p class="text-xs text-gray-400-fix">Complete and save all four items to unlock final delivery.</p>
                     {% endif %}
                     <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                        <button type="submit" class="neutral-action-fix w-full border px-4 py-2.5 rounded-xl text-xs font-semibold transition sm:w-auto">
+                        <button type="submit" class="delivery-save-action neutral-action-fix w-full border px-4 py-2.5 rounded-xl text-xs font-semibold transition sm:w-auto">
                             Save readiness
                         </button>
                         {% if delivery_completed|length == delivery_checklist_items|length %}
-                        <button type="submit" formaction="/projects/{{ project.id }}/deliver" class="brand-bg-fix w-full px-4 py-2.5 rounded-xl text-xs text-white font-bold transition sm:w-auto">
+                        <button type="submit" formaction="/projects/{{ project.id }}/deliver" class="delivery-final-action brand-bg-fix w-full px-4 py-2.5 rounded-xl text-xs text-white font-bold transition sm:w-auto">
                             Mark final delivery
                         </button>
                         {% endif %}
@@ -578,7 +584,10 @@
         </div>
 
         <div class="project-activity space-y-4">
-            <section class="bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
+            <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
+            <span class="feedback-summary-count">{{ open_feedback_count }} open feedback</span>
+
+            <section class="review-plan-card bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Review plan</p>
@@ -595,7 +604,16 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                     <label class="block space-y-1.5">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Review due</span>
-                        <input type="date" name="review_due_at" value="{{ project.review_due_at or '' }}" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                        <input
+                            type="text"
+                            name="review_due_at"
+                            value="{{ project.review_due_at or '' }}"
+                            placeholder="YYYY-MM-DD"
+                            inputmode="numeric"
+                            pattern="\d{4}-\d{2}-\d{2}"
+                            title="Enter a date in YYYY-MM-DD format"
+                            class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white"
+                        >
                     </label>
                     <label class="block space-y-1.5">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Public link access</span>
@@ -617,8 +635,6 @@
                 {% endif %}
             </section>
 
-            <span class="feedback-summary-count">{{ open_feedback_count }} open feedback</span>
-            <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
             <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
                 
                 <div class="absolute left-9 top-8 bottom-8 w-0.5 bg-gray-700/50"></div>

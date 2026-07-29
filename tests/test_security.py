@@ -729,6 +729,9 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn('name="guest_access"', project)
         self.assertIn('name="delivery_items"', project)
         self.assertIn("This review link is view-only", project)
+        self.assertIn('placeholder="YYYY-MM-DD"', new_project)
+        self.assertIn('placeholder="YYYY-MM-DD"', project)
+        self.assertIn("review-plan-card", project)
         self.assertIn("/projects/{project_id}/review-settings", route_paths)
         self.assertIn("/projects/{project_id}/delivery-checklist", route_paths)
 
