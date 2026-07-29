@@ -718,6 +718,11 @@ def seed_demo_review_history() -> None:
         if not owner or not client_user or not client_user["client_reference_id"]:
             return
 
+        db.execute(
+            "UPDATE users SET brand_color = ? WHERE id = ?",
+            (DEFAULT_BRAND_COLOR, owner["id"]),
+        )
+
         client = db.execute(
             """
             SELECT id

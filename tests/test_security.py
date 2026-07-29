@@ -447,6 +447,34 @@ class TemplateSecurityTests(unittest.TestCase):
             dashboard_template + project_template,
         )
 
+    def test_lumaire_mark_is_transparent_and_theme_aware(self):
+        project_root = Path(__file__).parents[1]
+        mark = (
+            project_root / "app" / "static" / "lumaire-mark.svg"
+        ).read_text(encoding="utf-8")
+        mark_partial = (
+            project_root / "app" / "templates" / "_lumaire_mark.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("<rect", mark)
+        self.assertIn("prefers-color-scheme: dark", mark)
+        self.assertIn('class="lumaire-mark-main"', mark_partial)
+        self.assertIn('class="lumaire-mark-accent"', mark_partial)
+
+    def test_demo_banners_use_brand_styling(self):
+        templates_dir = Path(__file__).parents[1] / "app" / "templates"
+        dashboard = (templates_dir / "dashboard.html").read_text(
+            encoding="utf-8"
+        )
+        project = (templates_dir / "project.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("demo-banner-fix", dashboard)
+        self.assertIn("demo-banner-fix", project)
+        self.assertNotIn("border-teal-500", dashboard + project)
+        self.assertNotIn("text-teal-300", dashboard + project)
+
     def test_management_routes_and_menu_are_available(self):
         route_paths = [route.path for route in main.app.routes]
         base_template = (

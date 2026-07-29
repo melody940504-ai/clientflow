@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111936">
+  <meta name="theme-color" content="#0d0b14">
   <title>{{ title or 'Lumaire' }}</title>
-  <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729">
+  <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729-purple">
   <script>
     const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
     if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
@@ -13,13 +13,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260729-management">
+  <link rel="stylesheet" href="/static/styles.css?v=20260729-purple">
   <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
   <header class="topbar">
     <a class="brand" href="{% if user %}/dashboard{% else %}/{% endif %}">
-      <span class="logo"><img src="/static/lumaire-mark.svg?v=20260729" alt=""></span>
+      <span class="logo">{% include "_lumaire_mark.html" %}</span>
       <span>Lumaire</span>
     </a>
     <div class="top-menu">

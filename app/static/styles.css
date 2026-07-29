@@ -64,12 +64,23 @@ button, input, textarea, select { font: inherit; }
   height: 36px;
   flex: 0 0 auto;
 }
-.logo img {
+.logo img,
+.logo .lumaire-mark {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: inherit;
 }
+
+.lumaire-mark {
+  display: block;
+  overflow: visible;
+  color: var(--text);
+  filter: drop-shadow(0 7px 12px color-mix(in srgb, var(--lumaire-accent) 24%, transparent));
+}
+
+.lumaire-mark-main { fill: currentColor; }
+.lumaire-mark-accent { fill: var(--lumaire-accent); }
+.lumaire-mark-spark { fill: var(--mark-spark); }
 .top-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .top-menu { position: relative; margin-left: auto; }
 .menu-trigger { min-width: 88px; }
@@ -1121,29 +1132,33 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 /* Lumaire visual refresh */
 :root {
-  --bg: #f4f7f5;
+  --bg: #f6f5fb;
   --surface: #ffffff;
-  --surface-2: #edf2ef;
-  --text: #18201d;
-  --muted: #65736d;
-  --border: #d5ded9;
-  --primary: #6576d8;
-  --primary-strong: #4f5fc0;
+  --surface-2: #efedf7;
+  --text: #211d31;
+  --muted: #706a82;
+  --border: #ddd9eb;
+  --primary: #6758d9;
+  --primary-strong: #5243b9;
+  --lumaire-accent: #6758d9;
+  --mark-spark: #8777e8;
   --danger: #c74d5f;
-  --shadow: 0 20px 48px rgba(24, 32, 29, 0.09);
+  --shadow: 0 20px 50px rgba(44, 38, 72, 0.1);
   --display-font: "Bricolage Grotesque", "Manrope", sans-serif;
   --body-font: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
 
 [data-theme="dark"] {
-  --bg: #0b100f;
-  --surface: #111816;
-  --surface-2: #17201d;
-  --text: #f2f6f3;
-  --muted: #93a29c;
-  --border: #29332f;
-  --primary: #8d9afa;
-  --primary-strong: #a5afff;
+  --bg: #0d0b14;
+  --surface: #151220;
+  --surface-2: #1d192b;
+  --text: #f5f2fb;
+  --muted: #a29bad;
+  --border: #302a42;
+  --primary: #9c8cff;
+  --primary-strong: #b2a7ff;
+  --lumaire-accent: #6758d9;
+  --mark-spark: #d9fbff;
   --danger: #ef7d8c;
   --shadow: 0 22px 55px rgba(0, 0, 0, 0.24);
 }
@@ -1187,9 +1202,7 @@ h4,
 .logo {
   width: 38px;
   height: 38px;
-  border-radius: 8px;
   font-size: 0.82rem;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 25%, transparent);
 }
 
 .menu-trigger {
@@ -1531,11 +1544,11 @@ h3 {
   color: var(--muted);
 }
 
-.auth-mark img {
+.auth-mark img,
+.auth-mark .lumaire-mark {
   display: block;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
 }
 
 .auth-mark i {
@@ -1853,10 +1866,10 @@ select {
   color: var(--muted);
 }
 
-.error-emblem img {
+.error-emblem img,
+.error-emblem .lumaire-mark {
   width: 56px;
   height: 56px;
-  border-radius: 14px;
 }
 
 .error-emblem span {
@@ -2216,6 +2229,57 @@ body.dialog-open {
 
 .project-empty {
   min-height: 320px;
+}
+
+html:not([data-theme="dark"]) body {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 38%),
+    linear-gradient(180deg, #fbfaff 0%, var(--bg) 56%, #f1eff8 100%);
+}
+
+html:not([data-theme="dark"]) .topbar {
+  background: rgba(251, 250, 255, 0.9);
+  box-shadow:
+    0 1px 0 rgba(53, 45, 86, 0.06),
+    0 10px 30px rgba(53, 45, 86, 0.04);
+}
+
+html:not([data-theme="dark"]) :is(
+  .site-menu,
+  .auth-card,
+  .panel,
+  .product-preview-panel,
+  .analytics-preview-section,
+  .workflow-section,
+  .analytics-panel,
+  .analytics-hero-card,
+  .analytics-kpi-grid article,
+  .field-group,
+  .management-panel,
+  .project-create-form,
+  .account-form
+) {
+  border-color: color-mix(in srgb, var(--primary) 10%, var(--border));
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--primary) 3%, #ffffff), #ffffff 46%);
+  box-shadow:
+    0 20px 48px rgba(44, 38, 72, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+
+html:not([data-theme="dark"]) :is(input:not([type="color"]), textarea, select) {
+  border-color: color-mix(in srgb, var(--primary) 8%, var(--border));
+  background: #fcfbff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.95) inset;
+}
+
+html:not([data-theme="dark"]) :is(
+  .ghost:not(.danger-row),
+  .theme-toggle,
+  .menu-row:not(.top-primary):not(.danger-row)
+) {
+  background: linear-gradient(180deg, #ffffff, #faf9fd);
+  box-shadow: 0 7px 18px rgba(44, 38, 72, 0.045);
 }
 
 @media (max-width: 640px) {
