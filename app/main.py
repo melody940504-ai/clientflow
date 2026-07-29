@@ -10,7 +10,16 @@ from html import escape
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Form, Request, Response, HTTPException, UploadFile, File
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -24,6 +33,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from authlib.integrations.starlette_client import OAuth
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,6 +49,7 @@ serializer = URLSafeSerializer(SESSION_SECRET, salt="clientflow-session")
 app = FastAPI(title="Lumaire")
 logger = logging.getLogger(__name__)
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
@@ -563,6 +574,36 @@ def init_db() -> None:
         )
         db.execute(
             "ALTER TABLE comments ADD COLUMN IF NOT EXISTS resolved_at TEXT"
+        )
+        db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS projects_user_created_idx
+            ON projects(user_id, created_at)
+            """
+        )
+        db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS projects_client_created_idx
+            ON projects(client_id, created_at)
+            """
+        )
+        db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS video_versions_project_created_idx
+            ON video_versions(project_id, created_at)
+            """
+        )
+        db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS comments_version_created_idx
+            ON comments(video_version_id, created_at)
+            """
+        )
+        db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS comments_open_feedback_idx
+            ON comments(video_version_id, author_role, is_resolved, type)
+            """
         )
 
         db.execute("""
@@ -1359,6 +1400,7 @@ def register_page(request: Request):
 @app.post("/register")
 def register(
     request: Request,
+    background_tasks: BackgroundTasks,
     email: str = Form(...),
     password: str = Form(...),
     csrf_token: str = Form(...),
@@ -1397,7 +1439,11 @@ def register(
     
     verify_url = f"{request.base_url}verify-email/{verification_token}"
 
-    send_verification_email(email.strip().lower(), verify_url)
+    background_tasks.add_task(
+        send_verification_email,
+        email.strip().lower(),
+        verify_url,
+    )
 
     return redirect("/login?success=verification-sent")
 
@@ -1492,6 +1538,7 @@ def forgot_password_page(request: Request):
 @app.post("/forgot-password")
 def forgot_password(
     request: Request,
+    background_tasks: BackgroundTasks,
     email: str = Form(...),
     csrf_token: str = Form(...),
 ):
@@ -1520,7 +1567,11 @@ def forgot_password(
             )
 
             reset_url = f"{request.base_url}reset-password/{reset_token}"
-            send_password_reset_email(email_clean, reset_url)
+            background_tasks.add_task(
+                send_password_reset_email,
+                email_clean,
+                reset_url,
+            )
 
     return redirect("/forgot-password?success=reset-link-sent")
 
@@ -1729,10 +1780,10 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             clients = db.execute("SELECT * FROM clients WHERE id = ?", (user["client_reference_id"],)).fetchall()
             query = """
                 SELECT p.*, c.name AS client_name,
-                    (SELECT COUNT(*) FROM video_versions v WHERE v.project_id = p.id) AS version_count,
-                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count,
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
-                     WHERE vv.project_id = p.id AND cm.author_role = 'client'
+                     WHERE vv.project_id = p.id
+                     AND p.status NOT IN ('Approved', 'Published')
+                     AND cm.author_role = 'client'
                      AND cm.is_resolved = FALSE
                      AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%%')) AS unresolved_count
                 FROM projects p
@@ -1745,10 +1796,10 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             clients = db.execute("SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC", (user["id"],)).fetchall()
             query = """
                 SELECT p.*, c.name AS client_name,
-                    (SELECT COUNT(*) FROM video_versions v WHERE v.project_id = p.id) AS version_count,
-                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count,
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
-                     WHERE vv.project_id = p.id AND cm.author_role = 'client'
+                     WHERE vv.project_id = p.id
+                     AND p.status NOT IN ('Approved', 'Published')
+                     AND cm.author_role = 'client'
                      AND cm.is_resolved = FALSE
                      AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%%')) AS unresolved_count
                 FROM projects p
@@ -2587,6 +2638,8 @@ def project_detail(request: Request, project_id: int):
                 and not comment["is_resolved"]
             )
         )
+        if project["status"] in {"Approved", "Published"}:
+            open_feedback_count = 0
         
         # 📂 【新增附件與 Brief 解析邏輯】
         attachments = []
@@ -2625,6 +2678,7 @@ def project_detail(request: Request, project_id: int):
 async def create_version(
     request: Request,
     project_id: int,
+    background_tasks: BackgroundTasks,
     version_label: str = Form(""),
     video_url: str = Form(""),
     video_file: UploadFile = File(None),
@@ -2734,7 +2788,8 @@ async def create_version(
                 f"{request.base_url}review/{project_info['review_token']}"
             )
 
-            send_activity_email(
+            background_tasks.add_task(
+                send_activity_email,
                 to_email=project_info["c_email"],
                 subject=(
                     f"[{clean_email_sender_name(project_info['studio_name'])}] "
@@ -2756,6 +2811,7 @@ async def create_version(
 def version_decision(
     request: Request,
     version_id: int,
+    background_tasks: BackgroundTasks,
     action_type: str = Form(...),
     body: str = Form(...),
     video_time: Optional[str] = Form(None),
@@ -2847,6 +2903,29 @@ def version_decision(
                 "UPDATE projects SET status = 'Approved' WHERE id = ?",
                 (version["project_id"],)
             )
+            db.execute(
+                """
+                UPDATE comments
+                SET is_resolved = TRUE, resolved_at = ?
+                WHERE author_role = 'client'
+                  AND is_resolved = FALSE
+                  AND video_version_id IN (
+                      SELECT id
+                      FROM video_versions
+                      WHERE project_id = ?
+                  )
+                  AND (
+                      type = 'comment'
+                      OR type LIKE 'timestamp_%%'
+                  )
+                """,
+                (
+                    datetime.now(timezone.utc)
+                    .replace(tzinfo=None)
+                    .isoformat(),
+                    version["project_id"],
+                ),
+            )
 
         elif action_type == "reject":
             db.execute(
@@ -2858,7 +2937,7 @@ def version_decision(
                 (version["project_id"],)
             )
 
-        if project["owner_email"]:
+        if project["owner_email"] and author_role == "client":
             project_url = f"{request.base_url}projects/{version['project_id']}"
             status_emojis = {
                 "approve": "✅ Approved",
@@ -2867,7 +2946,8 @@ def version_decision(
             }
             action_display = status_emojis.get(action_type, action_type)
 
-            send_activity_email(
+            background_tasks.add_task(
+                send_activity_email,
                 to_email=project["owner_email"],
                 subject=(
                     f"[{clean_email_sender_name(project['studio_name'])}] "
@@ -3018,6 +3098,8 @@ def public_review_page(request: Request, review_token: str):
                 and not comment["is_resolved"]
             )
         )
+        if project["status"] in {"Approved", "Published"}:
+            open_feedback_count = 0
 
         # 📂 公開頁面同步解析附件
         attachments = []
@@ -3059,6 +3141,7 @@ def public_review_page(request: Request, review_token: str):
 def deliver_project(
     project_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     csrf_token: str = Form(...),
 ):
     validate_csrf(request, csrf_token)
@@ -3084,7 +3167,8 @@ def deliver_project(
         branding = get_owner_branding(db, user["id"])
         client_info = db.execute("SELECT email FROM clients WHERE id=?", (project["client_id"],)).fetchone()
         if client_info and client_info["email"]:
-            send_activity_email(
+            background_tasks.add_task(
+                send_activity_email,
                 to_email=client_info["email"],
                 subject=(
                     f"[{clean_email_sender_name(branding['studio_name'])}] "

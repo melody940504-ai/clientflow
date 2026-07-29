@@ -578,8 +578,8 @@
                             {% if c.version_label %}
                             <div class="activity-entry-footer text-[10px] flex flex-wrap items-center justify-end gap-2">
                                 {% if c.author_role == 'client' and (c.type == 'comment' or c.type.startswith('timestamp_')) %}
-                                <span class="feedback-state {% if c.is_resolved %}is-resolved{% endif %}">
-                                    {% if c.is_resolved %}Resolved{% else %}Open feedback{% endif %}
+                                <span class="feedback-state {% if c.is_resolved or project.status in ['Approved', 'Published'] %}is-resolved{% endif %}">
+                                    {% if project.status in ['Approved', 'Published'] %}Closed{% elif c.is_resolved %}Resolved{% else %}Open feedback{% endif %}
                                 </span>
                                 {% if user.role == 'owner' and not is_demo and c.id and project.status not in ['Approved', 'Published'] %}
                                 <form action="/comments/{{ c.id }}/resolve" method="post" class="m-0">

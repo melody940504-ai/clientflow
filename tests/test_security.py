@@ -570,10 +570,23 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn("Only feedback notes can be resolved.", source)
         self.assertIn("Approved projects are read-only.", source)
         self.assertIn("ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_resolved", source)
-        self.assertEqual(source.count("LIKE 'timestamp_%%'"), 2)
+        self.assertEqual(source.count("LIKE 'timestamp_%%'"), 3)
         self.assertNotIn("LIKE 'timestamp_%'", source)
+        self.assertEqual(
+            source.count("AND p.status NOT IN ('Approved', 'Published')"),
+            2,
+        )
+        self.assertIn("SET is_resolved = TRUE, resolved_at = ?", source)
+        self.assertIn("comments_open_feedback_idx", source)
+        self.assertIn("GZipMiddleware", source)
+        self.assertEqual(source.count("background_tasks.add_task("), 5)
+        self.assertIn('author_role == "client"', source)
         self.assertIn('action="/comments/{{ c.id }}/resolve"', project_template)
         self.assertIn("Mark resolved", project_template)
+        self.assertIn(
+            "{% if project.status in ['Approved', 'Published'] %}Closed",
+            project_template,
+        )
         self.assertIn("p.unresolved_count", dashboard_template)
 
     def test_lumaire_mark_is_transparent_and_theme_aware(self):
