@@ -2496,12 +2496,8 @@ html:not([data-theme="dark"]) :is(
 }
 
 .landing-product-nav a:hover::after,
-.landing-product-nav a.is-current::after {
+.landing-product-nav a:focus-visible::after {
   transform: scaleX(1);
-}
-
-.landing-product-nav a.is-current {
-  color: var(--text);
 }
 
 .landing-nav-actions {
@@ -3261,38 +3257,6 @@ html:not([data-theme="dark"]) :is(
   border-top: 1px solid #242329;
 }
 
-.showcase-progress {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  width: min(370px, calc(100% - 40px));
-  margin: 36px auto 0;
-}
-
-.showcase-progress > span {
-  position: relative;
-  overflow: hidden;
-  flex: 1;
-  height: 3px;
-  background: #34262b;
-}
-
-.showcase-progress i {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, #68545d, #d49daf 74%, #f2c4d2);
-  box-shadow: 0 0 18px rgba(220, 151, 174, 0.82);
-  transform: translateX(-101%);
-}
-
-.showcase-progress > span.is-active i {
-  animation: showcase-progress 5.2s linear forwards;
-}
-
-.product-showcase.is-paused .showcase-progress > span.is-active i {
-  animation-play-state: paused;
-}
-
 #workflow,
 #capabilities,
 #demo {
@@ -3308,7 +3272,17 @@ html:not([data-theme="dark"]) :is(
   height: 1px;
   background: linear-gradient(90deg, transparent 8%, #a99cf7 50%, transparent 92%);
   box-shadow: 0 0 22px rgba(169, 156, 247, 0.7);
+  transform: scaleX(0);
+  transform-origin: left;
   transition: left 420ms cubic-bezier(.2,.72,.2,1);
+}
+
+.showcase-switcher.is-progressing::after {
+  animation: switcher-progress 5.2s linear forwards;
+}
+
+.product-showcase.is-paused .showcase-switcher::after {
+  animation-play-state: paused;
 }
 
 .showcase-switcher button {
@@ -3429,14 +3403,6 @@ html:not([data-theme="dark"]) :is(
 .command-window-bar > span:first-child {
   background: #a99cf7;
   box-shadow: 0 0 18px rgba(169, 156, 247, 0.34);
-}
-
-.command-window-bar > div {
-  display: flex;
-  gap: 20px;
-  margin-left: auto;
-  color: #8d8993;
-  font-size: 1.35rem;
 }
 
 .command-window-label {
@@ -3614,6 +3580,129 @@ html:not([data-theme="dark"]) :is(
   font-size: clamp(4rem, 8vw, 8rem);
 }
 
+html:not([data-theme="dark"]) .landing-page {
+  background: #f6f5f9;
+  color: #19181d;
+}
+
+html:not([data-theme="dark"]) .landing-page .lumaire-stage-backdrop {
+  opacity: 0.26;
+  filter: grayscale(0.35) contrast(0.72);
+}
+
+html:not([data-theme="dark"]) .landing-page .lumaire-stage-shade {
+  background:
+    linear-gradient(180deg, rgba(248, 247, 251, 0.58) 0%, rgba(248, 247, 251, 0.82) 54%, #f6f5f9 97%),
+    radial-gradient(ellipse 58% 46% at 50% 32%, rgba(255, 255, 255, 0.12), rgba(246, 245, 249, 0.55));
+}
+
+html:not([data-theme="dark"]) .landing-page .stage-kicker {
+  color: #7465d6;
+}
+
+html:not([data-theme="dark"]) .landing-page .lumaire-stage-copy h1,
+html:not([data-theme="dark"]) .landing-page .showcase-heading h2,
+html:not([data-theme="dark"]) .landing-page .showcase-copy h3,
+html:not([data-theme="dark"]) .landing-page .interactive-review-copy h2,
+html:not([data-theme="dark"]) .landing-page .landing-capabilities h2,
+html:not([data-theme="dark"]) .landing-page .landing-final-cta h2 {
+  color: #19181d;
+  text-shadow: none;
+}
+
+html:not([data-theme="dark"]) .landing-page .stage-lead,
+html:not([data-theme="dark"]) .landing-page .showcase-heading > p:last-child,
+html:not([data-theme="dark"]) .landing-page .showcase-copy p,
+html:not([data-theme="dark"]) .landing-page .interactive-review-copy > p:not(.stage-kicker),
+html:not([data-theme="dark"]) .landing-page .landing-final-cta > p:not(.stage-kicker) {
+  color: #66636d;
+}
+
+html:not([data-theme="dark"]) .landing-page .stage-secondary {
+  border-color: #d8d5df;
+  background: rgba(255, 255, 255, 0.82);
+  color: #222126;
+  box-shadow:
+    0 10px 28px rgba(42, 35, 70, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.94) inset;
+}
+
+html:not([data-theme="dark"]) .landing-page .stage-secondary:hover {
+  border-color: #aaa1d8;
+  background: #ffffff;
+}
+
+html:not([data-theme="dark"]) .landing-page .stage-scroll-cue {
+  color: #6e6a75;
+}
+
+html:not([data-theme="dark"]) .landing-page .product-showcase,
+html:not([data-theme="dark"]) .landing-page .landing-capabilities {
+  background: #f6f5f9;
+  color: #19181d;
+}
+
+html:not([data-theme="dark"]) .landing-page .interactive-review {
+  background:
+    radial-gradient(ellipse 44% 46% at 76% 48%, rgba(155, 140, 246, 0.13), transparent 72%),
+    #efedf4;
+  color: #19181d;
+}
+
+html:not([data-theme="dark"]) .landing-page .review-status {
+  border-color: #cec9df;
+  background: rgba(255, 255, 255, 0.66);
+  color: #6758c2;
+}
+
+html:not([data-theme="dark"]) .landing-page .review-command-window {
+  color: #f7f5fb;
+}
+
+html:not([data-theme="dark"]) .landing-page .showcase-switcher {
+  border-color: #d8d4df;
+}
+
+html:not([data-theme="dark"]) .landing-page .showcase-switcher button {
+  color: #a29eaa;
+}
+
+html:not([data-theme="dark"]) .landing-page .showcase-switcher button.is-active {
+  color: #242228;
+}
+
+html:not([data-theme="dark"]) .landing-page .showcase-switcher span {
+  color: #77727e;
+}
+
+html:not([data-theme="dark"]) .landing-page .capability-grid {
+  border-color: #d9d6df;
+}
+
+html:not([data-theme="dark"]) .landing-page .capability-grid article {
+  border-color: #d9d6df;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.72), transparent 58%);
+}
+
+html:not([data-theme="dark"]) .landing-page .capability-grid article:hover {
+  background-color: #ffffff;
+}
+
+html:not([data-theme="dark"]) .landing-page .capability-grid h3 {
+  color: #232126;
+}
+
+html:not([data-theme="dark"]) .landing-page .capability-grid p {
+  color: #6d6974;
+}
+
+html:not([data-theme="dark"]) .landing-page .landing-final-cta {
+  background:
+    linear-gradient(180deg, #f6f5f9, rgba(246, 245, 249, 0.86)),
+    url("/static/images/lumaire-stage.png") center bottom / cover;
+  color: #19181d;
+}
+
 @keyframes stage-breathe {
   from { transform: scale(1.02); }
   to { transform: scale(1.055); }
@@ -3629,9 +3718,9 @@ html:not([data-theme="dark"]) :is(
   50% { transform: translateY(4px); }
 }
 
-@keyframes showcase-progress {
-  from { transform: translateX(-101%); }
-  to { transform: translateX(0); }
+@keyframes switcher-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 @media (max-width: 980px) {
@@ -3897,10 +3986,6 @@ html:not([data-theme="dark"]) :is(
     scrollbar-width: none;
   }
 
-  .showcase-progress {
-    margin-top: 28px;
-  }
-
   .showcase-switcher::-webkit-scrollbar {
     display: none;
   }
@@ -3931,10 +4016,6 @@ html:not([data-theme="dark"]) :is(
     min-height: 500px;
     padding: 0 18px 28px;
     border-radius: 11px;
-  }
-
-  .command-window-bar > div {
-    gap: 14px;
   }
 
   .review-command-window h3 {
@@ -4081,5 +4162,10 @@ html:not([data-theme="dark"]) :is(
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .showcase-switcher.is-progressing::after {
+    animation-duration: 5.2s !important;
+    animation-iteration-count: 1 !important;
   }
 }

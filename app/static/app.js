@@ -59,19 +59,17 @@
   if (showcase) {
     const scenes = Array.from(showcase.querySelectorAll('[data-showcase-scene]'));
     const tabs = Array.from(showcase.querySelectorAll('[data-showcase-tab]'));
-    const progressSegments = Array.from(showcase.querySelectorAll('[data-showcase-progress]'));
     const showcaseLinks = Array.from(document.querySelectorAll('[data-showcase-link]'));
     const switcher = showcase.querySelector('.showcase-switcher');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let activeIndex = 0;
     let rotationTimer = null;
 
-    const restartProgress = (index) => {
-      progressSegments.forEach((segment) => segment.classList.remove('is-active'));
-      const activeSegment = progressSegments[index];
-      if (!activeSegment) return;
-      void activeSegment.offsetWidth;
-      activeSegment.classList.add('is-active');
+    const restartProgress = () => {
+      if (!switcher) return;
+      switcher.classList.remove('is-progressing');
+      void switcher.offsetWidth;
+      switcher.classList.add('is-progressing');
     };
 
     const showScene = (nextIndex, userInitiated = false) => {
@@ -90,12 +88,8 @@
         tab.tabIndex = isActive ? 0 : -1;
       });
 
-      showcaseLinks.forEach((link) => {
-        link.classList.toggle('is-current', Number.parseInt(link.dataset.showcaseLink, 10) === activeIndex);
-      });
-
       switcher?.style.setProperty('--showcase-index', String(activeIndex));
-      restartProgress(activeIndex);
+      restartProgress();
 
       if (userInitiated && window.innerWidth <= 640) {
         tabs[activeIndex]?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
@@ -111,7 +105,7 @@
     const startRotation = () => {
       stopRotation();
       showcase.classList.remove('is-paused');
-      if (!reduceMotion && document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible') {
         rotationTimer = window.setInterval(() => showScene(activeIndex + 1), 5200);
       }
     };
