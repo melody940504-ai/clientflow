@@ -195,6 +195,31 @@ class RequestSecurityTests(unittest.TestCase):
             main.review_token_is_valid(expired, "valid-review-token")
         )
 
+    def test_public_review_access_limits_actions(self):
+        self.assertFalse(main.guest_action_is_allowed("view", "comment"))
+        self.assertFalse(main.guest_action_is_allowed("view", "approve"))
+        self.assertTrue(main.guest_action_is_allowed("comment", "comment"))
+        self.assertFalse(main.guest_action_is_allowed("comment", "reject"))
+        self.assertTrue(main.guest_action_is_allowed("approve", "comment"))
+        self.assertTrue(main.guest_action_is_allowed("approve", "approve"))
+        self.assertTrue(main.guest_action_is_allowed("approve", "reject"))
+
+    def test_review_plan_values_are_normalized(self):
+        self.assertEqual(main.normalize_review_due_at("2026-08-15"), "2026-08-15")
+        self.assertEqual(main.normalize_review_due_at(""), "")
+        self.assertEqual(main.normalize_guest_access("COMMENT"), "comment")
+        self.assertEqual(main.normalize_guest_access("unexpected"), "approve")
+        with self.assertRaises(HTTPException):
+            main.normalize_review_due_at("15/08/2026")
+
+    def test_delivery_checklist_ignores_unknown_items(self):
+        self.assertEqual(
+            main.parse_delivery_checklist(
+                "master,captions,unknown,delivery_link"
+            ),
+            {"master", "captions", "delivery_link"},
+        )
+
 
 class FeedbackResolutionTests(unittest.TestCase):
     def test_owner_can_resolve_client_feedback(self):
@@ -686,6 +711,26 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertNotIn('id="theme-toggle"', project_template)
         self.assertIn("root.classList.toggle('light-theme'", app_script)
         self.assertIn(".workspace-theme-toggle", workspace_styles)
+
+    def test_landing_review_promises_are_backed_by_workspace_controls(self):
+        project_root = Path(__file__).parents[1]
+        templates_dir = project_root / "app" / "templates"
+        new_project = (templates_dir / "new_project.html").read_text(
+            encoding="utf-8"
+        )
+        project = (templates_dir / "project.html").read_text(
+            encoding="utf-8"
+        )
+        route_paths = [route.path for route in main.app.routes]
+
+        self.assertIn('name="review_due_at"', new_project)
+        self.assertIn('name="guest_access"', new_project)
+        self.assertIn('name="review_due_at"', project)
+        self.assertIn('name="guest_access"', project)
+        self.assertIn('name="delivery_items"', project)
+        self.assertIn("This review link is view-only", project)
+        self.assertIn("/projects/{project_id}/review-settings", route_paths)
+        self.assertIn("/projects/{project_id}/delivery-checklist", route_paths)
 
     def test_primary_pages_use_first_visit_onboarding(self):
         templates_dir = Path(__file__).parents[1] / "app" / "templates"

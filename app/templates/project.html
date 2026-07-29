@@ -266,14 +266,6 @@
                             Account settings
                         </a>
                         {% endif %}
-                        {% if user.role == 'owner' and project.status == 'Approved' and not is_demo %}
-                        <form action="/projects/{{ project.id }}/deliver" method="post" novalidate class="m-0">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                            <button type="submit" class="w-full text-xs px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-bold rounded-xl shadow-md transition">
-                                Mark as Final Delivery
-                            </button>
-                        </form>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -459,6 +451,51 @@
             </div>
             {% endif %}
 
+            {% if user.role == 'owner' and project.status in ['Approved', 'Published'] %}
+            <section class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-4">
+                <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Final delivery</p>
+                        <h3 class="mt-1 text-sm font-semibold text-white-fix">Delivery readiness</h3>
+                    </div>
+                    <span class="text-xs text-gray-400-fix">{{ delivery_completed|length }} of {{ delivery_checklist_items|length }} ready</span>
+                </div>
+                <form action="/projects/{{ project.id }}/delivery-checklist" method="post" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {% for item_key, item_label in delivery_checklist_items %}
+                        <label class="theme-surface-fix flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-950/20 px-3 py-3 text-xs text-white-fix">
+                            <input
+                                type="checkbox"
+                                name="delivery_items"
+                                value="{{ item_key }}"
+                                class="h-4 w-4 accent-indigo-500"
+                                {% if item_key in delivery_completed %}checked{% endif %}
+                                {% if project.status == 'Published' or is_demo %}disabled{% endif %}
+                            >
+                            <span>{{ item_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if project.status == 'Approved' and not is_demo %}
+                    {% if delivery_completed|length < delivery_checklist_items|length %}
+                    <p class="text-xs text-gray-400-fix">Complete and save all four items to unlock final delivery.</p>
+                    {% endif %}
+                    <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                        <button type="submit" class="neutral-action-fix w-full border px-4 py-2.5 rounded-xl text-xs font-semibold transition sm:w-auto">
+                            Save readiness
+                        </button>
+                        {% if delivery_completed|length == delivery_checklist_items|length %}
+                        <button type="submit" formaction="/projects/{{ project.id }}/deliver" class="brand-bg-fix w-full px-4 py-2.5 rounded-xl text-xs text-white font-bold transition sm:w-auto">
+                            Mark final delivery
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </form>
+            </section>
+            {% endif %}
+
             <div class="space-y-6">
                 <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">🎬 Video Versions Timeline</h2>
                 
@@ -504,6 +541,10 @@
                         <div class="rounded-xl border border-gray-700 bg-gray-900/40 px-4 py-3 text-xs text-gray-400-fix">
                             Review actions are disabled in the shared demo so its seeded history stays intact.
                         </div>
+                        {% elif is_public_link and guest_access == 'view' %}
+                        <div class="rounded-xl border border-gray-700 bg-gray-900/40 px-4 py-3 text-xs text-gray-400-fix">
+                            This review link is view-only. Sign in through the client portal or ask the studio for comment access.
+                        </div>
                         {% else %}
                         <form action="/versions/{{ v.id }}/action" method="post" novalidate class="space-y-3" onsubmit="return validateComment(this)">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
@@ -516,7 +557,7 @@
                                 <button type="submit" name="action_type" value="comment" class="neutral-action-fix w-full text-xs px-4 py-2.5 border font-medium rounded-xl transition sm:w-auto sm:py-2">
                                     💬 Leave Comment
                                 </button>
-                                {% if user.role == 'client' %}
+                                {% if user.role == 'client' and (not is_public_link or guest_access == 'approve') %}
                                 <button type="submit" name="action_type" value="reject" class="semantic-reject-fix w-full text-xs px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition sm:w-auto sm:py-2">
                                     ❌ Request Change (Reject)
                                 </button>
@@ -537,6 +578,45 @@
         </div>
 
         <div class="project-activity space-y-4">
+            <section class="bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Review plan</p>
+                        <h2 class="mt-1 text-sm font-semibold text-white-fix">
+                            {% if project.review_due_at %}Due {{ project.review_due_at }}{% else %}No due date set{% endif %}
+                        </h2>
+                    </div>
+                    <span class="theme-chip-fix rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-400">
+                        {% if guest_access == 'view' %}View only{% elif guest_access == 'comment' %}Comments{% else %}Approval{% endif %}
+                    </span>
+                </div>
+                {% if user.role == 'owner' and not is_public_link and not is_demo and project.status != 'Published' %}
+                <form action="/projects/{{ project.id }}/review-settings" method="post" class="mt-4 space-y-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                    <label class="block space-y-1.5">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Review due</span>
+                        <input type="date" name="review_due_at" value="{{ project.review_due_at or '' }}" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                    </label>
+                    <label class="block space-y-1.5">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Public link access</span>
+                        <select name="guest_access" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                            <option value="view" {% if guest_access == 'view' %}selected{% endif %}>View only</option>
+                            <option value="comment" {% if guest_access == 'comment' %}selected{% endif %}>View and comment</option>
+                            <option value="approve" {% if guest_access == 'approve' %}selected{% endif %}>Comment and approve</option>
+                        </select>
+                    </label>
+                    <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">
+                        Save review plan
+                    </button>
+                </form>
+                {% elif is_public_link %}
+                <p class="mt-3 text-xs leading-relaxed text-gray-400-fix">
+                    This shared link allows
+                    {% if guest_access == 'view' %}viewing only{% elif guest_access == 'comment' %}viewing and comments{% else %}comments and final decisions{% endif %}.
+                </p>
+                {% endif %}
+            </section>
+
             <span class="feedback-summary-count">{{ open_feedback_count }} open feedback</span>
             <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
             <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
@@ -632,7 +712,7 @@
                     </div>
                 </div>
 
-                {% if is_demo or project.status == 'Approved' or project.status == 'Published' %}
+                {% if is_demo or project.status == 'Approved' or project.status == 'Published' or (is_public_link and guest_access == 'view') %}
                 <div class="approved-lock-fix border rounded-xl p-4 text-center space-y-1">
                     <p class="approved-lock-title-fix text-xs font-bold flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
                     <p class="text-[11px] text-gray-500">{% if is_demo %}Timestamp comments are disabled in the shared demo.{% else %}This version has been approved by the client, and the timeline has been secured for read-only access.{% endif %}</p>

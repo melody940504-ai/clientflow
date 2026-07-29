@@ -5,7 +5,7 @@ import hmac
 import logging
 import secrets
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
 from typing import Optional
@@ -84,6 +84,13 @@ templates.env.filters["utc_iso"] = format_utc_iso
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
+GUEST_ACCESS_OPTIONS = {"view", "comment", "approve"}
+DELIVERY_CHECKLIST_ITEMS = (
+    ("master", "Master file"),
+    ("captions", "Captions"),
+    ("thumbnail", "Thumbnail"),
+    ("delivery_link", "Delivery link"),
+)
 CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 DEFAULT_STUDIO_NAME = "Lumaire Studio"
 DEFAULT_BRAND_COLOR = "#9b8cf6"
@@ -515,6 +522,9 @@ def init_db() -> None:
                 notes TEXT,
                 review_token TEXT,
                 review_token_expires_at TEXT,
+                review_due_at TEXT,
+                guest_access TEXT NOT NULL DEFAULT 'approve',
+                delivery_checklist TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id),
                 FOREIGN KEY(client_id) REFERENCES clients(id)
@@ -525,6 +535,15 @@ def init_db() -> None:
         )
         db.execute(
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_token_expires_at TEXT"
+        )
+        db.execute(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_due_at TEXT"
+        )
+        db.execute(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS guest_access TEXT NOT NULL DEFAULT 'approve'"
+        )
+        db.execute(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS delivery_checklist TEXT NOT NULL DEFAULT ''"
         )
         projects_without_tokens = db.execute(
             "SELECT id FROM projects WHERE review_token IS NULL OR review_token = ''"
@@ -1158,6 +1177,40 @@ def is_valid_hex_color(value: str) -> bool:
     if len(value) != 7 or not value.startswith("#"):
         return False
     return all(char in "0123456789abcdefABCDEF" for char in value[1:])
+
+
+def normalize_guest_access(value: str) -> str:
+    normalized = (value or "").strip().lower()
+    return normalized if normalized in GUEST_ACCESS_OPTIONS else "approve"
+
+
+def guest_action_is_allowed(access: str, action_type: str) -> bool:
+    allowed_actions = {
+        "view": set(),
+        "comment": {"comment"},
+        "approve": {"comment", "approve", "reject"},
+    }
+    return action_type in allowed_actions[normalize_guest_access(access)]
+
+
+def normalize_review_due_at(value: str) -> str:
+    normalized = (value or "").strip()
+    if not normalized:
+        return ""
+    try:
+        return date.fromisoformat(normalized).isoformat()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid review due date.")
+
+
+def parse_delivery_checklist(value: str) -> set[str]:
+    valid_keys = {key for key, _ in DELIVERY_CHECKLIST_ITEMS}
+    return {
+        item.strip()
+        for item in (value or "").split(",")
+        if item.strip() in valid_keys
+    }
+
 
 def normalize_branding(row: Optional[sqlite3.Row]) -> dict:
     studio_name = DEFAULT_STUDIO_NAME
@@ -2490,6 +2543,8 @@ def create_project(
     category: str = Form("Shorts"),
     status: str = Form("Awaiting Review"),
     notes: str = Form(""),
+    review_due_at: str = Form(""),
+    guest_access: str = Form("approve"),
     csrf_token: str = Form(...),
 ):
     validate_csrf(request, csrf_token)
@@ -2512,6 +2567,11 @@ def create_project(
     if not name or not name.strip():
         return redirect("/projects/new?error=Project+title+is+required.")
 
+    if (guest_access or "").strip().lower() not in GUEST_ACCESS_OPTIONS:
+        raise HTTPException(status_code=400, detail="Invalid public review access.")
+    normalized_due_at = normalize_review_due_at(review_due_at)
+    normalized_guest_access = normalize_guest_access(guest_access)
+
     with get_db() as db:
         client = db.execute(
             "SELECT id FROM clients WHERE id = ? AND user_id = ?",
@@ -2523,8 +2583,9 @@ def create_project(
         db.execute(
             """
             INSERT INTO projects
-            (user_id, client_id, name, category, status, notes, review_token, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, client_id, name, category, status, notes, review_token,
+             review_due_at, guest_access, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user["id"],
@@ -2534,6 +2595,8 @@ def create_project(
                 status,
                 notes.strip(),
                 secrets.token_urlsafe(32),
+                normalized_due_at or None,
+                normalized_guest_access,
                 datetime.utcnow().isoformat(),
             ),
         )
@@ -2654,6 +2717,9 @@ def project_detail(request: Request, project_id: int):
                     title, url = att.split("::", 1)
                     attachments.append({"title": title.strip(), "url": url.strip()})
         branding = get_owner_branding(db, project["user_id"])
+        delivery_completed = parse_delivery_checklist(
+            project["delivery_checklist"]
+        )
         
     return templates.TemplateResponse(
         "project.html",
@@ -2668,10 +2734,90 @@ def project_detail(request: Request, project_id: int):
             "comments": comments,
             "open_feedback_count": open_feedback_count,
             "status_options": STATUS_OPTIONS,
+            "guest_access": normalize_guest_access(project["guest_access"]),
+            "delivery_checklist_items": DELIVERY_CHECKLIST_ITEMS,
+            "delivery_completed": delivery_completed,
             "is_public_link": False,
             "is_demo": is_demo_user(user),
         },
     )
+
+
+@app.post("/projects/{project_id}/review-settings")
+def update_project_review_settings(
+    request: Request,
+    project_id: int,
+    review_due_at: str = Form(""),
+    guest_access: str = Form("approve"),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can update review settings.")
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+
+    if (guest_access or "").strip().lower() not in GUEST_ACCESS_OPTIONS:
+        raise HTTPException(status_code=400, detail="Invalid public review access.")
+    normalized_due_at = normalize_review_due_at(review_due_at)
+    normalized_guest_access = normalize_guest_access(guest_access)
+
+    with get_db() as db:
+        project = db.execute(
+            "SELECT id FROM projects WHERE id = ? AND user_id = ?",
+            (project_id, user["id"]),
+        ).fetchone()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        db.execute(
+            """
+            UPDATE projects
+            SET review_due_at = ?, guest_access = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (
+                normalized_due_at or None,
+                normalized_guest_access,
+                project_id,
+                user["id"],
+            ),
+        )
+
+    return redirect(f"/projects/{project_id}?success=Review+settings+updated.")
+
+
+@app.post("/projects/{project_id}/delivery-checklist")
+def update_delivery_checklist(
+    request: Request,
+    project_id: int,
+    delivery_items: list[str] = Form([]),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Only owners can update delivery readiness.")
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+
+    valid_keys = {key for key, _ in DELIVERY_CHECKLIST_ITEMS}
+    completed = sorted(set(delivery_items) & valid_keys)
+    with get_db() as db:
+        project = db.execute(
+            "SELECT id, status FROM projects WHERE id = ? AND user_id = ?",
+            (project_id, user["id"]),
+        ).fetchone()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        if project["status"] == "Published":
+            raise HTTPException(status_code=400, detail="Delivered projects are read-only.")
+        db.execute(
+            "UPDATE projects SET delivery_checklist = ? WHERE id = ?",
+            (",".join(completed), project_id),
+        )
+
+    return redirect(f"/projects/{project_id}?success=Delivery+readiness+saved.")
 
 
 @app.post("/projects/{project_id}/versions")
@@ -2855,6 +3001,15 @@ def version_decision(
             review_token,
             action_type,
         )
+        if not user:
+            if not guest_action_is_allowed(
+                project["guest_access"],
+                action_type,
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail="This public review link does not allow that action.",
+                )
         target_path = (
             f"/projects/{version['project_id']}"
             if user
@@ -3113,6 +3268,9 @@ def public_review_page(request: Request, review_token: str):
                     title, url = att.split("::", 1)
                     attachments.append({"title": title.strip(), "url": url.strip()})
         branding = get_owner_branding(db, project["user_id"])
+        delivery_completed = parse_delivery_checklist(
+            project["delivery_checklist"]
+        )
 
     return templates.TemplateResponse(
         "project.html",
@@ -3127,6 +3285,9 @@ def public_review_page(request: Request, review_token: str):
             "comments": comments,
             "open_feedback_count": open_feedback_count,
             "status_options": STATUS_OPTIONS,
+            "guest_access": normalize_guest_access(project["guest_access"]),
+            "delivery_checklist_items": DELIVERY_CHECKLIST_ITEMS,
+            "delivery_completed": delivery_completed,
             "is_public_link": True,
             "review_token": review_token,
             "is_demo": is_demo_email(project["owner_email"]),
@@ -3161,6 +3322,21 @@ def deliver_project(
             raise HTTPException(status_code=404)
             
         # 將專案狀態更新為 Published (代表最終交付結案)
+        if project["status"] != "Approved":
+            raise HTTPException(
+                status_code=400,
+                detail="Only approved projects can be marked for final delivery.",
+            )
+
+        required_delivery_items = {key for key, _ in DELIVERY_CHECKLIST_ITEMS}
+        completed_delivery_items = parse_delivery_checklist(
+            project["delivery_checklist"]
+        )
+        if completed_delivery_items != required_delivery_items:
+            return redirect(
+                f"/projects/{project_id}?error=Complete+the+delivery+checklist+before+final+delivery."
+            )
+
         db.execute("UPDATE projects SET status='Published' WHERE id=?", (project_id,))
         
         # 📬 【加分功能】：同時自動觸發一封結案信通知客戶前來下載最終成片！

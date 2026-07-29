@@ -385,6 +385,9 @@
                         <p class="feedback-card-count">{{ p.unresolved_count }} open feedback</p>
                         {% endif %}
                         {% endif %}
+                        {% if p.review_due_at %}
+                        <p class="text-[11px] font-semibold text-gray-400-fix">Review due {{ p.review_due_at }}</p>
+                        {% endif %}
                     </div>
                     <div class="flex flex-wrap justify-between gap-2 text-[11px] text-gray-500 pt-2 border-t border-gray-900/60">
                         <span class="theme-chip-fix bg-gray-900 px-2 py-0.5 rounded text-gray-400 border border-gray-800">{{ p.category }}</span>

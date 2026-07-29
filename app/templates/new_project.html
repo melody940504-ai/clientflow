@@ -70,8 +70,32 @@
       </div>
     </div>
 
-    <div class="project-form-section" id="project-scope-step">
+    <div class="project-form-section" id="project-review-step">
       <div class="project-form-index">03</div>
+      <div>
+        <h2>Review access</h2>
+        <p class="muted small">Set the next review date and what the public link allows.</p>
+      </div>
+      <div class="project-form-fields">
+        <div class="project-form-pair">
+          <label>
+            <span>Review due</span>
+            <input type="date" name="review_due_at">
+          </label>
+          <label>
+            <span>Public link access</span>
+            <select name="guest_access">
+              <option value="view">View only</option>
+              <option value="comment">View and comment</option>
+              <option value="approve" selected>Comment and approve</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="project-form-section" id="project-scope-step">
+      <div class="project-form-index">04</div>
       <div>
         <h2>Scope</h2>
         <p class="muted small">Add the context your studio needs before the first upload.</p>
@@ -114,6 +138,13 @@
       "body": "Set the title, content category, and starting status that best match the work entering review.",
       "target": "#project-details-step",
       "mobileTarget": "#project-details-step .project-form-fields",
+      "placement": "right"
+    },
+    {
+      "title": "Plan the review",
+      "body": "Set a visible due date and decide whether the public link is view-only, accepts comments, or can record the final decision.",
+      "target": "#project-review-step",
+      "mobileTarget": "#project-review-step .project-form-fields",
       "placement": "right"
     },
     {
