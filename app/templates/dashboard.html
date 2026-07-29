@@ -412,15 +412,30 @@
       "steps": [
         {
           "title": "{% if user.role == 'client' %}Projects ready for review{% else %}Your workspace at a glance{% endif %}",
-          "body": "{% if user.role == 'client' %}Projects waiting for your review appear here with their current status and version history.{% else %}The status strip shows how work is moving from review through revision, approval, and delivery.{% endif %}"
+          "body": "{% if user.role == 'client' %}Projects waiting for your review appear here with their current status and version history.{% else %}The status strip shows how work is moving from review through revision, approval, and delivery.{% endif %}",
+          "target": "{% if user.role == 'client' %}.workspace-projects{% else %}.workspace-stats{% endif %}",
+          "mobileTarget": "{% if user.role == 'client' %}.workspace-projects h3{% else %}.workspace-stat{% endif %}",
+          "placement": "bottom"
         },
         {
           "title": "Projects stay central",
-          "body": "Open any project card to manage versions, attachments, feedback, approvals, and activity in one place."
+          "body": "Open any project card to manage versions, attachments, feedback, approvals, and activity in one place.",
+          "target": ".workspace-projects",
+          "mobileTarget": ".workspace-projects h3",
+          "placement": "top"
         }{% if user.role != 'client' %},
         {
           "title": "Create work when you need it",
-          "body": "Use Clients to manage access, or New project to start the next review workflow."
+          "body": "Use Clients to manage access, or New project to start the next review workflow.",
+          "target": ".workspace-heading-actions",
+          "placement": "left"
+        },
+        {
+          "title": "Everything else stays in Menu",
+          "body": "Analytics, studio settings, account controls, theme switching, and logout are grouped here. Click Menu to open it, or choose Done.",
+          "target": "#user-menu-toggle",
+          "placement": "left",
+          "advanceOnTarget": true
         }{% endif %}
       ]
     }

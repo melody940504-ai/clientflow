@@ -22,7 +22,7 @@
   {% if clients %}
   <form action="/projects" method="post" novalidate class="management-panel project-create-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-    <div class="project-form-section">
+    <div class="project-form-section" id="project-client-step">
       <div class="project-form-index">01</div>
       <div>
         <h2>Client</h2>
@@ -39,7 +39,7 @@
       </label>
     </div>
 
-    <div class="project-form-section">
+    <div class="project-form-section" id="project-details-step">
       <div class="project-form-index">02</div>
       <div>
         <h2>Project details</h2>
@@ -70,7 +70,7 @@
       </div>
     </div>
 
-    <div class="project-form-section">
+    <div class="project-form-section" id="project-scope-step">
       <div class="project-form-index">03</div>
       <div>
         <h2>Scope</h2>
@@ -104,15 +104,24 @@
   "steps": [
     {
       "title": "Choose the client first",
-      "body": "Every project belongs to one client workspace so reviews, invitations, and activity stay correctly separated."
+      "body": "Every project belongs to one client workspace so reviews, invitations, and activity stay correctly separated.",
+      "target": "#project-client-step",
+      "mobileTarget": "#project-client-step .project-form-control",
+      "placement": "right"
     },
     {
       "title": "Define the workflow",
-      "body": "Set the title, content category, and starting status that best match the work entering review."
+      "body": "Set the title, content category, and starting status that best match the work entering review.",
+      "target": "#project-details-step",
+      "mobileTarget": "#project-details-step .project-form-fields",
+      "placement": "right"
     },
     {
       "title": "Add useful context",
-      "body": "Use project notes for deliverables, references, deadlines, or anything the studio needs before uploading V1."
+      "body": "Use project notes for deliverables, references, deadlines, or anything the studio needs before uploading V1.",
+      "target": "#project-scope-step",
+      "mobileTarget": "#project-scope-step .project-form-control",
+      "placement": "right"
     }
   ]
 }

@@ -444,7 +444,64 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn("/static/onboarding.css", dashboard_template)
         self.assertIn("/static/onboarding.js", dashboard_template)
         self.assertIn("${config.userId || \"shared\"}", onboarding_script)
+        self.assertIn("${config.key}:v2", onboarding_script)
         self.assertIn("localStorage.setItem(storageKey, \"complete\")", onboarding_script)
+
+    def test_onboarding_uses_spotlight_targets_instead_of_centered_modal(self):
+        project_root = Path(__file__).parents[1]
+        onboarding_script = (
+            project_root / "app" / "static" / "onboarding.js"
+        ).read_text(encoding="utf-8")
+        onboarding_styles = (
+            project_root / "app" / "static" / "onboarding.css"
+        ).read_text(encoding="utf-8")
+        templates_dir = project_root / "app" / "templates"
+
+        self.assertIn("onboarding-spotlight", onboarding_script)
+        self.assertIn("onboarding-shade-top", onboarding_script)
+        self.assertIn("scrollIntoView", onboarding_script)
+        self.assertIn("onboarding-close", onboarding_script)
+        self.assertIn("step.advanceOnTarget", onboarding_script)
+        self.assertNotIn("onboarding-overlay", onboarding_script)
+        self.assertIn(".onboarding-spotlight", onboarding_styles)
+        self.assertIn('[data-placement="mobile"]', onboarding_styles)
+
+        for template_name in (
+            "dashboard.html",
+            "clients.html",
+            "new_project.html",
+            "analytics.html",
+            "settings.html",
+        ):
+            source = (templates_dir / template_name).read_text(encoding="utf-8")
+            with self.subTest(template=template_name):
+                self.assertIn('"target":', source)
+
+    def test_onboarding_target_ids_exist_in_their_templates(self):
+        templates_dir = Path(__file__).parents[1] / "app" / "templates"
+        expected_targets = {
+            "new_project.html": (
+                "project-client-step",
+                "project-details-step",
+                "project-scope-step",
+            ),
+            "analytics.html": (
+                "analytics-pipeline",
+                "analytics-client-activity",
+            ),
+            "settings.html": (
+                "settings-brand-identity",
+                "settings-visual-style",
+                "settings-client-preview",
+            ),
+        }
+
+        for template_name, target_ids in expected_targets.items():
+            source = (templates_dir / template_name).read_text(encoding="utf-8")
+            for target_id in target_ids:
+                with self.subTest(template=template_name, target=target_id):
+                    self.assertIn(f'id="{target_id}"', source)
+                    self.assertIn(f'"target": "#{target_id}"', source)
 
     def test_page_level_intro_copy_is_not_permanently_rendered(self):
         templates_dir = Path(__file__).parents[1] / "app" / "templates"

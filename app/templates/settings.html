@@ -26,7 +26,7 @@
     <fieldset class="settings-readonly" {% if is_demo %}disabled{% endif %}>
     <div class="settings-layout">
       <div class="settings-fields">
-        <div class="field-group">
+        <div class="field-group" id="settings-brand-identity">
           <div>
             <h2>Brand identity</h2>
             <p class="muted small">The name and logo shown to clients.</p>
@@ -41,7 +41,7 @@
           </label>
         </div>
 
-        <div class="field-group">
+        <div class="field-group" id="settings-visual-style">
           <div>
             <h2>Visual style</h2>
             <p class="muted small">Choose a primary color for buttons and accents.</p>
@@ -56,7 +56,7 @@
           </div>
         </div>
 
-        <div class="field-group">
+        <div class="field-group" id="settings-email-label">
           <div>
             <h2>Email label</h2>
             <p class="muted small">Used as the sender display name for future client invitations.</p>
@@ -66,7 +66,7 @@
             <input data-sender-name type="text" name="email_sender_name" maxlength="60" value="{{ branding.email_sender_name }}" placeholder="Acme Studio">
           </label>
         </div>
-        <div class="field-group brand-preview">
+        <div class="field-group brand-preview" id="settings-client-preview">
           <div>
             <h2>Client preview</h2>
             <p class="muted small">A quick look at what clients will see.</p>
@@ -102,15 +102,24 @@
   "steps": [
     {
       "title": "Make the workspace yours",
-      "body": "Your studio name and logo appear across the dashboard, client portal, review pages, and invitations."
+      "body": "Your studio name and logo appear across the dashboard, client portal, review pages, and invitations.",
+      "target": "#settings-brand-identity",
+      "mobileTarget": "#settings-brand-identity > div:first-child",
+      "placement": "right"
     },
     {
       "title": "Set one visual language",
-      "body": "The primary color updates buttons and accents throughout the workspace while preserving light and dark mode contrast."
+      "body": "The primary color updates buttons and accents throughout the workspace while preserving light and dark mode contrast.",
+      "target": "#settings-visual-style",
+      "mobileTarget": "#settings-visual-style > div:first-child",
+      "placement": "left"
     },
     {
       "title": "Preview before saving",
-      "body": "The client preview shows how the current identity will feel before you apply it."
+      "body": "The client preview shows how the current identity will feel before you apply it.",
+      "target": "#settings-client-preview",
+      "mobileTarget": "#settings-client-preview .preview-card",
+      "placement": "left"
     }
   ]
 }

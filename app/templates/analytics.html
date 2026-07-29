@@ -43,7 +43,7 @@
   </div>
 
   <div class="analytics-grid">
-    <section class="analytics-panel">
+    <section class="analytics-panel" id="analytics-pipeline">
       <div class="panel-heading">
         <div>
           <p class="eyebrow">Pipeline</p>
@@ -90,7 +90,7 @@
   </div>
 
   <div class="analytics-grid">
-    <section class="analytics-panel">
+    <section class="analytics-panel" id="analytics-client-activity">
       <div class="panel-heading">
         <div>
           <p class="eyebrow">Clients</p>
@@ -145,11 +145,24 @@
   "steps": [
     {
       "title": "Read the health of your pipeline",
-      "body": "The top metrics summarize client volume, project activity, versions, comments, and approval progress."
+      "body": "The top metrics summarize client volume, project activity, versions, comments, and approval progress.",
+      "target": ".analytics-kpi-grid",
+      "mobileTarget": ".analytics-kpi-grid article",
+      "placement": "bottom"
     },
     {
       "title": "Find where work slows down",
-      "body": "Status, category, and client breakdowns help you spot review bottlenecks and your most active accounts."
+      "body": "Status and category breakdowns help you spot where reviews are slowing down.",
+      "target": "#analytics-pipeline",
+      "mobileTarget": "#analytics-pipeline .panel-heading",
+      "placement": "right"
+    },
+    {
+      "title": "See who is most active",
+      "body": "Client activity helps you understand which accounts are generating the most projects, versions, and feedback.",
+      "target": "#analytics-client-activity",
+      "mobileTarget": "#analytics-client-activity .panel-heading",
+      "placement": "right"
     }
   ]
 }

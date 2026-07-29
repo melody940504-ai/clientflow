@@ -133,15 +133,23 @@
   "steps": [
     {
       "title": "Create a client workspace",
-      "body": "Adding a client creates their account and sends a temporary password through the invitation email."
+      "body": "Adding a client creates their account and sends a temporary password through the invitation email.",
+      "target": "#new-client",
+      "mobileTarget": "#new-client .panel-heading",
+      "placement": "right"
     },
     {
       "title": "Keep access in one directory",
-      "body": "The directory keeps each client email, contact details, and project count together."
+      "body": "The directory keeps each client email, contact details, and project count together.",
+      "target": ".client-directory",
+      "mobileTarget": ".client-directory .panel-heading",
+      "placement": "left"
     },
     {
       "title": "Recover access safely",
-      "body": "Resend invitation creates a new temporary password. The existing password changes only after the email is sent successfully."
+      "body": "Resend invitation creates a new temporary password. The existing password changes only after the email is sent successfully.",
+      "target": ".resend-invitation-trigger",
+      "placement": "left"
     }
   ]
 }
