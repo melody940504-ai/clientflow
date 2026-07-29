@@ -200,7 +200,7 @@
             border-color: #fca5a5 !important;
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260730-stage">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260730-feedback">
     <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
@@ -379,6 +379,9 @@
                         </div>
                         {% if user.role != 'client' %}
                         <p class="text-xs text-gray-400-fix">Client: <span class="font-semibold">{{ p.client_name }}</span></p>
+                        {% if p.unresolved_count %}
+                        <p class="feedback-card-count">{{ p.unresolved_count }} open feedback</p>
+                        {% endif %}
                         {% endif %}
                     </div>
                     <div class="flex flex-wrap justify-between gap-2 text-[11px] text-gray-500 pt-2 border-t border-gray-900/60">

@@ -193,7 +193,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260730-stage">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260730-feedback">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -530,6 +530,7 @@
         </div>
 
         <div class="project-activity space-y-4">
+            <span class="feedback-summary-count">{{ open_feedback_count }} open feedback</span>
             <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
             <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
                 
@@ -552,7 +553,7 @@
                             {% else %} 💬 {% endif %}
                         </div>
 
-                        <div class="min-w-0 flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700">
+                        <div class="activity-entry min-w-0 flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700 {% if c.is_resolved %}is-resolved{% endif %}">
                             <div class="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline">
                                 <span class="break-words text-xs font-bold text-white-fix capitalize">
                                     {{ c.author_name }} 
@@ -575,7 +576,20 @@
                             {% endif %}
 
                             {% if c.version_label %}
-                            <div class="text-[10px] flex justify-end">
+                            <div class="activity-entry-footer text-[10px] flex flex-wrap items-center justify-end gap-2">
+                                {% if c.author_role == 'client' and (c.type == 'comment' or c.type.startswith('timestamp_')) %}
+                                <span class="feedback-state {% if c.is_resolved %}is-resolved{% endif %}">
+                                    {% if c.is_resolved %}Resolved{% else %}Open feedback{% endif %}
+                                </span>
+                                {% if user.role == 'owner' and not is_demo and c.id and project.status not in ['Approved', 'Published'] %}
+                                <form action="/comments/{{ c.id }}/resolve" method="post" class="m-0">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                                    <button type="submit" class="feedback-resolve-action">
+                                        {% if c.is_resolved %}Reopen{% else %}Mark resolved{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% endif %}
                                 <span class="theme-chip-fix bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">{{ c.version_label }}</span>
                             </div>
                             {% endif %}

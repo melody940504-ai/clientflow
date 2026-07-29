@@ -7,6 +7,7 @@ import types
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 
 os.environ.setdefault("SESSION_SECRET", "test-session-secret")
@@ -69,6 +70,34 @@ class FakeUpload:
         chunk = self.payload[self.offset:self.offset + size]
         self.offset += len(chunk)
         return chunk
+
+
+class FakeCursor:
+    def __init__(self, row=None):
+        self.row = row
+
+    def fetchone(self):
+        return self.row
+
+
+class FeedbackDB:
+    def __init__(self, comment):
+        self.comment = comment
+        self.updated_with = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, query, params=()):
+        if "SELECT cm.id" in query:
+            return FakeCursor(self.comment)
+        if "UPDATE comments" in query:
+            self.updated_with = params
+            return FakeCursor()
+        raise AssertionError(f"Unexpected query: {query}")
 
 
 class PasswordSecurityTests(unittest.TestCase):
@@ -165,6 +194,81 @@ class RequestSecurityTests(unittest.TestCase):
         self.assertFalse(
             main.review_token_is_valid(expired, "valid-review-token")
         )
+
+
+class FeedbackResolutionTests(unittest.TestCase):
+    def test_owner_can_resolve_client_feedback(self):
+        request = FakeRequest()
+        request.session["csrf_token"] = "csrf"
+        db = FeedbackDB(
+            {
+                "id": 41,
+                "type": "comment",
+                "author_role": "client",
+                "is_resolved": False,
+                "project_id": 9,
+                "project_status": "In Revision",
+            }
+        )
+
+        with (
+            patch.object(
+                main,
+                "require_user",
+                return_value={"id": 7, "role": "owner"},
+            ),
+            patch.object(main, "is_demo_user", return_value=False),
+            patch.object(main, "get_db", return_value=db),
+        ):
+            response = main.resolve_comment(request, 41, "csrf")
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(db.updated_with[0], True)
+        self.assertEqual(db.updated_with[2], 41)
+        self.assertIn("/projects/9?success=", response.headers["location"])
+
+    def test_client_cannot_resolve_feedback(self):
+        request = FakeRequest()
+        request.session["csrf_token"] = "csrf"
+
+        with patch.object(
+            main,
+            "require_user",
+            return_value={"id": 8, "role": "client"},
+        ):
+            with self.assertRaises(HTTPException) as error:
+                main.resolve_comment(request, 41, "csrf")
+
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_approved_project_feedback_is_immutable(self):
+        request = FakeRequest()
+        request.session["csrf_token"] = "csrf"
+        db = FeedbackDB(
+            {
+                "id": 41,
+                "type": "comment",
+                "author_role": "client",
+                "is_resolved": False,
+                "project_id": 9,
+                "project_status": "Approved",
+            }
+        )
+
+        with (
+            patch.object(
+                main,
+                "require_user",
+                return_value={"id": 7, "role": "owner"},
+            ),
+            patch.object(main, "is_demo_user", return_value=False),
+            patch.object(main, "get_db", return_value=db),
+        ):
+            with self.assertRaises(HTTPException) as error:
+                main.resolve_comment(request, 41, "csrf")
+
+        self.assertEqual(error.exception.status_code, 400)
+        self.assertIsNone(db.updated_with)
 
 
 class NotificationReadTests(unittest.TestCase):
@@ -446,6 +550,29 @@ class TemplateSecurityTests(unittest.TestCase):
             "lumaire-read-notification-projects",
             dashboard_template + project_template,
         )
+
+    def test_feedback_resolution_is_owner_scoped(self):
+        project_root = Path(__file__).parents[1]
+        source = (project_root / "app" / "main.py").read_text(
+            encoding="utf-8"
+        )
+        project_template = (
+            project_root / "app" / "templates" / "project.html"
+        ).read_text(encoding="utf-8")
+        dashboard_template = (
+            project_root / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+        route_paths = [route.path for route in main.app.routes]
+
+        self.assertIn("/comments/{comment_id}/resolve", route_paths)
+        self.assertIn("p.user_id = ?", source)
+        self.assertIn("Only owners can update feedback status.", source)
+        self.assertIn("Only feedback notes can be resolved.", source)
+        self.assertIn("Approved projects are read-only.", source)
+        self.assertIn("ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_resolved", source)
+        self.assertIn('action="/comments/{{ c.id }}/resolve"', project_template)
+        self.assertIn("Mark resolved", project_template)
+        self.assertIn("p.unresolved_count", dashboard_template)
 
     def test_lumaire_mark_is_transparent_and_theme_aware(self):
         project_root = Path(__file__).parents[1]

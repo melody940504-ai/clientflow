@@ -552,10 +552,18 @@ def init_db() -> None:
                 author_name TEXT NOT NULL,
                 body TEXT NOT NULL,
                 type TEXT NOT NULL DEFAULT 'comment',
+                is_resolved BOOLEAN NOT NULL DEFAULT FALSE,
+                resolved_at TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(video_version_id) REFERENCES video_versions(id)
             )
         """)
+        db.execute(
+            "ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_resolved BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+        db.execute(
+            "ALTER TABLE comments ADD COLUMN IF NOT EXISTS resolved_at TEXT"
+        )
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS project_notification_reads (
@@ -1722,7 +1730,11 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             query = """
                 SELECT p.*, c.name AS client_name,
                     (SELECT COUNT(*) FROM video_versions v WHERE v.project_id = p.id) AS version_count,
-                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count
+                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count,
+                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
+                     WHERE vv.project_id = p.id AND cm.author_role = 'client'
+                     AND cm.is_resolved = FALSE
+                     AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%')) AS unresolved_count
                 FROM projects p
                 JOIN clients c ON p.client_id = c.id
                 WHERE p.client_id = ?
@@ -1734,7 +1746,11 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             query = """
                 SELECT p.*, c.name AS client_name,
                     (SELECT COUNT(*) FROM video_versions v WHERE v.project_id = p.id) AS version_count,
-                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count
+                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = p.id) AS comment_count,
+                    (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
+                     WHERE vv.project_id = p.id AND cm.author_role = 'client'
+                     AND cm.is_resolved = FALSE
+                     AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%')) AS unresolved_count
                 FROM projects p
                 JOIN clients c ON p.client_id = c.id
                 WHERE p.user_id = ?
@@ -2508,10 +2524,13 @@ def project_detail(request: Request, project_id: int):
             """
             -- 1. 撈取客戶的審核與留言
             SELECT 
+                cm.id,
                 cm.author_name, 
                 cm.author_role, 
                 cm.body, 
                 cm.type, 
+                cm.is_resolved,
+                cm.resolved_at,
                 cm.created_at, 
                 vv.version_label
             FROM comments cm 
@@ -2522,10 +2541,13 @@ def project_detail(request: Request, project_id: int):
             
             -- 2. 撈取工作室上傳新影片版本的事件
             SELECT 
+                NULL AS id,
                 'Studio' AS author_name,
                 'studio' AS author_role,
                 'Uploaded ' || version_label AS body,
                 'upload' AS type,
+                FALSE AS is_resolved,
+                NULL AS resolved_at,
                 created_at,
                 version_label
             FROM video_versions
@@ -2535,10 +2557,13 @@ def project_detail(request: Request, project_id: int):
             
             -- 3. 撈取專案最初建立的事件
             SELECT 
+                NULL AS id,
                 'System' AS author_name,
                 'system' AS author_role,
                 'Project Created' AS body,
                 'create' AS type,
+                FALSE AS is_resolved,
+                NULL AS resolved_at,
                 created_at,
                 '' AS version_label
             FROM projects
@@ -2548,6 +2573,20 @@ def project_detail(request: Request, project_id: int):
             """,
             (project_id, project_id, project_id),
         ).fetchall()
+        open_feedback_count = sum(
+            1
+            for comment in comments
+            if (
+                (
+                    comment["author_role"] == "client"
+                    and (
+                        comment["type"] == "comment"
+                        or comment["type"].startswith("timestamp_")
+                    )
+                )
+                and not comment["is_resolved"]
+            )
+        )
         
         # 📂 【新增附件與 Brief 解析邏輯】
         attachments = []
@@ -2574,6 +2613,7 @@ def project_detail(request: Request, project_id: int):
             "attachments": attachments,      # 傳遞解析好的附件清單給前端
             "versions": versions,
             "comments": comments,
+            "open_feedback_count": open_feedback_count,
             "status_options": STATUS_OPTIONS,
             "is_public_link": False,
             "is_demo": is_demo_user(user),
@@ -2849,6 +2889,81 @@ def version_decision(
     return redirect(target_path)
 
 
+@app.post("/comments/{comment_id}/resolve")
+def resolve_comment(
+    request: Request,
+    comment_id: int,
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner":
+        raise HTTPException(
+            status_code=403,
+            detail="Only owners can update feedback status.",
+        )
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+
+    with get_db() as db:
+        comment = db.execute(
+            """
+            SELECT cm.id, cm.type, cm.author_role, cm.is_resolved,
+                   p.id AS project_id, p.status AS project_status
+            FROM comments cm
+            JOIN video_versions vv ON cm.video_version_id = vv.id
+            JOIN projects p ON vv.project_id = p.id
+            WHERE cm.id = ? AND p.user_id = ?
+            """,
+            (comment_id, user["id"]),
+        ).fetchone()
+        if not comment:
+            raise HTTPException(status_code=404, detail="Feedback not found.")
+        if comment["project_status"] in {"Approved", "Published"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Approved projects are read-only.",
+            )
+        if (
+            comment["author_role"] != "client"
+            or (
+                comment["type"] != "comment"
+                and not comment["type"].startswith("timestamp_")
+            )
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Only feedback notes can be resolved.",
+            )
+
+        next_state = not bool(comment["is_resolved"])
+        db.execute(
+            """
+            UPDATE comments
+            SET is_resolved = ?, resolved_at = ?
+            WHERE id = ?
+            """,
+            (
+                next_state,
+                (
+                    datetime.now(timezone.utc)
+                    .replace(tzinfo=None)
+                    .isoformat()
+                    if next_state
+                    else None
+                ),
+                comment_id,
+            ),
+        )
+
+    message = (
+        "Feedback+marked+as+resolved."
+        if next_state
+        else "Feedback+reopened."
+    )
+    return redirect(f"/projects/{comment['project_id']}?success={message}")
+
+
 # ==========================================
 # 客戶免登入公開審片連結路由 (Frame.io 模式)
 # ==========================================
@@ -2874,16 +2989,35 @@ def public_review_page(request: Request, review_token: str):
         project_id = project["id"]
         versions = db.execute("SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
         comments = db.execute(
-            """SELECT cm.author_name, cm.author_role, cm.body, cm.type, cm.created_at, vv.version_label
+            """SELECT cm.id, cm.author_name, cm.author_role, cm.body, cm.type,
+                      cm.is_resolved, cm.resolved_at, cm.created_at, vv.version_label
                FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = ?
                UNION ALL
-               SELECT 'Studio' AS author_name, 'studio' AS author_role, 'Uploaded ' || version_label AS body, 'upload' AS type, created_at, version_label
+               SELECT NULL AS id, 'Studio' AS author_name, 'studio' AS author_role,
+                      'Uploaded ' || version_label AS body, 'upload' AS type,
+                      FALSE AS is_resolved, NULL AS resolved_at, created_at, version_label
                FROM video_versions WHERE project_id = ?
                UNION ALL
-               SELECT 'System' AS author_name, 'system' AS author_role, 'Project Created' AS body, 'create' AS type, created_at, '' AS version_label
+               SELECT NULL AS id, 'System' AS author_name, 'system' AS author_role,
+                      'Project Created' AS body, 'create' AS type,
+                      FALSE AS is_resolved, NULL AS resolved_at, created_at, '' AS version_label
                FROM projects WHERE id = ?
                ORDER BY created_at DESC""", (project_id, project_id, project_id)
         ).fetchall()
+        open_feedback_count = sum(
+            1
+            for comment in comments
+            if (
+                (
+                    comment["author_role"] == "client"
+                    and (
+                        comment["type"] == "comment"
+                        or comment["type"].startswith("timestamp_")
+                    )
+                )
+                and not comment["is_resolved"]
+            )
+        )
 
         # 📂 公開頁面同步解析附件
         attachments = []
@@ -2909,6 +3043,7 @@ def public_review_page(request: Request, review_token: str):
             "attachments": attachments,
             "versions": versions,
             "comments": comments,
+            "open_feedback_count": open_feedback_count,
             "status_options": STATUS_OPTIONS,
             "is_public_link": True,
             "review_token": review_token,
