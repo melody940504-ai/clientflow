@@ -59,7 +59,6 @@
   if (showcase) {
     const scenes = Array.from(showcase.querySelectorAll('[data-showcase-scene]'));
     const tabs = Array.from(showcase.querySelectorAll('[data-showcase-tab]'));
-    const showcaseLinks = Array.from(document.querySelectorAll('[data-showcase-link]'));
     const switcher = showcase.querySelector('.showcase-switcher');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let activeIndex = 0;
@@ -130,16 +129,6 @@
       });
     });
 
-    showcaseLinks.forEach((link) => {
-      link.addEventListener('click', () => {
-        const nextIndex = Number.parseInt(link.dataset.showcaseLink, 10);
-        if (!Number.isNaN(nextIndex)) {
-          showScene(nextIndex, true);
-          startRotation();
-        }
-      });
-    });
-
     showcase.addEventListener('focusin', stopRotation);
     showcase.addEventListener('focusout', startRotation);
     document.addEventListener('visibilitychange', startRotation);
@@ -168,4 +157,20 @@
 
     updateReviewStatus();
   }
+
+  document.querySelectorAll('[data-toolkit-notes] button').forEach((button) => {
+    button.addEventListener('click', () => {
+      const isResolved = button.getAttribute('aria-pressed') === 'true';
+      button.setAttribute('aria-pressed', String(!isResolved));
+    });
+  });
+
+  document.querySelectorAll('.toolkit-access').forEach((control) => {
+    const buttons = Array.from(control.querySelectorAll('button'));
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        buttons.forEach((item) => item.classList.toggle('is-active', item === button));
+      });
+    });
+  });
 })();

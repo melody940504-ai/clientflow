@@ -62,11 +62,31 @@
   </a>
 </section>
 
-<section class="product-showcase" id="workflow" data-product-showcase>
+<section class="workflow-motion" id="workflow">
+  <div class="workflow-ribbons" aria-hidden="true">
+    <i></i>
+    <i></i>
+    <i></i>
+    <i></i>
+  </div>
+  <div class="workflow-motion-copy">
+    <p class="stage-kicker">One path from upload to sign-off</p>
+    <h2>Keep every decision moving with the work.</h2>
+    <p>Versions, feedback, revisions, and approvals stay in one visible sequence from the first cut to final delivery.</p>
+  </div>
+  <ol class="workflow-steps" aria-label="Lumaire workflow">
+    <li><span>01</span><strong>Upload</strong><small>Share the next cut</small></li>
+    <li><span>02</span><strong>Review</strong><small>Collect focused notes</small></li>
+    <li><span>03</span><strong>Revise</strong><small>Keep context attached</small></li>
+    <li><span>04</span><strong>Approve</strong><small>Lock the final decision</small></li>
+  </ol>
+</section>
+
+<section class="product-showcase" id="product-tour" data-product-showcase>
   <header class="showcase-heading">
-    <p class="stage-kicker">One continuous workflow</p>
-    <h2>Everything stays with the work.</h2>
-    <p>Move through the product below. Each view keeps versions, notes, and decisions connected.</p>
+    <p class="stage-kicker">Interactive product tour</p>
+    <h2>See the handoff from every side.</h2>
+    <p>The display changes automatically, or use the controls below to move between the studio, feedback, and approval views.</p>
   </header>
 
   <div class="showcase-viewport">
@@ -86,7 +106,7 @@
       </div>
     </article>
 
-    <article class="showcase-scene" id="feedback" data-showcase-scene="1">
+    <article class="showcase-scene" data-showcase-scene="1">
       <div class="showcase-copy">
         <span>02 / Precise feedback</span>
         <h3>Notes land where they matter.</h3>
@@ -111,7 +131,7 @@
       </div>
     </article>
 
-    <article class="showcase-scene" id="approvals" data-showcase-scene="2">
+    <article class="showcase-scene" data-showcase-scene="2">
       <div class="showcase-copy">
         <span>03 / Approval flow</span>
         <h3>Know what moves next.</h3>
@@ -144,7 +164,7 @@
   </div>
 </section>
 
-<section class="interactive-review" data-review-checklist>
+<section class="interactive-review" id="feedback" data-review-checklist>
   <div class="interactive-review-copy">
     <p class="stage-kicker">A workspace clients understand</p>
     <h2>Turn feedback into a clear next cut.</h2>
@@ -176,6 +196,46 @@
         <small>V3</small>
       </button>
     </div>
+  </div>
+</section>
+
+<section class="approval-proof" id="approvals">
+  <div class="approval-proof-copy">
+    <p class="stage-kicker">A decision you can return to</p>
+    <h2>Approval becomes part of the project record.</h2>
+    <p>The studio and client can see which version moved forward, what happened before it, and when the final decision was made.</p>
+    <div class="approval-proof-summary">
+      <strong>V3 approved</strong>
+      <span>Locked for final delivery</span>
+    </div>
+  </div>
+  <div class="approval-ledger" aria-label="Example approval history">
+    <div class="approval-ledger-bar">
+      <span>Launch campaign</span>
+      <b>Decision history</b>
+    </div>
+    <ol>
+      <li class="is-complete">
+        <i aria-hidden="true"></i>
+        <div><strong>V1 uploaded</strong><span>Studio shared the first review</span></div>
+        <time>Mon</time>
+      </li>
+      <li class="is-complete">
+        <i aria-hidden="true"></i>
+        <div><strong>Changes requested</strong><span>Three client notes attached to V1</span></div>
+        <time>Tue</time>
+      </li>
+      <li class="is-complete">
+        <i aria-hidden="true"></i>
+        <div><strong>V3 approved</strong><span>Client sign-off recorded</span></div>
+        <time>Today</time>
+      </li>
+      <li class="is-current">
+        <i aria-hidden="true"></i>
+        <div><strong>Ready for delivery</strong><span>The approved version is locked</span></div>
+        <time>Now</time>
+      </li>
+    </ol>
   </div>
 </section>
 
@@ -215,6 +275,72 @@
       <h3>Studio analytics</h3>
       <p>See project flow, client activity, review volume, and the work currently waiting.</p>
     </article>
+  </div>
+</section>
+
+<section class="landing-toolkit">
+  <header>
+    <p class="stage-kicker">Built for the complete handoff</p>
+    <h2>More clarity than a folder and an email thread.</h2>
+  </header>
+  <div class="toolkit-grid">
+    <article class="toolkit-wide">
+      <span>Feedback control</span>
+      <h3>Resolve every note</h3>
+      <p>Turn client direction into a visible list the studio can address and close without losing its version context.</p>
+      <div class="toolkit-note-list" data-toolkit-notes>
+        <button type="button" aria-pressed="true"><i aria-hidden="true"></i>End card timing</button>
+        <button type="button" aria-pressed="false"><i aria-hidden="true"></i>Subtitle safe area</button>
+        <button type="button" aria-pressed="false"><i aria-hidden="true"></i>Final audio mix</button>
+      </div>
+    </article>
+    <article>
+      <span>Review planning</span>
+      <h3>Keep the deadline visible</h3>
+      <p>Give every review a clear next date instead of another follow-up message.</p>
+      <div class="toolkit-date" aria-hidden="true"><strong>24</strong><small>Review due</small></div>
+    </article>
+    <article>
+      <span>Access control</span>
+      <h3>Share with intention</h3>
+      <p>Choose whether a shared guest can view, comment, or make the final call.</p>
+      <div class="toolkit-access" aria-label="Example access controls">
+        <button class="is-active" type="button">View</button>
+        <button type="button">Comment</button>
+        <button type="button">Approve</button>
+      </div>
+    </article>
+    <article class="toolkit-wide">
+      <span>Final delivery</span>
+      <h3>Know when the package is complete</h3>
+      <p>Confirm master files, captions, thumbnails, and delivery links before closing the project.</p>
+      <div class="toolkit-progress" aria-hidden="true"><i></i><b>3 of 4 ready</b></div>
+    </article>
+  </div>
+</section>
+
+<section class="landing-faq">
+  <header>
+    <p class="stage-kicker">Questions, answered</p>
+    <h2>Before you open a workspace.</h2>
+  </header>
+  <div class="faq-list">
+    <details>
+      <summary>Do clients need access to the studio dashboard?</summary>
+      <p>No. Clients use a separate portal or public review link, so internal studio controls stay private.</p>
+    </details>
+    <details>
+      <summary>Can a project keep more than one version?</summary>
+      <p>Yes. Each upload remains connected to its own feedback and status, preserving the path to the approved cut.</p>
+    </details>
+    <details>
+      <summary>What happens after a version is approved?</summary>
+      <p>The approved version and its timeline become read-only, keeping the recorded decision intact for final delivery.</p>
+    </details>
+    <details>
+      <summary>Can I try Lumaire without changing demo data?</summary>
+      <p>Yes. The studio and client demos are shared, read-only workspaces with a seeded review history.</p>
+    </details>
   </div>
 </section>
 
