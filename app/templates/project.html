@@ -8,10 +8,9 @@
     <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729-purple">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
-        if (storedTheme === 'light') {
-            document.documentElement.classList.add('light-theme');
-        }
+        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', storedTheme);
+        document.documentElement.classList.toggle('light-theme', storedTheme === 'light');
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,7 +192,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260730-feedback">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260730-project-archive">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -224,15 +223,23 @@
                 {% if project.status == 'Published' %} Delivered {% else %} Status: {{ project.status }} {% endif %}
             </span>
 
+            <button
+                class="workspace-theme-toggle"
+                type="button"
+                data-theme-toggle
+                data-theme-icon
+                aria-label="Switch to light mode"
+                title="Switch to light mode"
+            >
+                <span class="theme-icon-sun" aria-hidden="true">&#9728;</span>
+                <span class="theme-icon-moon" aria-hidden="true">&#9790;</span>
+            </button>
             <div class="relative">
                 <button id="project-menu-toggle" type="button" class="nav-action-fix text-xs px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-bold flex items-center justify-center shadow-sm sm:py-1.5" aria-expanded="false">
                     Menu
                 </button>
                 <div id="project-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2">
                     <div class="grid gap-2">
-                        <button id="theme-toggle" type="button" class="nav-action-fix w-full justify-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix flex items-center gap-1.5 shadow-sm">
-                            Toggle Theme
-                        </button>
                         {% if not is_public_link %}
                         <a href="/dashboard" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
                             Dashboard
@@ -693,22 +700,8 @@
     </div>
     </div>
 
+    <script src="/static/app.js?v=20260730-unified-theme"></script>
     <script>
-        const btn = document.getElementById('theme-toggle');
-        if (btn) {
-            const updateThemeLabel = () => {
-                btn.textContent = document.documentElement.classList.contains('light-theme') ? 'Dark mode' : 'Light mode';
-            };
-            updateThemeLabel();
-            btn.addEventListener('click', function() {
-                document.documentElement.classList.toggle('light-theme');
-                const nextTheme = document.documentElement.classList.contains('light-theme') ? 'light' : 'dark';
-                localStorage.setItem('theme', nextTheme);
-                localStorage.setItem('clientflow-theme', nextTheme);
-                updateThemeLabel();
-            });
-        }
-
         const projectMenuToggle = document.getElementById("project-menu-toggle");
         const projectMenuPanel = document.getElementById("project-menu-panel");
 

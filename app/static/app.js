@@ -3,11 +3,14 @@
   const themeKey = 'theme';
   const legacyThemeKey = 'clientflow-theme';
   const stored = localStorage.getItem(themeKey) || localStorage.getItem(legacyThemeKey);
+  const initialTheme = stored || root.getAttribute('data-theme') || 'light';
 
-  if (stored) root.setAttribute('data-theme', stored);
+  root.setAttribute('data-theme', initialTheme);
+  root.classList.toggle('light-theme', initialTheme === 'light');
 
   const saveTheme = (theme) => {
     root.setAttribute('data-theme', theme);
+    root.classList.toggle('light-theme', theme === 'light');
     localStorage.setItem(themeKey, theme);
     localStorage.setItem(legacyThemeKey, theme);
   };

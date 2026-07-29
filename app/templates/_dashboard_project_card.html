@@ -1,0 +1,17 @@
+<a href="/projects/{{ p.id }}" class="workspace-project-card is-completed bg-inner-card bg-gray-950/40 hover:bg-gray-900/60 border border-gray-900 hover:border-gray-700 p-4 sm:p-5 rounded-xl transition flex flex-col justify-between space-y-4 group">
+    <div class="space-y-1">
+        <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
+            <h4 class="break-words font-bold text-white-fix group-hover:text-indigo-400 transition">{{ p.name }}</h4>
+            <span class="w-fit shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border bg-purple-500/10 border-purple-500/30 text-purple-400">
+                Delivered
+            </span>
+        </div>
+        {% if user.role != 'client' %}
+        <p class="text-xs text-gray-400-fix">Client: <span class="font-semibold">{{ p.client_name }}</span></p>
+        {% endif %}
+    </div>
+    <div class="flex flex-wrap justify-between gap-2 text-[11px] text-gray-500 pt-2 border-t border-gray-900/60">
+        <span class="theme-chip-fix bg-gray-900 px-2 py-0.5 rounded text-gray-400 border border-gray-800">{{ p.category }}</span>
+        <span>View history</span>
+    </div>
+</a>

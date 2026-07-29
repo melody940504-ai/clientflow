@@ -47,9 +47,19 @@
     </div>
     {% else %}
     <div class="top-menu">
+      <button
+        class="landing-theme-toggle"
+        type="button"
+        data-theme-toggle
+        data-theme-icon
+        aria-label="Switch to dark mode"
+        title="Switch to dark mode"
+      >
+        <span class="theme-icon-sun" aria-hidden="true">&#9728;</span>
+        <span class="theme-icon-moon" aria-hidden="true">&#9790;</span>
+      </button>
       <button class="theme-toggle menu-trigger" type="button" id="site-menu-toggle" aria-expanded="false">Menu</button>
       <div class="site-menu hidden" id="site-menu-panel">
-        <button class="ghost menu-row" type="button" data-theme-toggle>Toggle theme</button>
       {% if user %}
         <a href="/dashboard" class="ghost menu-row">Dashboard</a>
         {% if user.role == 'owner' %}
@@ -95,7 +105,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js?v=20260730-workflow-webgl"></script>
+  <script src="/static/app.js?v=20260730-unified-theme"></script>
   <script src="/static/onboarding.js?v=20260729"></script>
 </body>
 </html>

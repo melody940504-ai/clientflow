@@ -632,6 +632,61 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn('href="/clients"', base_template)
         self.assertIn('href="/projects/new"', base_template)
 
+    def test_dashboard_archives_only_published_projects(self):
+        project_root = Path(__file__).parents[1]
+        dashboard = (
+            project_root / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+        completed_card = (
+            project_root
+            / "app"
+            / "templates"
+            / "_dashboard_project_card.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "projects|rejectattr('status', 'equalto', 'Published')",
+            dashboard,
+        )
+        self.assertIn(
+            "projects|selectattr('status', 'equalto', 'Published')",
+            dashboard,
+        )
+        self.assertIn('class="completed-projects', dashboard)
+        self.assertIn("Completed projects", dashboard)
+        self.assertIn("View history", completed_card)
+        self.assertNotIn("Approved')|list", dashboard)
+
+    def test_workspace_theme_toggle_matches_landing_control(self):
+        project_root = Path(__file__).parents[1]
+        templates_dir = project_root / "app" / "templates"
+        base_template = (templates_dir / "base.html").read_text(
+            encoding="utf-8"
+        )
+        dashboard_template = (templates_dir / "dashboard.html").read_text(
+            encoding="utf-8"
+        )
+        project_template = (templates_dir / "project.html").read_text(
+            encoding="utf-8"
+        )
+        app_script = (
+            project_root / "app" / "static" / "app.js"
+        ).read_text(encoding="utf-8")
+        workspace_styles = (
+            project_root / "app" / "static" / "workspace.css"
+        ).read_text(encoding="utf-8")
+
+        for source in (base_template, dashboard_template, project_template):
+            self.assertIn("data-theme-toggle", source)
+            self.assertIn("data-theme-icon", source)
+            self.assertIn("theme-icon-sun", source)
+            self.assertIn("theme-icon-moon", source)
+
+        self.assertNotIn('id="theme-toggle"', dashboard_template)
+        self.assertNotIn('id="theme-toggle"', project_template)
+        self.assertIn("root.classList.toggle('light-theme'", app_script)
+        self.assertIn(".workspace-theme-toggle", workspace_styles)
+
     def test_primary_pages_use_first_visit_onboarding(self):
         templates_dir = Path(__file__).parents[1] / "app" / "templates"
         expected_pages = {

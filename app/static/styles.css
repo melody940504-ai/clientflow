@@ -82,7 +82,13 @@ button, input, textarea, select { font: inherit; }
 .lumaire-mark-accent { fill: var(--lumaire-accent); }
 .lumaire-mark-spark { fill: var(--mark-spark); }
 .top-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.top-menu { position: relative; margin-left: auto; }
+.top-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
 .menu-trigger { min-width: 88px; }
 .site-menu {
   position: absolute;

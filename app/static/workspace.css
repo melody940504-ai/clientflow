@@ -115,6 +115,59 @@ html {
   border-color: color-mix(in srgb, var(--brand-color, #7c8cff) 55%, var(--workspace-border)) !important;
 }
 
+.workspace-theme-toggle {
+  position: relative;
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--workspace-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    var(--workspace-surface);
+  color: var(--workspace-text);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.055) inset;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.workspace-theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 55%, var(--workspace-border));
+  background-color: var(--workspace-surface-raised);
+}
+
+.workspace-theme-toggle span {
+  grid-area: 1 / 1;
+  font-size: 1.08rem;
+  line-height: 1;
+  transition: opacity 160ms ease, transform 180ms ease;
+}
+
+.workspace-theme-toggle .theme-icon-sun {
+  opacity: 0;
+  transform: rotate(-30deg) scale(0.72);
+}
+
+.workspace-theme-toggle .theme-icon-moon {
+  opacity: 1;
+  transform: none;
+}
+
+[data-theme="dark"] .workspace-theme-toggle .theme-icon-sun {
+  opacity: 1;
+  transform: none;
+}
+
+[data-theme="dark"] .workspace-theme-toggle .theme-icon-moon {
+  opacity: 0;
+  transform: rotate(30deg) scale(0.72);
+}
+
 .workspace-page .menu-panel-fix,
 .workspace-page #notification-panel {
   padding: 12px !important;
@@ -725,6 +778,126 @@ html {
   border-color: var(--workspace-border) !important;
 }
 
+.workspace-projects-heading,
+.completed-projects summary,
+.completed-projects-copy,
+.completed-projects-meta {
+  display: flex;
+  align-items: center;
+}
+
+.workspace-projects-heading,
+.completed-projects summary {
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.workspace-section-kicker {
+  margin: 0 0 4px;
+  color: var(--workspace-muted);
+  font-size: 0.67rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.workspace-project-count {
+  display: inline-grid;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  place-items: center;
+  border: 1px solid var(--workspace-border);
+  border-radius: 999px;
+  background: var(--workspace-surface-raised);
+  color: var(--workspace-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.completed-projects {
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    color-mix(in srgb, var(--workspace-surface) 94%, transparent);
+  box-shadow: var(--workspace-shadow);
+}
+
+.completed-projects summary {
+  min-height: 78px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background-color 160ms ease;
+}
+
+.completed-projects summary::-webkit-details-marker {
+  display: none;
+}
+
+.completed-projects summary:hover {
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 5%, transparent);
+}
+
+.completed-projects-copy {
+  gap: 13px;
+}
+
+.completed-projects-copy strong,
+.completed-projects-copy small {
+  display: block;
+}
+
+.completed-projects-copy strong {
+  color: var(--workspace-text);
+  font-size: 0.95rem;
+}
+
+.completed-projects-copy small {
+  margin-top: 3px;
+  color: var(--workspace-muted);
+  font-size: 0.74rem;
+}
+
+.completed-projects-icon {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--brand-color, #9b8cf6) 32%, var(--workspace-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 10%, transparent);
+  color: var(--brand-color, #9b8cf6);
+  font-weight: 900;
+}
+
+.completed-projects-meta {
+  gap: 12px;
+}
+
+.completed-projects-chevron {
+  color: var(--workspace-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 180ms ease;
+}
+
+.completed-projects[open] .completed-projects-chevron {
+  transform: rotate(180deg);
+}
+
+.completed-projects-grid {
+  padding: 4px 22px 22px;
+  border-top: 1px solid var(--workspace-border);
+}
+
+.workspace-project-card.is-completed {
+  margin-top: 18px;
+}
+
 .light-theme {
   --workspace-bg: #f7f7fa;
   --workspace-surface: #ffffff;
@@ -761,6 +934,22 @@ html {
   border-color: color-mix(in srgb, var(--workspace-border) 82%, transparent) !important;
   background: rgba(250, 250, 252, 0.84) !important;
   box-shadow: 0 1px 0 rgba(53, 45, 86, 0.06), 0 10px 30px rgba(53, 45, 86, 0.04) !important;
+}
+
+.light-theme .workspace-theme-toggle {
+  border-color: var(--workspace-border);
+  background:
+    linear-gradient(180deg, #ffffff, #f4f4f8);
+  color: var(--workspace-text);
+  box-shadow: 0 7px 18px rgba(44, 38, 72, 0.05);
+}
+
+.light-theme .completed-projects {
+  border-color: var(--workspace-border) !important;
+  background: linear-gradient(180deg, #ffffff, #f8f8fb);
+  box-shadow:
+    0 22px 54px rgba(35, 31, 58, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
 }
 
 .light-theme .workspace-page .bg-card-fix,
@@ -867,6 +1056,21 @@ html {
 
   .project-activity > .bg-card-fix {
     max-height: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .completed-projects summary {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .completed-projects-copy small {
+    max-width: 190px;
+  }
+
+  .completed-projects-grid {
+    padding: 2px 16px 16px;
   }
 }
 

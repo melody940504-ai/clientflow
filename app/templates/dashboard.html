@@ -8,10 +8,9 @@
     <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729-purple">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
-        if (storedTheme === 'light') {
-            document.documentElement.classList.add('light-theme');
-        }
+        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', storedTheme);
+        document.documentElement.classList.toggle('light-theme', storedTheme === 'light');
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,15 +59,6 @@
             color: #64748b !important; /* 質感的石墨色 */
         }
 
-        /* 🌓 修正一：修正切換按鈕在淺色模式下的隱形黑字問題 */
-        .light-theme #theme-toggle {
-            background-color: #ffffff !important;
-            border-color: #cbd5e1 !important;
-            color: #334155 !important;
-        }
-        .light-theme #theme-toggle:hover {
-            background-color: #f1f5f9 !important;
-        }
         .light-theme .nav-action-fix {
             background-color: #ffffff !important;
             border-color: #cbd5e1 !important;
@@ -200,7 +190,7 @@
             border-color: #fca5a5 !important;
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260730-feedback">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260730-project-archive">
     <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
@@ -266,15 +256,23 @@
                 </div>
             </div>
             {% endif %}
+            <button
+                class="workspace-theme-toggle"
+                type="button"
+                data-theme-toggle
+                data-theme-icon
+                aria-label="Switch to light mode"
+                title="Switch to light mode"
+            >
+                <span class="theme-icon-sun" aria-hidden="true">&#9728;</span>
+                <span class="theme-icon-moon" aria-hidden="true">&#9790;</span>
+            </button>
             <div class="relative">
                 <button id="user-menu-toggle" type="button" class="nav-action-fix menu-item-fix text-xs px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-bold flex items-center justify-center gap-2 shadow-sm sm:py-1.5" aria-expanded="false">
                     Menu
                 </button>
                 <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
                     <div class="grid gap-2">
-                        <button id="theme-toggle" class="nav-action-fix menu-item-fix text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-medium flex items-center justify-center gap-1.5 shadow-sm">
-                            Toggle Theme
-                        </button>
                     {% if user.role != 'client' %}
                     <a href="/clients" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Clients</a>
                     {% if not is_demo %}
@@ -355,16 +353,20 @@
         {% endif %}
 
         <!-- 📂 專案列表 -->
+        {% set active_projects = projects|rejectattr('status', 'equalto', 'Published')|list %}
+        {% set completed_projects = projects|selectattr('status', 'equalto', 'Published')|list %}
         <div class="workspace-projects bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-            <h3 class="text-base font-bold text-white-fix">
-            {% if user.role == 'client' %}
-                My Projects Awaiting Review
-            {% else %}
-                Active Workspace Projects
-            {% endif %}
-            </h3>
+            <div class="workspace-projects-heading">
+                <div>
+                    <p class="workspace-section-kicker">{% if user.role == 'client' %}Current workspace{% else %}Needs attention{% endif %}</p>
+                    <h3 class="text-base font-bold text-white-fix">
+                        {% if user.role == 'client' %}Current projects{% else %}Active workspace projects{% endif %}
+                    </h3>
+                </div>
+                <span class="workspace-project-count">{{ active_projects|length }}</span>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for p in projects %}
+                {% for p in active_projects %}
                 <a href="/projects/{{ p.id }}" class="workspace-project-card bg-inner-card bg-gray-950/40 hover:bg-gray-900/60 border border-gray-900 hover:border-gray-700 p-4 sm:p-5 rounded-xl transition flex flex-col justify-between space-y-4 group">
                     <div class="space-y-1">
                         <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
@@ -406,6 +408,29 @@
             </div>
         </div>
 
+        {% if completed_projects %}
+        <details class="completed-projects bg-card-fix border border-gray-800" {% if selected_status == 'Published' %}open{% endif %}>
+            <summary>
+                <span class="completed-projects-copy">
+                    <span class="completed-projects-icon" aria-hidden="true">&#10003;</span>
+                    <span>
+                        <strong>Completed projects</strong>
+                        <small>Delivered work and its full review history</small>
+                    </span>
+                </span>
+                <span class="completed-projects-meta">
+                    <span class="workspace-project-count">{{ completed_projects|length }}</span>
+                    <span class="completed-projects-chevron" aria-hidden="true">&#8964;</span>
+                </span>
+            </summary>
+            <div class="completed-projects-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for p in completed_projects %}
+                    {% include "_dashboard_project_card.html" %}
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
     </main>
 
     <script id="lumaire-onboarding-data" type="application/json">
@@ -436,7 +461,7 @@
         },
         {
           "title": "Everything else stays in Menu",
-          "body": "Analytics, studio settings, account controls, theme switching, and logout are grouped here. Click Menu to open it, or choose Done.",
+          "body": "Analytics, studio settings, account controls, and logout are grouped here. Theme switching stays beside Menu for quick access.",
           "target": "#user-menu-toggle",
           "placement": "left",
           "advanceOnTarget": true
@@ -445,22 +470,8 @@
     }
     </script>
     <script src="/static/onboarding.js?v=20260729"></script>
+    <script src="/static/app.js?v=20260730-unified-theme"></script>
     <script>
-        const btn = document.getElementById('theme-toggle');
-        if (btn) {
-            const updateThemeLabel = () => {
-                btn.textContent = document.documentElement.classList.contains('light-theme') ? 'Dark mode' : 'Light mode';
-            };
-            updateThemeLabel();
-            btn.addEventListener('click', function() {
-                document.documentElement.classList.toggle('light-theme');
-                const nextTheme = document.documentElement.classList.contains('light-theme') ? 'light' : 'dark';
-                localStorage.setItem('theme', nextTheme);
-                localStorage.setItem('clientflow-theme', nextTheme);
-                updateThemeLabel();
-            });
-        }
-
         function showToast(message, type = "success") {
             const container = document.getElementById("toast-container");
             const toast = document.createElement("div");
