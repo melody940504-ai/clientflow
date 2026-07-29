@@ -1,173 +1,156 @@
 {% extends "base.html" %}
 {% set title = 'Lumaire - Creative Client Delivery' %}
+{% set body_class = 'landing-page' %}
 {% block content %}
-<section class="landing-hero">
-  <div class="landing-copy">
-    <p class="eyebrow">Client review workspace</p>
+<section class="lumaire-stage">
+  <img class="lumaire-stage-backdrop" src="/static/images/lumaire-stage.png" alt="">
+  <div class="lumaire-stage-shade"></div>
+
+  <div class="lumaire-stage-copy">
+    <p class="stage-kicker">A review workspace for creative teams</p>
     <h1>Lumaire</h1>
-    <p class="landing-lead">
-      A lightweight portal for studios to share video versions, collect client feedback,
-      and keep approvals moving in one clean workspace.
+    <p class="stage-lead">
+      Share every cut, keep feedback in context, and move client work
+      from first review to final approval.
     </p>
-    <div class="landing-metrics" aria-label="Lumaire highlights">
-      <div>
-        <strong>3-step</strong>
-        <span>review flow</span>
-      </div>
-      <div>
-        <strong>1 link</strong>
-        <span>for clients</span>
-      </div>
-      <div>
-        <strong>V1-Vn</strong>
-        <span>version history</span>
-      </div>
-    </div>
-    <div class="landing-actions">
+    <div class="stage-actions">
       {% if demo_enabled %}
-      <form class="landing-demo-form" method="post" action="/demo-login/owner">
+      <form method="post" action="/demo-login/owner">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-        <button class="primary cta-link" type="submit">Explore studio demo</button>
+        <button class="stage-primary" type="submit">Explore studio demo</button>
       </form>
-      <form class="landing-demo-form" method="post" action="/demo-login/client">
+      <form method="post" action="/demo-login/client">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-        <button class="ghost cta-link" type="submit">Explore client demo</button>
+        <button class="stage-secondary" type="submit">Open client view</button>
       </form>
       {% endif %}
-      <a class="landing-login-link" href="/login">Sign in to your workspace</a>
     </div>
   </div>
 
-  <div class="product-preview-panel" aria-label="Lumaire product preview">
-    <div class="preview-toolbar">
-      <span class="preview-dot"></span>
-      <span class="preview-dot"></span>
-      <span class="preview-dot"></span>
-      <strong>Project review</strong>
+  <div class="stage-product-window" aria-hidden="true">
+    <div class="stage-window-bar">
+      <span></span><span></span><span></span>
+      <strong>Launch campaign / V3</strong>
+      <i>Review</i>
     </div>
-    <div class="preview-project">
-      <div>
-        <span class="badge">Awaiting Review</span>
-        <h2>Launch Reels Package</h2>
-        <p class="muted small">Client: Acme Studio</p>
+    <div class="stage-window-body">
+      <aside>
+        <small>Versions</small>
+        <b>V3 <em>Current</em></b>
+        <span>V2</span>
+        <span>V1</span>
+      </aside>
+      <div class="stage-player">
+        <div class="stage-frame-lines"></div>
+        <button type="button" tabindex="-1">&gt;</button>
+        <mark class="stage-pin-one">00:18</mark>
+        <mark class="stage-pin-two">Ready</mark>
       </div>
-      <button class="primary" type="button">Upload V3</button>
-    </div>
-    <div class="preview-video">
-      <div class="play-button">&gt;</div>
-      <div class="floating-note note-comment">
-        <span>Comment pinned</span>
-        <strong>00:18</strong>
-      </div>
-      <div class="floating-note note-approved">
-        <span>Ready for client</span>
-        <strong>V3</strong>
-      </div>
-    </div>
-    <div class="demo-timeline" aria-label="Review progress demo">
-      <span class="is-done">V1</span>
-      <span class="is-done">V2</span>
-      <span class="is-active">V3 Review</span>
-      <span>Approval</span>
-    </div>
-    <div class="preview-status-row" aria-label="Project status summary">
-      <div>
-        <span>Versions</span>
-        <strong>03</strong>
-      </div>
-      <div>
-        <span>Comments</span>
-        <strong>12</strong>
-      </div>
-      <div>
-        <span>Status</span>
-        <strong>Review</strong>
+      <div class="stage-review-panel">
+        <small>Client review</small>
+        <strong>4 open notes</strong>
+        <p>Trim the final beat before the logo appears.</p>
+        <p>Caption timing looks right in this version.</p>
+        <span>Awaiting approval</span>
       </div>
     </div>
-    <div class="preview-activity">
-      <div class="activity-item">
-        <span class="activity-pin"></span>
-        <div>
-          <strong>Client commented</strong>
-          <p>Use the shorter ending for the second cut.</p>
+  </div>
+
+  <a class="stage-scroll-cue" href="#product-showcase">
+    <span>Explore the workflow</span>
+    <i aria-hidden="true">↓</i>
+  </a>
+</section>
+
+<section class="product-showcase" id="product-showcase" data-product-showcase>
+  <header class="showcase-heading">
+    <p class="stage-kicker">One continuous workflow</p>
+    <h2>Everything stays with the work.</h2>
+    <p>Move through the product below. Each view keeps versions, notes, and decisions connected.</p>
+  </header>
+
+  <div class="showcase-viewport">
+    <article class="showcase-scene is-active" data-showcase-scene="0">
+      <div class="showcase-copy">
+        <span>01 / Version review</span>
+        <h3>Every cut has a place.</h3>
+        <p>Upload a new version without losing the conversation that led to it.</p>
+      </div>
+      <div class="showcase-ui showcase-versions" aria-hidden="true">
+        <div class="showcase-ui-bar"><i></i><i></i><i></i><span>Launch reels</span><b>V3</b></div>
+        <div class="showcase-version-layout">
+          <aside><small>Project files</small><strong>Launch_V3.mp4</strong><span>Launch_V2.mp4</span><span>Launch_V1.mp4</span></aside>
+          <div class="showcase-media"><div></div><button type="button" tabindex="-1">&gt;</button><small>01:24 / 02:10</small></div>
+          <aside class="showcase-version-meta"><small>Version details</small><strong>Ready for review</strong><p>Updated captions and a tighter final transition.</p><span>Uploaded moments ago</span></aside>
         </div>
       </div>
-      <div class="activity-item">
-        <span class="activity-pin is-done"></span>
-        <div>
-          <strong>Studio uploaded V2</strong>
-          <p>Ready for review with updated captions.</p>
+    </article>
+
+    <article class="showcase-scene" data-showcase-scene="1">
+      <div class="showcase-copy">
+        <span>02 / Precise feedback</span>
+        <h3>Notes land where they matter.</h3>
+        <p>Clients review the work and leave clear, version-specific direction in one place.</p>
+      </div>
+      <div class="showcase-ui showcase-feedback" aria-hidden="true">
+        <div class="showcase-ui-bar"><i></i><i></i><i></i><span>Client review</span><b>4 comments</b></div>
+        <div class="feedback-layout">
+          <div class="feedback-video">
+            <div class="feedback-image"></div>
+            <mark style="--x:22%;--y:68%">1</mark>
+            <mark style="--x:71%;--y:30%">2</mark>
+            <div class="feedback-timeline"><span></span><i style="left:22%"></i><i style="left:71%"></i></div>
+          </div>
+          <aside>
+            <small>Review notes</small>
+            <article><b>00:18</b><p>Use the shorter ending from the previous cut.</p></article>
+            <article><b>01:02</b><p>This transition is approved. Keep it in the final.</p></article>
+            <div class="feedback-input">Add a precise note… <span>Send</span></div>
+          </aside>
         </div>
       </div>
-    </div>
-  </div>
-</section>
+    </article>
 
-<section class="feature-grid" aria-label="Lumaire features">
-  <article class="feature-card">
-    <span>01</span>
-    <h2>Client portals</h2>
-    <p>Invite clients into focused project spaces without exposing your internal dashboard.</p>
-  </article>
-  <article class="feature-card">
-    <span>02</span>
-    <h2>Version reviews</h2>
-    <p>Keep every upload, comment, approval, and revision note tied to the right version.</p>
-  </article>
-  <article class="feature-card">
-    <span>03</span>
-    <h2>Approval tracking</h2>
-    <p>See what is waiting, approved, revised, or published before work gets buried.</p>
-  </article>
-</section>
-
-<section class="analytics-preview-section" aria-label="Lumaire analytics preview">
-  <div>
-    <p class="eyebrow">Analytics preview</p>
-    <h2>See where each client project stands before work gets buried.</h2>
-    <p class="muted">Track project volume, review activity, version counts, and approval signals from the same studio workspace.</p>
-  </div>
-  <div class="analytics-preview-card">
-    <div class="analytics-preview-row">
-      <div>
-        <strong>Approval rate</strong>
-        <span>Approved or published projects</span>
+    <article class="showcase-scene" data-showcase-scene="2">
+      <div class="showcase-copy">
+        <span>03 / Approval flow</span>
+        <h3>Know what moves next.</h3>
+        <p>See waiting reviews, revisions, approvals, and published work without chasing messages.</p>
       </div>
-      <strong>72%</strong>
-    </div>
-    <div class="mini-chart" aria-hidden="true">
-      <span style="width: 92%"></span>
-      <span></span>
-      <span></span>
-    </div>
-    <div class="analytics-preview-row">
-      <div>
-        <strong>Review activity</strong>
-        <span>Versions, comments, and decisions</span>
+      <div class="showcase-ui showcase-approval" aria-hidden="true">
+        <div class="showcase-ui-bar"><i></i><i></i><i></i><span>Studio overview</span><b>This week</b></div>
+        <div class="approval-layout">
+          <div class="approval-metrics"><article><small>Awaiting review</small><strong>4</strong></article><article><small>In revision</small><strong>2</strong></article><article><small>Approved</small><strong>8</strong></article></div>
+          <div class="approval-projects">
+            <article><i></i><div><strong>Launch reels package</strong><span>Acme Studio / V3</span></div><b>Awaiting review</b></article>
+            <article><i></i><div><strong>Summer campaign</strong><span>Northstar / V2</span></div><b>In revision</b></article>
+            <article><i></i><div><strong>Product film</strong><span>Morrow / V4</span></div><b>Approved</b></article>
+          </div>
+        </div>
       </div>
-      <strong>48</strong>
-    </div>
+    </article>
+  </div>
+
+  <div class="showcase-switcher" role="tablist" aria-label="Product workflow">
+    <button class="is-active" type="button" role="tab" aria-selected="true" data-showcase-tab="0">
+      <strong>Version review.</strong><span>Keep every cut connected</span>
+    </button>
+    <button type="button" role="tab" aria-selected="false" data-showcase-tab="1">
+      <strong>Precise feedback.</strong><span>Review in context</span>
+    </button>
+    <button type="button" role="tab" aria-selected="false" data-showcase-tab="2">
+      <strong>Approval flow.</strong><span>Move work forward</span>
+    </button>
   </div>
 </section>
 
-<section class="workflow-section" aria-label="Lumaire workflow">
-  <div>
-    <p class="eyebrow">Built for repeat client work</p>
-    <h2>From upload to approval without scattered messages.</h2>
-  </div>
-  <div class="workflow-grid">
-    <article>
-      <span>Upload</span>
-      <p>Add a new version with a video link, notes, and supporting files.</p>
-    </article>
-    <article>
-      <span>Review</span>
-      <p>Clients leave comments in the same place they watch the work.</p>
-    </article>
-    <article>
-      <span>Approve</span>
-      <p>Statuses make it clear what is waiting, revised, approved, or published.</p>
-    </article>
+<section class="landing-final-cta">
+  <p class="stage-kicker">Built for repeat client work</p>
+  <h2>Less chasing.<br>More finishing.</h2>
+  <p>Give your studio and every client one calm place to review what comes next.</p>
+  <div class="stage-actions">
+    <a class="stage-primary" href="/register">Create your workspace</a>
+    <a class="stage-secondary" href="/login">Sign in</a>
   </div>
 </section>
 {% endblock %}
