@@ -57,23 +57,22 @@
 
   const parallaxStage = document.querySelector('[data-stage-parallax]');
   if (parallaxStage) {
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let parallaxFrame = null;
     let targetX = 0;
     let targetY = 0;
 
     const renderParallax = () => {
       parallaxFrame = null;
-      parallaxStage.style.setProperty('--stage-bg-x', `${(targetX * 10).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-bg-y', `${(targetY * 7).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-copy-x', `${(targetX * 5).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-copy-y', `${(targetY * 4).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-window-x', `${(targetX * 22).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-window-y', `${(targetY * 13).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-rotate-x', `${(-targetY * 1.2).toFixed(2)}deg`);
-      parallaxStage.style.setProperty('--stage-rotate-y', `${(targetX * 1.8).toFixed(2)}deg`);
-      parallaxStage.style.setProperty('--stage-pin-x', `${(targetX * 9).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-pin-y', `${(targetY * 6).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-bg-x', `${(targetX * 12).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-bg-y', `${(targetY * 8).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-copy-x', `${(targetX * 8).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-copy-y', `${(targetY * 5).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-window-x', `${(targetX * 44).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-window-y', `${(targetY * 22).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-rotate-x', `${(-targetY * 1.8).toFixed(2)}deg`);
+      parallaxStage.style.setProperty('--stage-rotate-y', `${(targetX * 2.8).toFixed(2)}deg`);
+      parallaxStage.style.setProperty('--stage-pin-x', `${(targetX * 16).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-pin-y', `${(targetY * 10).toFixed(2)}px`);
     };
 
     const requestParallax = () => {
@@ -82,7 +81,7 @@
     };
 
     parallaxStage.addEventListener('pointermove', (event) => {
-      if (reduceMotion || event.pointerType === 'touch') return;
+      if (event.pointerType === 'touch') return;
       const rect = parallaxStage.getBoundingClientRect();
       targetX = Math.min(1, Math.max(-1, ((event.clientX - rect.left) / rect.width - 0.5) * 2));
       targetY = Math.min(1, Math.max(-1, ((event.clientY - rect.top) / rect.height - 0.5) * 2));
@@ -185,20 +184,17 @@
     const stickyStage = workflowMotion.querySelector('.workflow-sticky');
     const ribbons = Array.from(workflowMotion.querySelectorAll('.workflow-ribbons i'));
     const steps = Array.from(workflowMotion.querySelectorAll('.workflow-steps li'));
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let workflowFrame = null;
 
     const updateWorkflow = () => {
       workflowFrame = null;
       const rect = workflowMotion.getBoundingClientRect();
       const scrollRange = Math.max(workflowMotion.offsetHeight - window.innerHeight, 1);
-      const progress = reduceMotion
-        ? 1
-        : Math.min(1, Math.max(0, -rect.top / scrollRange));
+      const progress = Math.min(1, Math.max(0, -rect.top / scrollRange));
 
       workflowMotion.style.setProperty('--workflow-progress', progress.toFixed(3));
-      workflowMotion.style.setProperty('--workflow-scale', (0.92 + progress * 0.08).toFixed(3));
-      workflowMotion.style.setProperty('--workflow-radius', `${Math.round(34 * (1 - progress))}px`);
+      workflowMotion.style.setProperty('--workflow-scale', (0.84 + progress * 0.16).toFixed(3));
+      workflowMotion.style.setProperty('--workflow-radius', `${Math.round(48 * (1 - progress))}px`);
       workflowMotion.classList.toggle('is-expanded', progress > 0.72);
 
       const ribbonOffsets = [-150, -54, 62, 148];
@@ -217,14 +213,14 @@
     };
 
     workflowMotion.addEventListener('pointermove', (event) => {
-      if (!stickyStage || reduceMotion) return;
+      if (!stickyStage || event.pointerType === 'touch') return;
       const rect = stickyStage.getBoundingClientRect();
       const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
       const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
       stickyStage.style.setProperty('--pointer-x', `${(x * 100).toFixed(1)}%`);
       stickyStage.style.setProperty('--pointer-y', `${(y * 100).toFixed(1)}%`);
-      stickyStage.style.setProperty('--pointer-shift-x', `${((x - 0.5) * 18).toFixed(1)}px`);
-      stickyStage.style.setProperty('--pointer-shift-y', `${((y - 0.5) * 12).toFixed(1)}px`);
+      stickyStage.style.setProperty('--pointer-shift-x', `${((x - 0.5) * 34).toFixed(1)}px`);
+      stickyStage.style.setProperty('--pointer-shift-y', `${((y - 0.5) * 20).toFixed(1)}px`);
     });
 
     workflowMotion.addEventListener('pointerleave', () => {
