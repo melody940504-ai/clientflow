@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260730-studio-polish">
+  <link rel="stylesheet" href="/static/styles.css?v=20260730-landing-motion">
   <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="{{ body_class or '' }}" {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
@@ -29,7 +29,8 @@
       <a href="#feedback">Feedback</a>
       <a href="#approvals">Approvals</a>
       <a href="#capabilities">Features</a>
-      <a href="#demo">Demo</a>
+      <a href="#toolkit">Delivery</a>
+      <a href="#faq">FAQ</a>
     </nav>
     <div class="landing-nav-actions">
       <a class="landing-login-link" href="/login">Log in</a>
@@ -105,7 +106,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js?v=20260730-unified-theme"></script>
+  <script src="/static/app.js?v=20260730-landing-motion"></script>
   <script src="/static/onboarding.js?v=20260729"></script>
 </body>
 </html>

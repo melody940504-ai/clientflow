@@ -100,7 +100,7 @@
         <h3>Every cut has a place.</h3>
         <p>Upload a new version without losing the conversation that led to it.</p>
       </div>
-      <div class="showcase-ui showcase-versions" aria-hidden="true">
+      <div class="showcase-ui showcase-versions" aria-hidden="true" data-scene-demo>
         <div class="showcase-ui-bar"><i></i><i></i><i></i><span>Launch reels</span><b>V3</b></div>
         <div class="showcase-version-layout">
           <aside><small>Project files</small><strong>Launch_V3.mp4</strong><span>Launch_V2.mp4</span><span>Launch_V1.mp4</span></aside>
@@ -116,7 +116,7 @@
         <h3>Notes land where they matter.</h3>
         <p>Clients review the work and leave clear, version-specific direction in one place.</p>
       </div>
-      <div class="showcase-ui showcase-feedback" aria-hidden="true">
+      <div class="showcase-ui showcase-feedback" aria-hidden="true" data-scene-demo>
         <div class="showcase-ui-bar"><i></i><i></i><i></i><span>Client review</span><b>4 comments</b></div>
         <div class="feedback-layout">
           <div class="feedback-video">
@@ -141,7 +141,7 @@
         <h3>Know what moves next.</h3>
         <p>See waiting reviews, revisions, approvals, and published work without chasing messages.</p>
       </div>
-      <div class="showcase-ui showcase-approval" aria-hidden="true">
+      <div class="showcase-ui showcase-approval" aria-hidden="true" data-scene-demo>
         <div class="showcase-ui-bar"><i></i><i></i><i></i><span>Studio overview</span><b>This week</b></div>
         <div class="approval-layout">
           <div class="approval-metrics"><article><small>Awaiting review</small><strong>4</strong></article><article><small>In revision</small><strong>2</strong></article><article><small>Approved</small><strong>8</strong></article></div>
@@ -282,7 +282,7 @@
   </div>
 </section>
 
-<section class="landing-toolkit">
+<section class="landing-toolkit" id="toolkit">
   <header>
     <p class="stage-kicker">Built for the complete handoff</p>
     <h2>More clarity than a folder and an email thread.</h2>
@@ -323,28 +323,40 @@
   </div>
 </section>
 
-<section class="landing-faq">
+<section class="landing-faq" id="faq" data-faq>
   <header>
     <p class="stage-kicker">Questions, answered</p>
     <h2>Before you open a workspace.</h2>
   </header>
-  <div class="faq-list">
-    <details>
+  <div class="faq-experience">
+    <aside class="faq-console" aria-live="polite">
+      <span class="faq-console-index" data-faq-index>01 / Access</span>
+      <div class="faq-console-orbit" aria-hidden="true">
+        <i></i><i></i><i></i>
+        <b data-faq-symbol>&nearr;</b>
+      </div>
+      <strong data-faq-title>Separate spaces, one review.</strong>
+      <p data-faq-copy>Clients see the work and decisions meant for them while studio controls remain private.</p>
+      <div class="faq-console-progress" aria-hidden="true"><i data-faq-progress></i></div>
+    </aside>
+    <div class="faq-list">
+    <details open data-faq-label="01 / Access" data-faq-symbol="&nearr;" data-faq-title="Separate spaces, one review." data-faq-copy="Clients see the work and decisions meant for them while studio controls remain private.">
       <summary>Do clients need access to the studio dashboard?</summary>
       <p>No. Clients use a separate portal or public review link, so internal studio controls stay private.</p>
     </details>
-    <details>
+    <details data-faq-label="02 / Versions" data-faq-symbol="V3" data-faq-title="Every cut keeps its context." data-faq-copy="Versions remain connected to the notes and decisions that shaped them.">
       <summary>Can a project keep more than one version?</summary>
       <p>Yes. Each upload remains connected to its own feedback and status, preserving the path to the approved cut.</p>
     </details>
-    <details>
+    <details data-faq-label="03 / Approval" data-faq-symbol="&#10003;" data-faq-title="The final decision stays visible." data-faq-copy="An approved version becomes a durable project record ready for delivery.">
       <summary>What happens after a version is approved?</summary>
       <p>The approved version and its timeline become read-only, keeping the recorded decision intact for final delivery.</p>
     </details>
-    <details>
+    <details data-faq-label="04 / Demo" data-faq-symbol="&#9678;" data-faq-title="Explore without changing data." data-faq-copy="The shared demos let both sides of the workflow be inspected without affecting the seeded workspace.">
       <summary>Can I try Lumaire without changing demo data?</summary>
       <p>Yes. The studio and client demos are shared, read-only workspaces with a seeded review history.</p>
     </details>
+    </div>
   </div>
 </section>
 
@@ -356,5 +368,5 @@
     <a class="stage-primary" href="/login">Sign in to Lumaire</a>
   </div>
 </section>
-<script type="module" src="/static/landing-scene.js?v=20260730-workflow-webgl"></script>
+<script type="module" src="/static/landing-scene.js?v=20260730-fabric-motion"></script>
 {% endblock %}

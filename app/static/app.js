@@ -63,23 +63,30 @@
     let parallaxFrame = null;
     let targetX = 0;
     let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let stageVisible = true;
+    const reduceStageMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const renderParallax = () => {
+    const renderParallax = (timestamp = 0) => {
       parallaxFrame = null;
-      parallaxStage.style.setProperty('--stage-bg-x', `${(targetX * 8).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-bg-y', `${(targetY * 6).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-copy-x', `${(targetX * 5).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-copy-y', `${(targetY * 4).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-window-x', `${(targetX * 30).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-window-y', `${(targetY * 16).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-rotate-x', `${(-targetY * 1.2).toFixed(2)}deg`);
-      parallaxStage.style.setProperty('--stage-rotate-y', `${(targetX * 2).toFixed(2)}deg`);
-      parallaxStage.style.setProperty('--stage-pin-x', `${(targetX * 10).toFixed(2)}px`);
-      parallaxStage.style.setProperty('--stage-pin-y', `${(targetY * 7).toFixed(2)}px`);
-    };
-
-    const requestParallax = () => {
-      if (parallaxFrame) return;
+      if (!stageVisible) return;
+      currentX += (targetX - currentX) * 0.055;
+      currentY += (targetY - currentY) * 0.055;
+      const driftX = reduceStageMotion ? 0 : Math.sin(timestamp * 0.000085) * 9;
+      const driftY = reduceStageMotion ? 0 : Math.cos(timestamp * 0.000068) * 6;
+      const driftScale = reduceStageMotion ? 1.065 : 1.07 + Math.sin(timestamp * 0.00012) * 0.012;
+      parallaxStage.style.setProperty('--stage-bg-x', `${(currentX * 8 + driftX).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-bg-y', `${(currentY * 6 + driftY).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-bg-scale', driftScale.toFixed(4));
+      parallaxStage.style.setProperty('--stage-copy-x', `${(currentX * 5).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-copy-y', `${(currentY * 4).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-window-x', `${(currentX * 24).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-window-y', `${(currentY * 13).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-rotate-x', `${(-currentY * 0.85).toFixed(2)}deg`);
+      parallaxStage.style.setProperty('--stage-rotate-y', `${(currentX * 1.45).toFixed(2)}deg`);
+      parallaxStage.style.setProperty('--stage-pin-x', `${(currentX * 8).toFixed(2)}px`);
+      parallaxStage.style.setProperty('--stage-pin-y', `${(currentY * 6).toFixed(2)}px`);
       parallaxFrame = window.requestAnimationFrame(renderParallax);
     };
 
@@ -88,16 +95,25 @@
       const rect = parallaxStage.getBoundingClientRect();
       targetX = Math.min(1, Math.max(-1, ((event.clientX - rect.left) / rect.width - 0.5) * 2));
       targetY = Math.min(1, Math.max(-1, ((event.clientY - rect.top) / rect.height - 0.5) * 2));
-      requestParallax();
+      parallaxStage.style.setProperty('--stage-light-x', `${(((event.clientX - rect.left) / rect.width) * 100).toFixed(1)}%`);
+      parallaxStage.style.setProperty('--stage-light-y', `${(((event.clientY - rect.top) / rect.height) * 100).toFixed(1)}%`);
     });
 
     parallaxStage.addEventListener('pointerleave', () => {
       targetX = 0;
       targetY = 0;
-      requestParallax();
+      parallaxStage.style.setProperty('--stage-light-x', '50%');
+      parallaxStage.style.setProperty('--stage-light-y', '36%');
     });
 
-    renderParallax();
+    new IntersectionObserver(([entry]) => {
+      stageVisible = entry.isIntersecting;
+      if (stageVisible && !parallaxFrame) {
+        parallaxFrame = window.requestAnimationFrame(renderParallax);
+      }
+    }, { rootMargin: '160px' }).observe(parallaxStage);
+
+    parallaxFrame = window.requestAnimationFrame(renderParallax);
   }
 
   const showcase = document.querySelector('[data-product-showcase]');
@@ -108,6 +124,8 @@
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let activeIndex = 0;
     let rotationTimer = null;
+    let demoTimer = null;
+    let demoStep = 0;
 
     const restartProgress = () => {
       if (!switcher) return;
@@ -133,6 +151,8 @@
       });
 
       switcher?.style.setProperty('--showcase-index', String(activeIndex));
+      demoStep = 0;
+      showcase.dataset.demoStep = '0';
       restartProgress();
 
       if (userInitiated && window.innerWidth <= 640) {
@@ -142,7 +162,9 @@
 
     const stopRotation = () => {
       if (rotationTimer) window.clearInterval(rotationTimer);
+      if (demoTimer) window.clearInterval(demoTimer);
       rotationTimer = null;
+      demoTimer = null;
       showcase.classList.add('is-paused');
     };
 
@@ -151,6 +173,10 @@
       showcase.classList.remove('is-paused');
       if (document.visibilityState === 'visible') {
         rotationTimer = window.setInterval(() => showScene(activeIndex + 1), 10000);
+        demoTimer = window.setInterval(() => {
+          demoStep = (demoStep + 1) % 4;
+          showcase.dataset.demoStep = String(demoStep);
+        }, 2200);
       }
     };
 
@@ -270,4 +296,45 @@
       });
     });
   });
+
+  const faq = document.querySelector('[data-faq]');
+  if (faq) {
+    const items = Array.from(faq.querySelectorAll('details'));
+    const indexLabel = faq.querySelector('[data-faq-index]');
+    const symbol = faq.querySelector('[data-faq-symbol]');
+    const title = faq.querySelector('[data-faq-title]');
+    const copy = faq.querySelector('[data-faq-copy]');
+    const progress = faq.querySelector('[data-faq-progress]');
+
+    const selectFaq = (item, selectedIndex) => {
+      items.forEach((candidate) => {
+        if (candidate !== item) candidate.open = false;
+        candidate.classList.toggle('is-active', candidate === item);
+      });
+      if (indexLabel) indexLabel.textContent = item.dataset.faqLabel || '';
+      if (symbol) symbol.textContent = item.dataset.faqSymbol || '';
+      if (title) title.textContent = item.dataset.faqTitle || '';
+      if (copy) copy.textContent = item.dataset.faqCopy || '';
+      if (progress) progress.style.width = `${((selectedIndex + 1) / items.length) * 100}%`;
+    };
+
+    items.forEach((item, index) => {
+      item.addEventListener('toggle', () => {
+        if (item.open) selectFaq(item, index);
+      });
+      item.addEventListener('pointerenter', () => {
+        if (!item.open) faq.style.setProperty('--faq-preview-index', String(index));
+      });
+    });
+
+    faq.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') return;
+      const rect = faq.getBoundingClientRect();
+      faq.style.setProperty('--faq-light-x', `${event.clientX - rect.left}px`);
+      faq.style.setProperty('--faq-light-y', `${event.clientY - rect.top}px`);
+    });
+
+    const initialItem = items.find((item) => item.open) || items[0];
+    if (initialItem) selectFaq(initialItem, Math.max(0, items.indexOf(initialItem)));
+  }
 })();

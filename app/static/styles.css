@@ -3782,7 +3782,7 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   z-index: -1;
   width: 100%;
   height: 100%;
-  filter: brightness(0.58) contrast(1.24) saturate(0.92);
+  filter: brightness(0.94) contrast(1.08) saturate(0.42);
   pointer-events: none;
 }
 
@@ -5227,6 +5227,506 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
     transition-duration: 180ms !important;
   }
 }
+/* Landing motion and product demonstrations */
+.lumaire-stage {
+  --stage-light-x: 50%;
+  --stage-light-y: 36%;
+  --stage-bg-scale: 1.065;
+}
+
+.lumaire-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle 26rem at var(--stage-light-x) var(--stage-light-y), rgba(202, 196, 229, 0.13), transparent 68%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.lumaire-stage-backdrop {
+  transform: translate3d(var(--stage-bg-x), var(--stage-bg-y), 0) scale(var(--stage-bg-scale));
+  transition: none;
+}
+
+.lumaire-stage-shade::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  background:
+    linear-gradient(112deg, transparent 28%, rgba(203, 197, 225, 0.08) 45%, transparent 61%);
+  filter: blur(24px);
+  animation: stage-light-drift 16s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.stage-product-window .stage-window-bar > span:first-child,
+.stage-product-window .stage-player button,
+.stage-product-window .stage-pin-one,
+.stage-product-window .stage-pin-two {
+  animation: stage-demo-pulse 6.6s ease-in-out infinite;
+}
+
+.stage-product-window .stage-window-body > aside b {
+  animation: stage-version-cycle 6.6s ease-in-out infinite;
+}
+
+.stage-product-window .stage-review-panel p {
+  transition: border-color 300ms ease, background-color 300ms ease, transform 300ms ease;
+  animation: stage-note-cycle 6.6s ease-in-out infinite;
+}
+
+.stage-product-window .stage-review-panel p:nth-of-type(2) {
+  animation-delay: -3.3s;
+}
+
+.showcase-ui {
+  position: relative;
+}
+
+.showcase-ui::after {
+  content: "LIVE DEMO";
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  z-index: 8;
+  padding: 6px 8px;
+  border: 1px solid rgba(177, 164, 255, 0.22);
+  border-radius: 6px;
+  background: rgba(9, 9, 12, 0.72);
+  color: #b7adf8;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(10px);
+}
+
+.showcase-scene.is-active .showcase-ui {
+  animation: showcase-camera 10s ease-in-out infinite;
+}
+
+.product-showcase[data-demo-step="1"] .showcase-scene.is-active :is(
+  .showcase-version-layout > aside strong,
+  .feedback-layout > aside article:first-of-type,
+  .approval-projects article:first-child
+) {
+  border-color: #756ba4;
+  background-color: #211e2b;
+  box-shadow: 0 14px 38px rgba(111, 92, 204, 0.12);
+  transform: translateY(-3px);
+}
+
+.product-showcase[data-demo-step="2"] .showcase-scene.is-active :is(
+  .showcase-version-meta,
+  .feedback-layout > aside article:nth-of-type(2),
+  .approval-projects article:nth-child(2)
+) {
+  border-color: #756ba4;
+  background-color: #211e2b;
+  box-shadow: 0 14px 38px rgba(111, 92, 204, 0.12);
+  transform: translateY(-3px);
+}
+
+.product-showcase[data-demo-step="3"] .showcase-scene.is-active :is(
+  .showcase-media button,
+  .feedback-video > mark:nth-of-type(2),
+  .approval-projects article:nth-child(3)
+) {
+  filter: brightness(1.16);
+  box-shadow: 0 0 0 7px rgba(169, 156, 247, 0.1), 0 16px 42px rgba(111, 92, 204, 0.2);
+  transform: translateY(-3px) scale(1.025);
+}
+
+.showcase-version-layout > aside strong,
+.showcase-version-meta,
+.feedback-layout > aside article,
+.approval-projects article,
+.showcase-media button,
+.feedback-video > mark {
+  transition:
+    border-color 360ms ease,
+    background-color 360ms ease,
+    box-shadow 360ms ease,
+    filter 360ms ease,
+    transform 360ms ease;
+}
+
+.feedback-timeline span {
+  transform-origin: left;
+  animation: demo-playhead 8.8s linear infinite;
+}
+
+#toolkit,
+#faq {
+  scroll-margin-top: 118px;
+}
+
+.landing-faq {
+  --faq-light-x: 50%;
+  --faq-light-y: 50%;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-faq::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle 25rem at var(--faq-light-x) var(--faq-light-y), rgba(169, 156, 247, 0.075), transparent 74%);
+  pointer-events: none;
+}
+
+.faq-experience {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(520px, 1.28fr);
+  align-items: start;
+  gap: clamp(48px, 8vw, 130px);
+  width: min(1380px, 100%);
+  margin: 0 auto;
+}
+
+.faq-console {
+  position: sticky;
+  top: 150px;
+  display: grid;
+  align-content: start;
+  min-height: 440px;
+  padding: 30px;
+  overflow: hidden;
+  border: 1px solid #2d2a33;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent 46%),
+    #0b0b0d;
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.36),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.faq-console-index {
+  color: #a99cf7;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.faq-console-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 150px;
+  margin: 42px auto 34px;
+}
+
+.faq-console-orbit::before,
+.faq-console-orbit::after,
+.faq-console-orbit i {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(169, 156, 247, 0.2);
+  border-radius: 50%;
+}
+
+.faq-console-orbit::before {
+  inset: 17px;
+  animation: faq-orbit 11s linear infinite;
+}
+
+.faq-console-orbit::after {
+  inset: 42px;
+  background: radial-gradient(circle at 34% 28%, #c7beff, #8978ed 58%, #423764);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 20px 65px rgba(132, 111, 231, 0.34);
+}
+
+.faq-console-orbit i:nth-child(1) {
+  inset: 8px 70px;
+  border-radius: 10px;
+  transform: rotate(45deg);
+  animation: faq-orbit 8s linear infinite reverse;
+}
+
+.faq-console-orbit i:nth-child(2) {
+  inset: 70px 8px;
+  border-radius: 10px;
+  transform: rotate(-24deg);
+}
+
+.faq-console-orbit i:nth-child(3) {
+  inset: 31px;
+  border-style: dashed;
+  animation: faq-orbit 16s linear infinite;
+}
+
+.faq-console-orbit b {
+  z-index: 2;
+  color: #17151e;
+  font-size: 1.25rem;
+}
+
+.faq-console > strong {
+  color: #efecf4;
+  font-size: 1.35rem;
+}
+
+.faq-console > p {
+  margin: 12px 0 0;
+  color: #8e8996;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.faq-console-progress {
+  align-self: end;
+  height: 3px;
+  margin-top: 34px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #27242d;
+}
+
+.faq-console-progress i {
+  display: block;
+  width: 25%;
+  height: 100%;
+  background: linear-gradient(90deg, #8070df, #c0b6ff);
+  box-shadow: 0 0 18px rgba(169, 156, 247, 0.5);
+  transition: width 380ms cubic-bezier(.2,.72,.2,1);
+}
+
+.faq-list {
+  width: 100%;
+}
+
+.faq-list details {
+  position: relative;
+  transition: border-color 220ms ease, background-color 220ms ease, padding 260ms ease;
+}
+
+.faq-list details::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
+  left: -18px;
+  width: 2px;
+  border-radius: 2px;
+  background: #aa9df8;
+  opacity: 0;
+  transform: scaleY(0.3);
+  transition: opacity 220ms ease, transform 260ms ease;
+}
+
+.faq-list details:hover,
+.faq-list details.is-active {
+  padding-left: 18px;
+  background: linear-gradient(90deg, rgba(169, 156, 247, 0.055), transparent 72%);
+}
+
+.faq-list details.is-active::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.faq-list details[open] summary::before,
+.faq-list details[open] summary::after {
+  background: #c2b8ff;
+}
+
+.lumaire-stage-copy h1 {
+  font-size: 8.5rem;
+}
+
+.showcase-heading h2,
+.landing-final-cta h2 {
+  font-size: 5.4rem;
+}
+
+.showcase-copy h3 {
+  font-size: 3.7rem;
+}
+
+.interactive-review-copy h2,
+.landing-capabilities h2 {
+  font-size: 5.1rem;
+}
+
+.workflow-motion-copy h2,
+.approval-proof-copy h2,
+.landing-toolkit h2,
+.landing-faq h2 {
+  font-size: 6rem;
+}
+
+.landing-final-cta h2 {
+  font-size: 6.4rem;
+}
+
+html:not([data-theme="dark"]) .landing-page .lumaire-stage::before {
+  background:
+    radial-gradient(circle 25rem at var(--stage-light-x) var(--stage-light-y), rgba(255, 255, 255, 0.66), transparent 70%);
+  mix-blend-mode: soft-light;
+}
+
+html:not([data-theme="dark"]) .landing-page .showcase-ui::after {
+  border-color: #d3cce9;
+  background: rgba(255, 255, 255, 0.76);
+  color: #6656be;
+}
+
+html:not([data-theme="dark"]) .landing-page .product-showcase[data-demo-step] .showcase-scene.is-active :is(
+  .showcase-version-layout > aside strong,
+  .showcase-version-meta,
+  .feedback-layout > aside article,
+  .approval-projects article
+) {
+  box-shadow: 0 14px 38px rgba(70, 51, 135, 0.08);
+}
+
+html:not([data-theme="dark"]) .landing-page .faq-console {
+  border-color: #d6d0df;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(242, 239, 248, 0.9)),
+    #ffffff;
+  box-shadow:
+    0 30px 70px rgba(52, 40, 90, 0.11),
+    0 1px 0 #ffffff inset;
+}
+
+html:not([data-theme="dark"]) .landing-page .faq-console > strong {
+  color: #26232b;
+}
+
+html:not([data-theme="dark"]) .landing-page .faq-console > p {
+  color: #6d6874;
+}
+
+html:not([data-theme="dark"]) .landing-page .faq-console-progress {
+  background: #ded9e5;
+}
+
+@keyframes stage-demo-pulse {
+  0%, 18%, 100% { filter: brightness(1); transform: scale(1); }
+  28%, 42% { filter: brightness(1.18); transform: scale(1.035); }
+}
+
+@keyframes stage-light-drift {
+  from { transform: translate3d(-5%, -2%, 0) rotate(-1.5deg); opacity: 0.38; }
+  to { transform: translate3d(6%, 3%, 0) rotate(1.5deg); opacity: 0.9; }
+}
+
+@keyframes stage-version-cycle {
+  0%, 20%, 100% { box-shadow: inset 2px 0 #a99cf7; }
+  36%, 52% { box-shadow: inset 2px 0 #a99cf7, 0 0 24px rgba(169, 156, 247, 0.16); }
+}
+
+@keyframes stage-note-cycle {
+  0%, 24%, 100% { transform: translateY(0); }
+  34%, 50% { border-color: #554c6e; background: #17141f; transform: translateY(-3px); }
+}
+
+@keyframes showcase-camera {
+  0%, 100% { transform: perspective(1800px) rotateX(0) rotateY(0); }
+  50% { transform: perspective(1800px) rotateX(0.35deg) rotateY(-0.55deg); }
+}
+
+@keyframes demo-playhead {
+  0% { transform: scaleX(0.08); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes faq-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1180px) {
+  .landing-product-nav {
+    gap: 16px;
+  }
+
+  .landing-product-nav a {
+    font-size: 0.72rem;
+  }
+
+  .lumaire-stage-copy h1 {
+    font-size: 7rem;
+  }
+
+  .workflow-motion-copy h2,
+  .approval-proof-copy h2,
+  .landing-toolkit h2,
+  .landing-faq h2 {
+    font-size: 5rem;
+  }
+}
+
+@media (max-width: 980px) {
+  .faq-experience {
+    grid-template-columns: 1fr;
+  }
+
+  .faq-console {
+    position: relative;
+    top: auto;
+    min-height: 360px;
+  }
+
+  .faq-console-orbit {
+    margin-top: 24px;
+    margin-bottom: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  #toolkit,
+  #faq {
+    scroll-margin-top: 164px;
+  }
+
+  .lumaire-stage-copy h1 {
+    font-size: 4.8rem;
+  }
+
+  .showcase-heading h2,
+  .interactive-review-copy h2,
+  .landing-capabilities h2,
+  .workflow-motion-copy h2,
+  .approval-proof-copy h2,
+  .landing-toolkit h2,
+  .landing-faq h2 {
+    font-size: 3rem;
+  }
+
+  .showcase-copy h3 {
+    font-size: 2.55rem;
+  }
+
+  .landing-final-cta h2 {
+    font-size: 3.8rem;
+  }
+
+  .faq-console {
+    min-height: 330px;
+    padding: 24px;
+  }
+
+  .faq-console-orbit {
+    width: 126px;
+    height: 126px;
+  }
+
+  .faq-list details:hover,
+  .faq-list details.is-active {
+    padding-left: 10px;
+  }
+}
+
 /* Raycast-inspired studio surfaces */
 :is(.management-shell, .settings-shell, .analytics-shell)
   :is(.management-panel, .panel, .analytics-panel) {
