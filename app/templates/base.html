@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260730-immersive">
+  <link rel="stylesheet" href="/static/styles.css?v=20260730-product-nav">
   <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="{{ body_class or '' }}" {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
@@ -22,6 +22,29 @@
       <span class="logo">{% include "_lumaire_mark.html" %}</span>
       <span>Lumaire</span>
     </a>
+    {% if body_class == 'landing-page' and not user %}
+    <nav class="landing-product-nav" aria-label="Product navigation">
+      <a href="#workflow" data-showcase-link="0">Workflow</a>
+      <a href="#workflow" data-showcase-link="1">Feedback</a>
+      <a href="#workflow" data-showcase-link="2">Approvals</a>
+      <a href="#capabilities">Features</a>
+      <a href="#demo">Demo</a>
+    </nav>
+    <div class="landing-nav-actions">
+      <a class="landing-login-link" href="/login">Log in</a>
+      <button
+        class="landing-theme-toggle"
+        type="button"
+        data-theme-toggle
+        data-theme-icon
+        aria-label="Switch to dark mode"
+        title="Switch to dark mode"
+      >
+        <span class="theme-icon-sun" aria-hidden="true">&#9728;</span>
+        <span class="theme-icon-moon" aria-hidden="true">&#9790;</span>
+      </button>
+    </div>
+    {% else %}
     <div class="top-menu">
       <button class="theme-toggle menu-trigger" type="button" id="site-menu-toggle" aria-expanded="false">Menu</button>
       <div class="site-menu hidden" id="site-menu-panel">
@@ -57,10 +80,10 @@
         </form>
         {% endif %}
         <a href="/login" class="ghost menu-row">Login</a>
-        <a href="/register" class="top-primary menu-row">Create account</a>
       {% endif %}
       </div>
     </div>
+    {% endif %}
   </header>
   <main class="container">
     {% if is_demo %}
@@ -71,7 +94,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js?v=20260730-showcase2"></script>
+  <script src="/static/app.js?v=20260730-product-nav"></script>
   <script src="/static/onboarding.js?v=20260729"></script>
 </body>
 </html>

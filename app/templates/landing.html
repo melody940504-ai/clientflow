@@ -13,7 +13,7 @@
       Share every cut, keep feedback in context, and move client work
       from first review to final approval.
     </p>
-    <div class="stage-actions">
+    <div class="stage-actions" id="demo">
       {% if demo_enabled %}
       <form method="post" action="/demo-login/owner">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
@@ -56,13 +56,13 @@
     </div>
   </div>
 
-  <a class="stage-scroll-cue" href="#product-showcase">
+  <a class="stage-scroll-cue" href="#workflow">
     <span>Explore the workflow</span>
     <i aria-hidden="true">↓</i>
   </a>
 </section>
 
-<section class="product-showcase" id="product-showcase" data-product-showcase>
+<section class="product-showcase" id="workflow" data-product-showcase>
   <header class="showcase-heading">
     <p class="stage-kicker">One continuous workflow</p>
     <h2>Everything stays with the work.</h2>
@@ -86,7 +86,7 @@
       </div>
     </article>
 
-    <article class="showcase-scene" data-showcase-scene="1">
+    <article class="showcase-scene" id="feedback" data-showcase-scene="1">
       <div class="showcase-copy">
         <span>02 / Precise feedback</span>
         <h3>Notes land where they matter.</h3>
@@ -111,7 +111,7 @@
       </div>
     </article>
 
-    <article class="showcase-scene" data-showcase-scene="2">
+    <article class="showcase-scene" id="approvals" data-showcase-scene="2">
       <div class="showcase-copy">
         <span>03 / Approval flow</span>
         <h3>Know what moves next.</h3>
@@ -131,6 +131,12 @@
     </article>
   </div>
 
+  <div class="showcase-progress" aria-hidden="true">
+    <span class="is-active" data-showcase-progress><i></i></span>
+    <span data-showcase-progress><i></i></span>
+    <span data-showcase-progress><i></i></span>
+  </div>
+
   <div class="showcase-switcher" role="tablist" aria-label="Product workflow">
     <button class="is-active" type="button" role="tab" aria-selected="true" data-showcase-tab="0">
       <strong>Version review.</strong><span>Keep every cut connected</span>
@@ -144,13 +150,87 @@
   </div>
 </section>
 
+<section class="interactive-review" data-review-checklist>
+  <div class="interactive-review-copy">
+    <p class="stage-kicker">A workspace clients understand</p>
+    <h2>Turn feedback into a clear next cut.</h2>
+    <p>Try the review checklist. Every resolved note stays attached to the project instead of disappearing across email threads.</p>
+    <div class="review-status" data-review-status aria-live="polite">0 of 3 resolved</div>
+  </div>
+
+  <div class="review-command-window">
+    <div class="command-window-bar">
+      <span></span><span></span><span></span>
+      <div aria-hidden="true"><b>&#8984;</b><b>&#9638;</b><b>+</b></div>
+    </div>
+    <p class="command-window-label">Launch campaign / V3</p>
+    <h3>Client review</h3>
+    <p class="command-window-date">Ready for final approval</p>
+    <div class="review-task-list">
+      <button type="button" data-review-task aria-pressed="false">
+        <i aria-hidden="true"></i>
+        <span>Trim the final beat before the logo</span>
+        <small>00:18</small>
+      </button>
+      <button type="button" data-review-task aria-pressed="false">
+        <i aria-hidden="true"></i>
+        <span>Confirm caption timing in the mobile cut</span>
+        <small>01:02</small>
+      </button>
+      <button type="button" data-review-task aria-pressed="false">
+        <i aria-hidden="true"></i>
+        <span>Approve the updated end card</span>
+        <small>V3</small>
+      </button>
+    </div>
+  </div>
+</section>
+
+<section class="landing-capabilities" id="capabilities">
+  <header>
+    <p class="stage-kicker">Built around the handoff</p>
+    <h2>Everything needed between upload and approval.</h2>
+  </header>
+  <div class="capability-grid">
+    <article>
+      <span>01</span>
+      <h3>Version history</h3>
+      <p>Keep every cut and its notes connected without overwriting the decisions that came before.</p>
+    </article>
+    <article>
+      <span>02</span>
+      <h3>Timestamp feedback</h3>
+      <p>Capture comments at the exact moment they apply, directly beside the review.</p>
+    </article>
+    <article>
+      <span>03</span>
+      <h3>Client portal</h3>
+      <p>Give each client a focused workspace without exposing the studio's internal dashboard.</p>
+    </article>
+    <article>
+      <span>04</span>
+      <h3>Approval record</h3>
+      <p>Lock approved versions and preserve a clear activity trail for the final delivery.</p>
+    </article>
+    <article>
+      <span>05</span>
+      <h3>Notifications</h3>
+      <p>Surface new uploads, revision requests, and approvals where the studio can act on them.</p>
+    </article>
+    <article>
+      <span>06</span>
+      <h3>Studio analytics</h3>
+      <p>See project flow, client activity, review volume, and the work currently waiting.</p>
+    </article>
+  </div>
+</section>
+
 <section class="landing-final-cta">
   <p class="stage-kicker">Built for repeat client work</p>
   <h2>Less chasing.<br>More finishing.</h2>
   <p>Give your studio and every client one calm place to review what comes next.</p>
   <div class="stage-actions">
-    <a class="stage-primary" href="/register">Create your workspace</a>
-    <a class="stage-secondary" href="/login">Sign in</a>
+    <a class="stage-primary" href="/login">Sign in to Lumaire</a>
   </div>
 </section>
 {% endblock %}

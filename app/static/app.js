@@ -16,7 +16,13 @@
   const updateThemeLabels = () => {
     const isDark = root.getAttribute('data-theme') === 'dark';
     themeButtons.forEach((button) => {
-      button.textContent = isDark ? 'Light mode' : 'Dark mode';
+      if (button.hasAttribute('data-theme-icon')) {
+        const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+        button.setAttribute('aria-label', label);
+        button.setAttribute('title', label);
+      } else {
+        button.textContent = isDark ? 'Light mode' : 'Dark mode';
+      }
     });
   };
 
@@ -53,10 +59,20 @@
   if (showcase) {
     const scenes = Array.from(showcase.querySelectorAll('[data-showcase-scene]'));
     const tabs = Array.from(showcase.querySelectorAll('[data-showcase-tab]'));
+    const progressSegments = Array.from(showcase.querySelectorAll('[data-showcase-progress]'));
+    const showcaseLinks = Array.from(document.querySelectorAll('[data-showcase-link]'));
     const switcher = showcase.querySelector('.showcase-switcher');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let activeIndex = 0;
     let rotationTimer = null;
+
+    const restartProgress = (index) => {
+      progressSegments.forEach((segment) => segment.classList.remove('is-active'));
+      const activeSegment = progressSegments[index];
+      if (!activeSegment) return;
+      void activeSegment.offsetWidth;
+      activeSegment.classList.add('is-active');
+    };
 
     const showScene = (nextIndex, userInitiated = false) => {
       activeIndex = (nextIndex + scenes.length) % scenes.length;
@@ -74,7 +90,12 @@
         tab.tabIndex = isActive ? 0 : -1;
       });
 
+      showcaseLinks.forEach((link) => {
+        link.classList.toggle('is-current', Number.parseInt(link.dataset.showcaseLink, 10) === activeIndex);
+      });
+
       switcher?.style.setProperty('--showcase-index', String(activeIndex));
+      restartProgress(activeIndex);
 
       if (userInitiated && window.innerWidth <= 640) {
         tabs[activeIndex]?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
@@ -84,10 +105,12 @@
     const stopRotation = () => {
       if (rotationTimer) window.clearInterval(rotationTimer);
       rotationTimer = null;
+      showcase.classList.add('is-paused');
     };
 
     const startRotation = () => {
       stopRotation();
+      showcase.classList.remove('is-paused');
       if (!reduceMotion && document.visibilityState === 'visible') {
         rotationTimer = window.setInterval(() => showScene(activeIndex + 1), 5200);
       }
@@ -113,11 +136,42 @@
       });
     });
 
+    showcaseLinks.forEach((link) => {
+      link.addEventListener('click', () => {
+        const nextIndex = Number.parseInt(link.dataset.showcaseLink, 10);
+        if (!Number.isNaN(nextIndex)) {
+          showScene(nextIndex, true);
+          startRotation();
+        }
+      });
+    });
+
     showcase.addEventListener('focusin', stopRotation);
     showcase.addEventListener('focusout', startRotation);
     document.addEventListener('visibilitychange', startRotation);
 
     showScene(0);
     startRotation();
+  }
+
+  const reviewChecklist = document.querySelector('[data-review-checklist]');
+  if (reviewChecklist) {
+    const items = Array.from(reviewChecklist.querySelectorAll('[data-review-task]'));
+    const status = reviewChecklist.querySelector('[data-review-status]');
+
+    const updateReviewStatus = () => {
+      const completed = items.filter((item) => item.classList.contains('is-complete')).length;
+      if (status) status.textContent = `${completed} of ${items.length} resolved`;
+    };
+
+    items.forEach((item) => {
+      item.addEventListener('click', () => {
+        const isComplete = item.classList.toggle('is-complete');
+        item.setAttribute('aria-pressed', String(isComplete));
+        updateReviewStatus();
+      });
+    });
+
+    updateReviewStatus();
   }
 })();
