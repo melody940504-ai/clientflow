@@ -297,44 +297,4 @@
     });
   });
 
-  const faq = document.querySelector('[data-faq]');
-  if (faq) {
-    const items = Array.from(faq.querySelectorAll('details'));
-    const indexLabel = faq.querySelector('[data-faq-index]');
-    const symbol = faq.querySelector('[data-faq-symbol]');
-    const title = faq.querySelector('[data-faq-title]');
-    const copy = faq.querySelector('[data-faq-copy]');
-    const progress = faq.querySelector('[data-faq-progress]');
-
-    const selectFaq = (item, selectedIndex) => {
-      items.forEach((candidate) => {
-        if (candidate !== item) candidate.open = false;
-        candidate.classList.toggle('is-active', candidate === item);
-      });
-      if (indexLabel) indexLabel.textContent = item.dataset.faqLabel || '';
-      if (symbol) symbol.textContent = item.dataset.faqSymbol || '';
-      if (title) title.textContent = item.dataset.faqTitle || '';
-      if (copy) copy.textContent = item.dataset.faqCopy || '';
-      if (progress) progress.style.width = `${((selectedIndex + 1) / items.length) * 100}%`;
-    };
-
-    items.forEach((item, index) => {
-      item.addEventListener('toggle', () => {
-        if (item.open) selectFaq(item, index);
-      });
-      item.addEventListener('pointerenter', () => {
-        if (!item.open) faq.style.setProperty('--faq-preview-index', String(index));
-      });
-    });
-
-    faq.addEventListener('pointermove', (event) => {
-      if (event.pointerType === 'touch') return;
-      const rect = faq.getBoundingClientRect();
-      faq.style.setProperty('--faq-light-x', `${event.clientX - rect.left}px`);
-      faq.style.setProperty('--faq-light-y', `${event.clientY - rect.top}px`);
-    });
-
-    const initialItem = items.find((item) => item.open) || items[0];
-    if (initialItem) selectFaq(initialItem, Math.max(0, items.indexOf(initialItem)));
-  }
 })();

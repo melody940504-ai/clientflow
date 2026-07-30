@@ -5,6 +5,7 @@
 <section class="lumaire-stage" data-stage-parallax>
   <img class="lumaire-stage-backdrop stage-backdrop-dark" src="/static/images/lumaire-stage.png" alt="">
   <img class="lumaire-stage-backdrop stage-backdrop-light" src="/static/images/lumaire-stage-light.png" alt="">
+  <canvas class="lumaire-stage-canvas" data-stage-canvas aria-hidden="true"></canvas>
   <div class="lumaire-stage-shade"></div>
 
   <div class="lumaire-stage-copy">
@@ -323,40 +324,28 @@
   </div>
 </section>
 
-<section class="landing-faq" id="faq" data-faq>
+<section class="landing-faq" id="faq">
   <header>
     <p class="stage-kicker">Questions, answered</p>
     <h2>Before you open a workspace.</h2>
   </header>
-  <div class="faq-experience">
-    <aside class="faq-console" aria-live="polite">
-      <span class="faq-console-index" data-faq-index>01 / Access</span>
-      <div class="faq-console-orbit" aria-hidden="true">
-        <i></i><i></i><i></i>
-        <b data-faq-symbol>&nearr;</b>
-      </div>
-      <strong data-faq-title>Separate spaces, one review.</strong>
-      <p data-faq-copy>Clients see the work and decisions meant for them while studio controls remain private.</p>
-      <div class="faq-console-progress" aria-hidden="true"><i data-faq-progress></i></div>
-    </aside>
-    <div class="faq-list">
-    <details open data-faq-label="01 / Access" data-faq-symbol="&nearr;" data-faq-title="Separate spaces, one review." data-faq-copy="Clients see the work and decisions meant for them while studio controls remain private.">
+  <div class="faq-list">
+    <details>
       <summary>Do clients need access to the studio dashboard?</summary>
       <p>No. Clients use a separate portal or public review link, so internal studio controls stay private.</p>
     </details>
-    <details data-faq-label="02 / Versions" data-faq-symbol="V3" data-faq-title="Every cut keeps its context." data-faq-copy="Versions remain connected to the notes and decisions that shaped them.">
+    <details>
       <summary>Can a project keep more than one version?</summary>
       <p>Yes. Each upload remains connected to its own feedback and status, preserving the path to the approved cut.</p>
     </details>
-    <details data-faq-label="03 / Approval" data-faq-symbol="&#10003;" data-faq-title="The final decision stays visible." data-faq-copy="An approved version becomes a durable project record ready for delivery.">
+    <details>
       <summary>What happens after a version is approved?</summary>
       <p>The approved version and its timeline become read-only, keeping the recorded decision intact for final delivery.</p>
     </details>
-    <details data-faq-label="04 / Demo" data-faq-symbol="&#9678;" data-faq-title="Explore without changing data." data-faq-copy="The shared demos let both sides of the workflow be inspected without affecting the seeded workspace.">
+    <details>
       <summary>Can I try Lumaire without changing demo data?</summary>
       <p>Yes. The studio and client demos are shared, read-only workspaces with a seeded review history.</p>
     </details>
-    </div>
   </div>
 </section>
 
@@ -368,5 +357,5 @@
     <a class="stage-primary" href="/login">Sign in to Lumaire</a>
   </div>
 </section>
-<script type="module" src="/static/landing-scene.js?v=20260730-fabric-motion"></script>
+<script type="module" src="/static/landing-scene.js?v=20260730-stage-curtain"></script>
 {% endblock %}
