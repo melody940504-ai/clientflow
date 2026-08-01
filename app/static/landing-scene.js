@@ -74,9 +74,8 @@ if (stage && stageCanvas) {
 
       void main() {
         vec4 color = texture2D(uTexture, coverUv(vUv));
-        float light = smoothstep(0.48, 0.0, distance(vUv, uPointer));
         float foldLight = vFold * (uDark > 0.5 ? 0.028 : 0.015);
-        color.rgb += light * (uDark > 0.5 ? 0.085 : 0.035) + foldLight;
+        color.rgb += foldLight;
         gl_FragColor = color;
       }
     `,
@@ -158,134 +157,110 @@ const workflowCanvas = workflow?.querySelector("[data-workflow-canvas]");
 
 if (workflow && workflowCanvas) {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 10);
   const renderer = new THREE.WebGLRenderer({
     canvas: workflowCanvas,
     alpha: true,
     antialias: true,
     powerPreference: "high-performance",
   });
-  const ribbonGroup = new THREE.Group();
-  const ribbons = [];
-  const pointer = new THREE.Vector2();
-  const pointerTarget = new THREE.Vector2();
+  const geometry = new THREE.PlaneGeometry(2, 2, 96, 64);
+  const pointer = new THREE.Vector2(0.5, 0.5);
+  const pointerTarget = new THREE.Vector2(0.5, 0.5);
   const clock = new THREE.Clock();
   let isVisible = true;
   let animationFrame = null;
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
-  camera.position.set(0, 0, 10.5);
-  scene.add(ribbonGroup);
+  const material = new THREE.ShaderMaterial({
+    transparent: false,
+    uniforms: {
+      uTime: { value: 0 },
+      uPointer: { value: pointer },
+      uResolution: { value: new THREE.Vector2(1, 1) },
+      uDark: { value: 1 },
+    },
+    vertexShader: `
+      uniform float uTime;
+      uniform vec2 uPointer;
+      varying vec2 vUv;
+      varying float vDepth;
 
-  const ambient = new THREE.AmbientLight(0xbdb4ff, 0.52);
-  const keyLight = new THREE.PointLight(0xe8e3ff, 24, 24, 1.8);
-  const edgeLight = new THREE.PointLight(0x7760f0, 18, 20, 2);
-  keyLight.position.set(0, 2, 7);
-  edgeLight.position.set(-5, -2, 4);
-  scene.add(ambient, keyLight, edgeLight);
-
-  const darkColors = [0x171029, 0x0b0816, 0x251747];
-  const darkHighlights = [0x9c86ff, 0x6f58cf, 0xc0b2ff];
-  const lightShadows = [0x7561c7, 0x6652b2, 0x9989dd];
-  const lightHighlights = [0xf8f6ff, 0xeeeaff, 0xffffff];
-
-  const createCurtainGeometry = (width, height, columns, rows, phase) => {
-    const positions = [];
-    const indices = [];
-    for (let row = 0; row <= rows; row += 1) {
-      const v = row / rows;
-      for (let column = 0; column <= columns; column += 1) {
-        const u = column / columns;
-        const centeredX = (u - 0.5) * width;
-        const centeredY = (v - 0.5) * height;
-        const broadFold = Math.sin((u * 5.2 + v * 1.05) * Math.PI + phase) * 0.58;
-        const fineFold = Math.sin((u * 10.2 - v * 3.2) * Math.PI + phase * 1.7) * 0.19;
-        const diagonalPull = Math.sin((u + v * 0.78) * Math.PI * 3.4 + phase) * 0.24;
-        const edgeLift = Math.pow(Math.abs(u - 0.5) * 2, 1.8) * 0.34;
-        const xDrift = Math.sin(v * Math.PI * 1.7 + phase) * (0.14 + Math.abs(u - 0.5) * 0.34);
-        const yDrift = Math.sin(u * Math.PI * 3.6 + v * 1.4 + phase) * 0.22;
-        positions.push(centeredX + xDrift, centeredY + yDrift, broadFold + fineFold + diagonalPull + edgeLift);
-        if (row < rows && column < columns) {
-          const start = row * (columns + 1) + column;
-          const nextRow = start + columns + 1;
-          indices.push(start, start + 1, nextRow, start + 1, nextRow + 1, nextRow);
-        }
+      void main() {
+        vUv = uv;
+        vec3 transformed = position;
+        float diagonal = sin((uv.x * 2.25 + uv.y * 0.72) * 6.28318 + uTime * 0.17) * 0.085;
+        float broad = sin((uv.x * 3.45 - uv.y * 0.46) * 3.14159 - uTime * 0.21) * 0.052;
+        float soft = sin((uv.y * 2.1 + uv.x * 0.54) * 3.14159 + uTime * 0.13) * 0.032;
+        float pointerPull = (uPointer.x - 0.5) * (uv.y - 0.5)
+          + (0.5 - uPointer.y) * (uv.x - 0.5);
+        vDepth = diagonal + broad + soft;
+        transformed.z += vDepth + pointerPull * 0.09;
+        transformed.x += sin(uv.y * 4.4 + uTime * 0.11) * 0.011;
+        transformed.y += cos(uv.x * 4.1 - uTime * 0.09) * 0.008;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
       }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    return geometry;
-  };
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec2 uPointer;
+      uniform vec2 uResolution;
+      uniform float uDark;
+      varying vec2 vUv;
+      varying float vDepth;
 
-  const curtainConfigs = [
-    { width: 14.6, height: 10.2, columns: 96, rows: 62, phase: 0.35, x: 0, y: 0, z: 0, ry: -0.06, rz: -0.2 },
-    { width: 9.2, height: 11.6, columns: 68, rows: 58, phase: 1.7, x: -5.4, y: 0.35, z: -1.7, ry: 0.56, rz: 0.32 },
-    { width: 8.8, height: 11.2, columns: 68, rows: 58, phase: 3.05, x: 5.5, y: -0.3, z: -1.55, ry: -0.58, rz: -0.34 },
-  ];
+      float random(vec2 point) {
+        return fract(sin(dot(point, vec2(12.9898, 78.233))) * 43758.5453);
+      }
 
-  const applyCurtainColors = (ribbon, index, isDark) => {
-    const positions = ribbon.geometry.getAttribute("position");
-    const colors = new Float32Array(positions.count * 3);
-    const shadow = new THREE.Color(isDark ? darkColors[index] : lightShadows[index]);
-    const highlight = new THREE.Color(isDark ? darkHighlights[index] : lightHighlights[index]);
-    for (let vertex = 0; vertex < positions.count; vertex += 1) {
-      const depth = Math.min(1, Math.max(0, (positions.getZ(vertex) + 1.25) / 2.5));
-      const color = shadow.clone().lerp(highlight, 0.12 + depth * (isDark ? 0.72 : 0.84));
-      colors[vertex * 3] = color.r;
-      colors[vertex * 3 + 1] = color.g;
-      colors[vertex * 3 + 2] = color.b;
-    }
-    ribbon.geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  };
+      void main() {
+        float foldA = sin((vUv.x * 2.25 + vUv.y * 0.72) * 6.28318 + uTime * 0.17);
+        float foldB = sin((vUv.x * 3.45 - vUv.y * 0.46) * 3.14159 - uTime * 0.21);
+        float foldC = sin((vUv.y * 2.1 + vUv.x * 0.54) * 3.14159 + uTime * 0.13);
+        float fold = foldA * 0.58 + foldB * 0.29 + foldC * 0.13;
+        float ridge = pow(max(0.0, fold), 2.2);
+        float valley = pow(max(0.0, -fold), 1.65);
 
-  curtainConfigs.forEach((config, index) => {
-    const material = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      vertexColors: true,
-      roughness: 0.58,
-      metalness: 0,
-      clearcoat: 0.08,
-      clearcoatRoughness: 0.72,
-      sheen: 0.68,
-      sheenColor: new THREE.Color(0xd8d0ff),
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: index === 0 ? 0.9 : 0.66,
-    });
-    const ribbon = new THREE.Mesh(
-      createCurtainGeometry(config.width, config.height, config.columns, config.rows, config.phase),
-      material,
-    );
-    ribbon.position.set(config.x, config.y, config.z);
-    ribbon.rotation.set(0, config.ry, config.rz);
-    ribbon.userData.baseX = config.x;
-    ribbon.userData.baseY = config.y;
-    ribbon.userData.phase = config.phase;
-    applyCurtainColors(ribbon, index, true);
-    ribbonGroup.add(ribbon);
-    ribbons.push(ribbon);
+        vec3 darkShadow = vec3(0.010, 0.010, 0.013);
+        vec3 darkBase = vec3(0.060, 0.058, 0.066);
+        vec3 darkHighlight = vec3(0.34, 0.33, 0.37);
+        vec3 lightShadow = vec3(0.50, 0.48, 0.58);
+        vec3 lightBase = vec3(0.76, 0.74, 0.82);
+        vec3 lightHighlight = vec3(0.985, 0.98, 1.0);
+
+        vec3 shadowColor = mix(lightShadow, darkShadow, uDark);
+        vec3 baseColor = mix(lightBase, darkBase, uDark);
+        vec3 highlightColor = mix(lightHighlight, darkHighlight, uDark);
+        vec3 color = mix(shadowColor, baseColor, smoothstep(-0.82, 0.3, fold));
+        color = mix(color, highlightColor, ridge * (uDark > 0.5 ? 0.48 : 0.62));
+        color *= 1.0 - valley * (uDark > 0.5 ? 0.42 : 0.18);
+
+        float warp = sin(vUv.x * uResolution.x * 0.78) * 0.5 + 0.5;
+        float weft = sin(vUv.y * uResolution.y * 0.92) * 0.5 + 0.5;
+        float weave = (warp * weft - 0.25) * (uDark > 0.5 ? 0.026 : 0.038);
+        float grain = (random(floor(vUv * uResolution * 0.55)) - 0.5)
+          * (uDark > 0.5 ? 0.018 : 0.012);
+        color += weave + grain;
+
+        vec2 correctedPointer = vec2(uPointer.x, 1.0 - uPointer.y);
+        float pointerLight = smoothstep(0.42, 0.0, distance(vUv, correctedPointer));
+        color += pointerLight * (uDark > 0.5 ? 0.12 : 0.075);
+
+        float edgeShade = smoothstep(0.78, 0.18, distance(vUv, vec2(0.5)));
+        color *= mix(uDark > 0.5 ? 0.72 : 0.9, 1.0, edgeShade);
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `,
   });
-  ribbonGroup.rotation.x = -0.08;
+  const cloth = new THREE.Mesh(geometry, material);
+  camera.position.z = 3;
+  scene.add(cloth);
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const updateTheme = () => {
     const isDark = document.documentElement.dataset.theme === "dark";
-    ribbons.forEach((ribbon, index) => {
-      applyCurtainColors(ribbon, index, isDark);
-      ribbon.material.roughness = isDark ? 0.58 : 0.62;
-      ribbon.material.opacity = isDark
-        ? (index === 0 ? 0.86 : 0.58)
-        : (index === 0 ? 0.78 : 0.5);
-      ribbon.material.sheenColor.setHex(isDark ? 0xd8d0ff : 0xffffff);
-    });
-    ambient.intensity = isDark ? 0.16 : 0.38;
-    keyLight.intensity = isDark ? 30 : 25;
-    edgeLight.intensity = isDark ? 20 : 13;
-    renderer.toneMappingExposure = isDark ? 1.12 : 1.02;
+    material.uniforms.uDark.value = isDark ? 1 : 0;
   };
 
   const resize = () => {
@@ -295,26 +270,16 @@ if (workflow && workflowCanvas) {
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
+    cloth.scale.set((visibleHeight * camera.aspect / 2) * 1.1, (visibleHeight / 2) * 1.1, 1);
+    material.uniforms.uResolution.value.set(width, height);
   };
 
   const render = () => {
     animationFrame = null;
     if (!isVisible) return;
-    const elapsed = clock.getElapsedTime();
-    pointer.lerp(pointerTarget, 0.065);
-    ribbonGroup.rotation.y += (pointer.x * 0.24 - ribbonGroup.rotation.y) * 0.055;
-    ribbonGroup.rotation.x += (-pointer.y * 0.15 - 0.08 - ribbonGroup.rotation.x) * 0.055;
-    ribbonGroup.position.x += (pointer.x * 0.34 - ribbonGroup.position.x) * 0.05;
-    ribbonGroup.position.y += (-pointer.y * 0.18 - ribbonGroup.position.y) * 0.05;
-    keyLight.position.x += (pointer.x * 6.8 - keyLight.position.x) * 0.08;
-    keyLight.position.y += (-pointer.y * 4.4 + 1.2 - keyLight.position.y) * 0.08;
-    edgeLight.position.x += (-pointer.x * 4.4 - 2.4 - edgeLight.position.x) * 0.05;
-    ribbons.forEach((ribbon, index) => {
-      ribbon.position.x = ribbon.userData.baseX
-        + Math.cos(elapsed * 0.18 + ribbon.userData.phase) * (index === 0 ? 0.035 : 0.1);
-      ribbon.position.y = ribbon.userData.baseY
-        + Math.sin(elapsed * 0.24 + ribbon.userData.phase) * (index === 0 ? 0.04 : 0.1);
-    });
+    pointer.lerp(pointerTarget, 0.06);
+    material.uniforms.uTime.value = clock.getElapsedTime();
     renderer.render(scene, camera);
     animationFrame = window.requestAnimationFrame(render);
   };
@@ -326,11 +291,11 @@ if (workflow && workflowCanvas) {
     if (event.pointerType === "touch") return;
     const rect = workflow.getBoundingClientRect();
     pointerTarget.set(
-      Math.min(1, Math.max(-1, ((event.clientX - rect.left) / rect.width - 0.5) * 2)),
-      Math.min(1, Math.max(-1, ((event.clientY - rect.top) / window.innerHeight - 0.5) * 2)),
+      Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+      Math.min(1, Math.max(0, (event.clientY - rect.top) / window.innerHeight)),
     );
   });
-  workflow.addEventListener("pointerleave", () => pointerTarget.set(0, 0));
+  workflow.addEventListener("pointerleave", () => pointerTarget.set(0.5, 0.5));
   new IntersectionObserver(([entry]) => {
     isVisible = entry.isIntersecting;
     if (isVisible) start();

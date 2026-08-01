@@ -3782,7 +3782,7 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   z-index: -1;
   width: 100%;
   height: 100%;
-  filter: brightness(0.58) contrast(1.24) saturate(0.92);
+  filter: none;
   pointer-events: none;
 }
 
@@ -4385,8 +4385,8 @@ html:not([data-theme="dark"]) .landing-page .workflow-sticky {
 }
 
 html:not([data-theme="dark"]) .landing-page .workflow-canvas {
-  opacity: 0.64;
-  filter: saturate(0.72) brightness(1.16);
+  opacity: 1;
+  filter: none;
 }
 
 html:not([data-theme="dark"]) .landing-page .workflow-ribbons {
@@ -5235,15 +5235,7 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
 }
 
 .lumaire-stage::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(circle 26rem at var(--stage-light-x) var(--stage-light-y), rgba(202, 196, 229, 0.13), transparent 68%);
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transition: opacity 180ms ease;
+  content: none;
 }
 
 .lumaire-stage-backdrop {
@@ -5445,9 +5437,7 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
 }
 
 html:not([data-theme="dark"]) .landing-page .lumaire-stage::before {
-  background:
-    radial-gradient(circle 25rem at var(--stage-light-x) var(--stage-light-y), rgba(255, 255, 255, 0.66), transparent 70%);
-  mix-blend-mode: soft-light;
+  content: none;
 }
 
 html:not([data-theme="dark"]) .landing-page .product-showcase[data-demo-step] .showcase-scene.is-active :is(
