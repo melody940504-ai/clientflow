@@ -233,6 +233,7 @@ class FeedbackResolutionTests(unittest.TestCase):
                 "is_resolved": False,
                 "project_id": 9,
                 "project_status": "In Revision",
+                "version_status": "Awaiting Review",
             }
         )
 
@@ -277,6 +278,7 @@ class FeedbackResolutionTests(unittest.TestCase):
                 "is_resolved": False,
                 "project_id": 9,
                 "project_status": "Approved",
+                "version_status": "Approved",
             }
         )
 
@@ -293,6 +295,37 @@ class FeedbackResolutionTests(unittest.TestCase):
                 main.resolve_comment(request, 41, "csrf")
 
         self.assertEqual(error.exception.status_code, 400)
+        self.assertIsNone(db.updated_with)
+
+    def test_approved_version_feedback_stays_immutable_after_project_reopens(self):
+        request = FakeRequest()
+        request.session["csrf_token"] = "csrf"
+        db = FeedbackDB(
+            {
+                "id": 41,
+                "type": "comment",
+                "author_role": "client",
+                "is_resolved": True,
+                "project_id": 9,
+                "project_status": "Awaiting Review",
+                "version_status": "Approved",
+            }
+        )
+
+        with (
+            patch.object(
+                main,
+                "require_user",
+                return_value={"id": 7, "role": "owner"},
+            ),
+            patch.object(main, "is_demo_user", return_value=False),
+            patch.object(main, "get_db", return_value=db),
+        ):
+            with self.assertRaises(HTTPException) as error:
+                main.resolve_comment(request, 41, "csrf")
+
+        self.assertEqual(error.exception.status_code, 400)
+        self.assertEqual(error.exception.detail, "Approved versions are read-only.")
         self.assertIsNone(db.updated_with)
 
 

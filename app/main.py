@@ -3144,7 +3144,8 @@ def resolve_comment(
         comment = db.execute(
             """
             SELECT cm.id, cm.type, cm.author_role, cm.is_resolved,
-                   p.id AS project_id, p.status AS project_status
+                   p.id AS project_id, p.status AS project_status,
+                   vv.status AS version_status
             FROM comments cm
             JOIN video_versions vv ON cm.video_version_id = vv.id
             JOIN projects p ON vv.project_id = p.id
@@ -3158,6 +3159,11 @@ def resolve_comment(
             raise HTTPException(
                 status_code=400,
                 detail="Approved projects are read-only.",
+            )
+        if comment["version_status"] == "Approved":
+            raise HTTPException(
+                status_code=400,
+                detail="Approved versions are read-only.",
             )
         if (
             comment["author_role"] != "client"
