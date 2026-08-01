@@ -188,15 +188,18 @@ if (workflow && workflowCanvas) {
       void main() {
         vUv = uv;
         vec3 transformed = position;
-        float diagonal = sin((uv.x * 2.25 + uv.y * 0.72) * 6.28318 + uTime * 0.17) * 0.085;
-        float broad = sin((uv.x * 3.45 - uv.y * 0.46) * 3.14159 - uTime * 0.21) * 0.052;
-        float soft = sin((uv.y * 2.1 + uv.x * 0.54) * 3.14159 + uTime * 0.13) * 0.032;
+        vec2 centered = uv - 0.5;
+        float diagonal = centered.x * 0.82 + centered.y * 0.58;
+        float crossFold = centered.x * 0.48 - centered.y * 0.86;
+        float broad = sin(diagonal * 17.0 + sin(centered.y * 4.2) * 0.72 + uTime * 0.34) * 0.11;
+        float soft = sin(crossFold * 9.0 - uTime * 0.27) * 0.052;
+        float drift = sin((diagonal + centered.y * 0.22) * 6.0 + uTime * 0.2) * 0.032;
         float pointerPull = (uPointer.x - 0.5) * (uv.y - 0.5)
           + (0.5 - uPointer.y) * (uv.x - 0.5);
-        vDepth = diagonal + broad + soft;
+        vDepth = broad + soft + drift;
         transformed.z += vDepth + pointerPull * 0.09;
-        transformed.x += sin(uv.y * 4.4 + uTime * 0.11) * 0.011;
-        transformed.y += cos(uv.x * 4.1 - uTime * 0.09) * 0.008;
+        transformed.x += sin(uv.y * 4.4 + uTime * 0.2) * 0.014;
+        transformed.y += cos(uv.x * 4.1 - uTime * 0.17) * 0.011;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
       }
     `,
@@ -213,16 +216,20 @@ if (workflow && workflowCanvas) {
       }
 
       void main() {
-        float foldA = sin((vUv.x * 2.25 + vUv.y * 0.72) * 6.28318 + uTime * 0.17);
-        float foldB = sin((vUv.x * 3.45 - vUv.y * 0.46) * 3.14159 - uTime * 0.21);
-        float foldC = sin((vUv.y * 2.1 + vUv.x * 0.54) * 3.14159 + uTime * 0.13);
-        float fold = foldA * 0.58 + foldB * 0.29 + foldC * 0.13;
-        float ridge = pow(max(0.0, fold), 2.2);
-        float valley = pow(max(0.0, -fold), 1.65);
+        vec2 centered = vUv - 0.5;
+        float diagonal = centered.x * 0.82 + centered.y * 0.58;
+        float crossFold = centered.x * 0.48 - centered.y * 0.86;
+        float foldA = sin(diagonal * 17.0 + sin(centered.y * 4.2) * 0.72 + uTime * 0.34);
+        float foldB = sin(crossFold * 9.0 - uTime * 0.27);
+        float foldC = sin((diagonal + centered.y * 0.22) * 6.0 + uTime * 0.2);
+        float fold = foldA * 0.64 + foldB * 0.25 + foldC * 0.11;
+        float ridge = pow(max(0.0, fold), 3.6);
+        float valley = pow(max(0.0, -fold), 2.0);
+        float satinSheen = pow(max(0.0, sin(diagonal * 17.0 + uTime * 0.34 + 0.55)), 10.0);
 
         vec3 darkShadow = vec3(0.010, 0.010, 0.013);
-        vec3 darkBase = vec3(0.060, 0.058, 0.066);
-        vec3 darkHighlight = vec3(0.34, 0.33, 0.37);
+        vec3 darkBase = vec3(0.052, 0.051, 0.056);
+        vec3 darkHighlight = vec3(0.48, 0.47, 0.50);
         vec3 lightShadow = vec3(0.50, 0.48, 0.58);
         vec3 lightBase = vec3(0.76, 0.74, 0.82);
         vec3 lightHighlight = vec3(0.985, 0.98, 1.0);
@@ -231,15 +238,13 @@ if (workflow && workflowCanvas) {
         vec3 baseColor = mix(lightBase, darkBase, uDark);
         vec3 highlightColor = mix(lightHighlight, darkHighlight, uDark);
         vec3 color = mix(shadowColor, baseColor, smoothstep(-0.82, 0.3, fold));
-        color = mix(color, highlightColor, ridge * (uDark > 0.5 ? 0.48 : 0.62));
+        color = mix(color, highlightColor, ridge * (uDark > 0.5 ? 0.56 : 0.68));
+        color = mix(color, highlightColor, satinSheen * (uDark > 0.5 ? 0.22 : 0.18));
         color *= 1.0 - valley * (uDark > 0.5 ? 0.42 : 0.18);
 
-        float warp = sin(vUv.x * uResolution.x * 0.78) * 0.5 + 0.5;
-        float weft = sin(vUv.y * uResolution.y * 0.92) * 0.5 + 0.5;
-        float weave = (warp * weft - 0.25) * (uDark > 0.5 ? 0.026 : 0.038);
-        float grain = (random(floor(vUv * uResolution * 0.55)) - 0.5)
-          * (uDark > 0.5 ? 0.018 : 0.012);
-        color += weave + grain;
+        float grain = (random(gl_FragCoord.xy + floor(uTime * 2.0)) - 0.5)
+          * (uDark > 0.5 ? 0.006 : 0.004);
+        color += grain;
 
         vec2 correctedPointer = vec2(uPointer.x, 1.0 - uPointer.y);
         float pointerLight = smoothstep(0.42, 0.0, distance(vUv, correctedPointer));
