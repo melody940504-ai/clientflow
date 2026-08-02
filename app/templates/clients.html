@@ -63,7 +63,7 @@
           <p class="eyebrow">Directory</p>
           <h2>Client access</h2>
         </div>
-        <span class="badge">{{ clients|length }} clients</span>
+        <span class="badge">{{ clients|length }} active</span>
       </div>
 
       <div class="client-directory-list">
@@ -80,14 +80,20 @@
             <span>project{% if client.project_count != 1 %}s{% endif %}</span>
           </div>
           {% if not is_demo %}
-          <button
-            type="button"
-            class="ghost resend-invitation-trigger"
-            data-resend-url="/clients/{{ client.id }}/resend-invitation"
-            data-client-name="{{ client.name }}"
-          >
-            Resend invitation
-          </button>
+          <div class="client-row-actions">
+            <button
+              type="button"
+              class="ghost resend-invitation-trigger"
+              data-resend-url="/clients/{{ client.id }}/resend-invitation"
+              data-client-name="{{ client.name }}"
+            >
+              Resend invitation
+            </button>
+            <form action="/clients/{{ client.id }}/archive" method="post">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+              <button type="submit" class="client-archive-action">Archive</button>
+            </form>
+          </div>
           {% endif %}
         </article>
         {% else %}
@@ -97,6 +103,37 @@
         </div>
         {% endfor %}
       </div>
+
+      {% if archived_clients %}
+      <details class="archived-client-section">
+        <summary>
+          <span>Archived clients</span>
+          <span class="badge">{{ archived_clients|length }}</span>
+        </summary>
+        <div class="client-directory-list archived-client-list">
+          {% for client in archived_clients %}
+          <article class="client-directory-row is-archived">
+            <div class="client-avatar" aria-hidden="true">{{ client.name[:2].upper() }}</div>
+            <div class="client-identity">
+              <strong>{{ client.name }}</strong>
+              <span>{{ client.email }}</span>
+              <small>Archived <time data-utc="{{ client.archived_at|utc_iso }}" data-format="date">{{ client.archived_at[:10] }}</time></small>
+            </div>
+            <div class="client-project-count">
+              <strong>{{ client.project_count }}</strong>
+              <span>project{% if client.project_count != 1 %}s{% endif %}</span>
+            </div>
+            {% if not is_demo %}
+            <form action="/clients/{{ client.id }}/restore" method="post">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+              <button type="submit" class="ghost">Restore client</button>
+            </form>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
     </section>
   </div>
 </section>

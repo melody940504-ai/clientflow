@@ -23,6 +23,9 @@
   {% if error %}
     <div class="error-box">{{ error }}</div>
   {% endif %}
+  {% if request.query_params.get('required') == 'password' %}
+    <div class="form-alert warning"><strong>Secure your account.</strong> Replace the temporary password before entering the workspace.</div>
+  {% endif %}
 
   <div class="account-grid">
     <form class="panel account-form" method="post" action="/account/email" novalidate>
@@ -79,6 +82,16 @@
         <p class="muted small">Use your connected provider to manage account credentials.</p>
       </div>
       {% endif %}
+    </form>
+
+    <form class="panel account-form account-session-form" method="post" action="/account/sessions/revoke">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+      <div>
+        <p class="eyebrow">Active sessions</p>
+        <h2>Sign out other devices</h2>
+        <p class="muted small">End every other browser session connected to this account. This device stays signed in.</p>
+      </div>
+      <button class="ghost account-submit" type="submit">Sign out other devices</button>
     </form>
   </div>
 </section>

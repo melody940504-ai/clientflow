@@ -360,8 +360,10 @@
         {% endif %}
 
         <!-- 📂 專案列表 -->
-        {% set active_projects = projects|rejectattr('status', 'equalto', 'Published')|list %}
-        {% set completed_projects = projects|selectattr('status', 'equalto', 'Published')|list %}
+        {% set visible_projects = projects|rejectattr('archived_at')|list %}
+        {% set archived_projects = projects|selectattr('archived_at')|list %}
+        {% set active_projects = visible_projects|rejectattr('status', 'equalto', 'Published')|list %}
+        {% set completed_projects = visible_projects|selectattr('status', 'equalto', 'Published')|list %}
         <div class="workspace-projects bg-card-fix bg-gray-900/40 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div class="workspace-projects-heading">
                 <div>
@@ -437,6 +439,24 @@
                 {% for p in completed_projects %}
                     {% include "_dashboard_project_card.html" %}
                 {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+        {% if archived_projects and user.role != 'client' %}
+        <details class="completed-projects archived-projects bg-card-fix border border-gray-800">
+            <summary>
+                <span class="completed-projects-copy">
+                    <span class="completed-projects-icon" aria-hidden="true">&#9633;</span>
+                    <span><strong>Archived projects</strong><small>Hidden workspaces with public access disabled</small></span>
+                </span>
+                <span class="completed-projects-meta">
+                    <span class="workspace-project-count">{{ archived_projects|length }}</span>
+                    <span class="completed-projects-chevron" aria-hidden="true">&#8964;</span>
+                </span>
+            </summary>
+            <div class="completed-projects-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for p in archived_projects %}{% include "_dashboard_project_card.html" %}{% endfor %}
             </div>
         </details>
         {% endif %}

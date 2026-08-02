@@ -36,6 +36,8 @@
                 Your session expired after the latest update. Please log in again.
             {% elif request.query_params.get('error') == 'password-too-short' %}
                 Passwords must contain at least 8 characters.
+            {% elif request.query_params.get('error') == 'verification-email-failed' %}
+                We could not send the verification email, so the account was not created. Please try again shortly.
             {% else %}
                 Login failed. Please check your information.
             {% endif %}

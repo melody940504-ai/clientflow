@@ -100,6 +100,22 @@ class FeedbackDB:
         raise AssertionError(f"Unexpected query: {query}")
 
 
+class UserDB:
+    def __init__(self, user):
+        self.user = user
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, query, params=()):
+        if "FROM users" in query:
+            return FakeCursor(self.user)
+        raise AssertionError(f"Unexpected query: {query}")
+
+
 class PasswordSecurityTests(unittest.TestCase):
     def test_new_password_hash_round_trip(self):
         stored = main.hash_password("correct horse battery staple")
@@ -160,7 +176,7 @@ class RequestSecurityTests(unittest.TestCase):
             "valid-review-token",
             "approve",
         )
-        self.assertEqual(actor, ("client", "Acme Studio"))
+        self.assertEqual(actor, ("guest", "Guest reviewer"))
 
         with self.assertRaises(HTTPException):
             main.get_review_actor(None, self.project, "wrong-token", "comment")
@@ -208,7 +224,7 @@ class RequestSecurityTests(unittest.TestCase):
         self.assertEqual(main.normalize_review_due_at("2026-08-15"), "2026-08-15")
         self.assertEqual(main.normalize_review_due_at(""), "")
         self.assertEqual(main.normalize_guest_access("COMMENT"), "comment")
-        self.assertEqual(main.normalize_guest_access("unexpected"), "approve")
+        self.assertEqual(main.normalize_guest_access("unexpected"), "comment")
         with self.assertRaises(HTTPException):
             main.normalize_review_due_at("15/08/2026")
 
@@ -219,6 +235,16 @@ class RequestSecurityTests(unittest.TestCase):
             ),
             {"master", "captions", "delivery_link"},
         )
+
+    def test_inactive_account_session_is_rejected(self):
+        token = main.serializer.dumps({"user_id": 12, "version": 3})
+        inactive_user = {
+            "id": 12,
+            "session_version": 3,
+            "is_active": False,
+        }
+        with patch.object(main, "get_db", return_value=UserDB(inactive_user)):
+            self.assertIsNone(main.get_user_from_session_token(token))
 
 
 class FeedbackResolutionTests(unittest.TestCase):
@@ -233,6 +259,7 @@ class FeedbackResolutionTests(unittest.TestCase):
                 "is_resolved": False,
                 "project_id": 9,
                 "project_status": "In Revision",
+                "project_archived_at": None,
                 "version_status": "Awaiting Review",
             }
         )
@@ -253,6 +280,32 @@ class FeedbackResolutionTests(unittest.TestCase):
         self.assertEqual(db.updated_with[2], 41)
         self.assertIn("/projects/9?success=", response.headers["location"])
 
+    def test_owner_can_resolve_guest_feedback(self):
+        request = FakeRequest()
+        request.session["csrf_token"] = "csrf"
+        db = FeedbackDB(
+            {
+                "id": 42,
+                "type": "comment",
+                "author_role": "guest",
+                "is_resolved": False,
+                "project_id": 9,
+                "project_status": "In Revision",
+                "project_archived_at": None,
+                "version_status": "Awaiting Review",
+            }
+        )
+
+        with (
+            patch.object(main, "require_user", return_value={"id": 7, "role": "owner"}),
+            patch.object(main, "is_demo_user", return_value=False),
+            patch.object(main, "get_db", return_value=db),
+        ):
+            response = main.resolve_comment(request, 42, "csrf")
+
+        self.assertEqual(response.status_code, 303)
+        self.assertTrue(db.updated_with[0])
+
     def test_client_cannot_resolve_feedback(self):
         request = FakeRequest()
         request.session["csrf_token"] = "csrf"
@@ -267,6 +320,33 @@ class FeedbackResolutionTests(unittest.TestCase):
 
         self.assertEqual(error.exception.status_code, 403)
 
+    def test_archived_project_feedback_is_immutable(self):
+        request = FakeRequest()
+        request.session["csrf_token"] = "csrf"
+        db = FeedbackDB(
+            {
+                "id": 43,
+                "type": "comment",
+                "author_role": "guest",
+                "is_resolved": False,
+                "project_id": 9,
+                "project_status": "In Revision",
+                "project_archived_at": "2026-08-02T10:00:00",
+                "version_status": "Awaiting Review",
+            }
+        )
+
+        with (
+            patch.object(main, "require_user", return_value={"id": 7, "role": "owner"}),
+            patch.object(main, "is_demo_user", return_value=False),
+            patch.object(main, "get_db", return_value=db),
+        ):
+            with self.assertRaises(HTTPException) as error:
+                main.resolve_comment(request, 43, "csrf")
+
+        self.assertEqual(error.exception.detail, "Archived projects are read-only.")
+        self.assertIsNone(db.updated_with)
+
     def test_approved_project_feedback_is_immutable(self):
         request = FakeRequest()
         request.session["csrf_token"] = "csrf"
@@ -278,6 +358,7 @@ class FeedbackResolutionTests(unittest.TestCase):
                 "is_resolved": False,
                 "project_id": 9,
                 "project_status": "Approved",
+                "project_archived_at": None,
                 "version_status": "Approved",
             }
         )
@@ -308,6 +389,7 @@ class FeedbackResolutionTests(unittest.TestCase):
                 "is_resolved": True,
                 "project_id": 9,
                 "project_status": "Awaiting Review",
+                "project_archived_at": None,
                 "version_status": "Approved",
             }
         )
@@ -379,6 +461,22 @@ class UploadSecurityTests(unittest.TestCase):
                 main.read_upload_with_limit(FakeUpload(b"a" * 33), 32)
             )
         self.assertEqual(context.exception.status_code, 413)
+
+    def test_upload_signature_must_match_declared_file_type(self):
+        self.assertTrue(
+            main.upload_signature_matches(b"%PDF-1.7\n", ".pdf")
+        )
+        self.assertTrue(
+            main.upload_signature_matches(b"\x89PNG\r\n\x1a\n", ".png")
+        )
+        self.assertFalse(
+            main.upload_signature_matches(b"<script>alert(1)</script>", ".png")
+        )
+
+    def test_unknown_attachment_type_is_rejected(self):
+        self.assertFalse(
+            main.upload_signature_matches(b"MZ", ".exe")
+        )
 
 
 class EmailTemplateTests(unittest.TestCase):
@@ -624,7 +722,7 @@ class TemplateSecurityTests(unittest.TestCase):
 
         self.assertIn("/comments/{comment_id}/resolve", route_paths)
         self.assertIn("p.user_id = ?", source)
-        self.assertIn("Only owners can update feedback status.", source)
+        self.assertIn("Only studio collaborators can update feedback status.", source)
         self.assertIn("Only feedback notes can be resolved.", source)
         self.assertIn("Approved projects are read-only.", source)
         self.assertIn("ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_resolved", source)
@@ -637,8 +735,10 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn("SET is_resolved = TRUE, resolved_at = ?", source)
         self.assertIn("comments_open_feedback_idx", source)
         self.assertIn("GZipMiddleware", source)
-        self.assertEqual(source.count("background_tasks.add_task("), 5)
-        self.assertIn('author_role == "client"', source)
+        self.assertEqual(source.count("background_tasks.add_task("), 4)
+        self.assertIn("sent = send_activity_email(", source)
+        self.assertIn("if not sent:", source)
+        self.assertIn('author_role in {"client", "guest"}', source)
         self.assertIn('action="/comments/{{ c.id }}/resolve"', project_template)
         self.assertIn("Mark resolved", project_template)
         self.assertIn(

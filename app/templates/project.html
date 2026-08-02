@@ -215,12 +215,13 @@
         
         <div class="flex w-full items-center justify-end gap-3 lg:w-auto">
             <span class="w-fit text-xs font-bold px-3 py-1 rounded-full border
-                {% if project.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
+                {% if project.archived_at %} bg-gray-500/10 border-gray-500/30 text-gray-400
+                {% elif project.status == 'Awaiting Review' %} bg-amber-500/10 border-amber-500/30 text-amber-500
                 {% elif project.status == 'In Revision' %} bg-blue-500/10 border-blue-500/30 text-blue-400
                 {% elif project.status == 'Approved' %} bg-emerald-500/10 border-emerald-500/30 text-emerald-400
                 {% elif project.status == 'Published' %} bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/40 text-amber-500 shadow-sm shadow-amber-500/10
                 {% else %} bg-gray-500/10 border-gray-500/30 text-gray-400 {% endif %}">
-                {% if project.status == 'Published' %} Delivered {% else %} Status: {{ project.status }} {% endif %}
+                {% if project.archived_at %}Archived{% elif project.status == 'Published' %} Delivered {% else %} Status: {{ project.status }} {% endif %}
             </span>
 
             <button
@@ -260,6 +261,25 @@
                         <a href="/settings" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
                             Studio settings
                         </a>
+                        {% if not is_demo %}
+                            {% if project.archived_at %}
+                            <form method="post" action="/projects/{{ project.id }}/restore">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                                <button type="submit" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">Restore project</button>
+                            </form>
+                            {% else %}
+                                {% if project.status in ['Approved', 'Published'] %}
+                                <form method="post" action="/projects/{{ project.id }}/reopen">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                                    <button type="submit" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">Reopen review cycle</button>
+                                </form>
+                                {% endif %}
+                            <form method="post" action="/projects/{{ project.id }}/archive">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                                <button type="submit" class="project-archive-action w-full justify-center text-center text-sm px-3 py-2 rounded-xl transition font-semibold">Archive project</button>
+                            </form>
+                            {% endif %}
+                        {% endif %}
                         {% endif %}
                         {% if not is_public_link and not is_demo %}
                         <a href="/account" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
@@ -285,6 +305,16 @@
             {% endif %}
         </section>
         {% endif %}
+
+        {% if project.archived_at %}
+        <section class="project-archive-banner md:col-span-3">
+            <div><strong>Archived workspace</strong><span>This project and its review link are read-only until a studio manager restores it.</span></div>
+        </section>
+        {% elif project.reopened_at %}
+        <section class="project-reopened-banner md:col-span-3">
+            <div><strong>Review cycle reopened</strong><span>{{ project.reopened_by or 'Studio' }} reopened this project. New versions can now be added without changing the previous approval record.</span></div>
+        </section>
+        {% endif %}
         
         <div class="project-content md:col-span-2 space-y-6">
             
@@ -303,23 +333,32 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {% for att in attachments %}
-                    <button
-                        type="button"
-                        onclick="openAttachmentModal('{{ att.title }}', '{{ att.url }}')"
-                        class="w-full flex items-center justify-between p-3 bg-gray-900/50 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl transition group text-left"
-                    >
-                        <div class="flex items-center gap-2 overflow-hidden">
-                            <span class="text-base">📄</span>
-                            <span class="text-xs text-gray-200 group-hover:text-indigo-400 font-medium truncate">{{ att.title }}</span>
-                        </div>
-                        <span class="text-[10px] text-gray-500 font-mono">Preview / Download ↗</span>
-                    </button>
+                    <div class="project-attachment-row">
+                        <button
+                            type="button"
+                            onclick='openAttachmentModal({{ att.title|tojson }}, {{ att.url|tojson }})'
+                            class="project-attachment-open group"
+                            {% if not att.url %}disabled{% endif %}
+                        >
+                            <span class="flex items-center gap-2 overflow-hidden">
+                                <span class="text-base">&#128196;</span>
+                                <span class="text-xs text-gray-200 group-hover:text-indigo-400 font-medium truncate">{{ att.title }}</span>
+                            </span>
+                            <span class="text-[10px] text-gray-500 font-mono">{% if att.url %}Preview / Download &#8599;{% else %}Unavailable{% endif %}</span>
+                        </button>
+                        {% if att.id and user.role in ['owner', 'admin'] and not is_public_link and not is_demo and not project.archived_at %}
+                        <form method="post" action="/projects/{{ project.id }}/attachments/{{ att.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                            <button type="submit" class="project-attachment-delete" aria-label="Delete {{ att.title }}" title="Delete attachment">&#215;</button>
+                        </form>
+                        {% endif %}
+                    </div>
                     {% else %}
                     <p class="text-xs text-gray-500 text-center py-2 col-span-2">No attachments uploaded yet.</p>
                     {% endfor %}
                 </div>
 
-                {% if project.status != 'Published' and user.role in ['owner', 'admin', 'member'] and not is_demo %}
+                {% if project.status != 'Published' and user.role in ['owner', 'admin', 'member'] and not is_demo and not project.archived_at %}
                 <form
                     action="/projects/{{ project.id }}/attachments"
                     method="post"
@@ -474,7 +513,7 @@
                                 value="{{ item_key }}"
                                 class="delivery-check-input"
                                 {% if item_key in delivery_completed %}checked{% endif %}
-                                {% if project.status == 'Published' or is_demo %}disabled{% endif %}
+                                {% if project.status == 'Published' or project.archived_at or is_demo %}disabled{% endif %}
                             >
                             <span class="delivery-check-copy">
                                 <strong>{{ item_label }}</strong>
@@ -483,7 +522,7 @@
                         </label>
                         {% endfor %}
                     </div>
-                    {% if project.status == 'Approved' and not is_demo %}
+                    {% if project.status == 'Approved' and not project.archived_at and not is_demo %}
                     {% if delivery_completed|length < delivery_checklist_items|length %}
                     <p class="text-xs text-gray-400-fix">Complete and save all four items to unlock final delivery.</p>
                     {% endif %}
@@ -551,7 +590,11 @@
                         </div>
                         {% else %}
                         <p class="text-xs font-semibold text-gray-400-fix">Review & Actions:</p>
-                        {% if is_demo %}
+                        {% if project.archived_at %}
+                        <div class="rounded-xl border border-gray-700 bg-gray-900/40 px-4 py-3 text-xs text-gray-400-fix">
+                            This project is archived. Restore it to continue the review.
+                        </div>
+                        {% elif is_demo %}
                         <div class="rounded-xl border border-gray-700 bg-gray-900/40 px-4 py-3 text-xs text-gray-400-fix">
                             Review actions are disabled in the shared demo so its seeded history stays intact.
                         </div>
@@ -575,7 +618,7 @@
                                 <button type="submit" name="action_type" value="comment" class="neutral-action-fix w-full text-xs px-4 py-2.5 border font-medium rounded-xl transition sm:w-auto sm:py-2">
                                     💬 Leave Comment
                                 </button>
-                                {% if user.role == 'client' and (not is_public_link or guest_access == 'approve') %}
+                                {% if (user.role == 'client' and not is_public_link) or (is_public_link and guest_access == 'approve') %}
                                 <button type="submit" name="action_type" value="reject" class="semantic-reject-fix w-full text-xs px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 font-medium rounded-xl border border-rose-900/40 transition sm:w-auto sm:py-2">
                                     ❌ Request Change (Reject)
                                 </button>
@@ -611,7 +654,7 @@
                         {% if guest_access == 'view' %}View only{% elif guest_access == 'comment' %}Comments{% else %}Approval{% endif %}
                     </span>
                 </div>
-                {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo and project.status != 'Published' %}
+                {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo and not project.archived_at and project.status != 'Published' %}
                 <form action="/projects/{{ project.id }}/review-settings" method="post" class="review-plan-form mt-4 space-y-3">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                     <label class="review-plan-field block space-y-1.5">
@@ -713,7 +756,7 @@
 
                             {% if c.attachment_url %}<a href="{{ c.attachment_url }}" target="_blank" rel="noopener" class="inline-flex rounded-lg border border-gray-700 px-2.5 py-1.5 text-[11px] text-gray-300 hover:border-gray-500">Attachment: {{ c.attachment_name }}</a>{% endif %}
                             {% if c.annotation_data %}<button type="button" class="brand-soft-fix rounded-lg border px-2.5 py-1.5 text-[11px]" onclick='openSavedAnnotation({{ c.video_url|tojson }}, "/versions/{{ c.video_version_id }}/action", {{ c.annotation_data|safe }})'>View frame annotation</button>{% endif %}
-                            {% if c.id and c.video_version_id and project.status not in ['Approved', 'Published'] and not is_demo %}
+                            {% if c.id and c.video_version_id and not project.archived_at and project.status not in ['Approved', 'Published'] and not is_demo %}
                             <button type="button" class="text-[10px] text-gray-500 hover:text-gray-300" onclick="document.getElementById('reply-{{ c.id }}').classList.toggle('hidden')">Reply</button>
                             <form id="reply-{{ c.id }}" action="/versions/{{ c.video_version_id }}/action" method="post" enctype="multipart/form-data" class="hidden space-y-2 pt-2">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}"><input type="hidden" name="action_type" value="comment"><input type="hidden" name="parent_comment_id" value="{{ c.id }}">{% if is_public_link %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
@@ -724,11 +767,11 @@
 
                             {% if c.version_label %}
                             <div class="activity-entry-footer text-[10px] flex flex-wrap items-center justify-end gap-2">
-                                {% if c.author_role == 'client' and (c.type == 'comment' or c.type.startswith('timestamp_')) %}
+                                {% if c.author_role in ['client', 'guest'] and (c.type == 'comment' or c.type.startswith('timestamp_')) %}
                                 <span class="feedback-state {% if c.is_resolved or project.status in ['Approved', 'Published'] %}is-resolved{% endif %}">
                                     {% if project.status in ['Approved', 'Published'] %}Closed{% elif c.is_resolved %}Resolved{% else %}Open feedback{% endif %}
                                 </span>
-                                {% if user.role in ['owner', 'admin', 'member'] and not is_demo and c.id and project.status not in ['Approved', 'Published'] %}
+                                {% if user.role in ['owner', 'admin', 'member'] and not is_demo and not project.archived_at and c.id and project.status not in ['Approved', 'Published'] %}
                                 <form action="/comments/{{ c.id }}/resolve" method="post" class="m-0">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                                     <button type="submit" class="feedback-resolve-action">
@@ -777,10 +820,10 @@
                     </div>
                 </div>
 
-                {% if is_demo or project.status == 'Approved' or project.status == 'Published' or (is_public_link and guest_access == 'view') %}
+                {% if is_demo or project.archived_at or project.status == 'Approved' or project.status == 'Published' or (is_public_link and guest_access == 'view') %}
                 <div class="approved-lock-fix border rounded-xl p-4 text-center space-y-1">
                     <p class="approved-lock-title-fix text-xs font-bold flex items-center justify-center gap-1">🔒 Timeline Immutable</p>
-                    <p class="text-[11px] text-gray-500">{% if is_demo %}Timestamp comments are disabled in the shared demo.{% else %}This version has been approved by the client, and the timeline has been secured for read-only access.{% endif %}</p>
+                    <p class="text-[11px] text-gray-500">{% if is_demo %}Timestamp comments are disabled in the shared demo.{% elif project.archived_at %}Restore this project before adding more timestamped feedback.{% else %}This version has been approved by the client, and the timeline has been secured for read-only access.{% endif %}</p>
                 </div>
                 {% else %}
                 <form id="modal-comment-form" method="post" enctype="multipart/form-data" novalidate class="space-y-3 m-0" onsubmit="return validateComment(this)">

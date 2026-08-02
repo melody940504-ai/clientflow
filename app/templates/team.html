@@ -4,7 +4,7 @@
 <section class="team-page">
   <a class="page-back" href="/dashboard">&#8592; Back to dashboard</a>
   <div class="page-heading"><span class="eyebrow">SHARED STUDIO</span><h1>Team access</h1></div>
-  {% if credentials %}<div class="form-alert success"><strong>Member created.</strong> Temporary sign-in: {{ credentials }}</div>{% endif %}
+  {% if request.query_params.get('success') %}<div class="form-alert success">{{ request.query_params.get('success') }}</div>{% endif %}
   {% if request.query_params.get('error') %}<div class="form-alert error">{{ request.query_params.get('error') }}</div>{% endif %}
 
   {% if user.role == 'owner' and not is_demo %}

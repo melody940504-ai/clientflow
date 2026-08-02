@@ -21,6 +21,20 @@
     <div class="error-box">{{ error }}</div>
   {% endif %}
 
+  {% if email_test_mode %}
+  <div class="email-mode-notice" role="status">
+    <div>
+      <strong>Email delivery is in test mode</strong>
+      {% if email_test_recipient %}
+      <span>All outgoing messages are redirected to {{ email_test_recipient }}.</span>
+      {% else %}
+      <span>Resend's test sender can only deliver to the account owner's verified address.</span>
+      {% endif %}
+    </div>
+    <span class="badge">Test delivery</span>
+  </div>
+  {% endif %}
+
   <form class="panel settings-form" method="post" action="/settings" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
     <fieldset class="settings-readonly" {% if is_demo %}disabled{% endif %}>

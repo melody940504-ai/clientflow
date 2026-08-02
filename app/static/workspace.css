@@ -1345,6 +1345,81 @@ html {
   border-color: #c8c7d2;
 }
 
+.project-archive-action {
+  border: 1px solid color-mix(in srgb, #fb7185 34%, var(--workspace-border));
+  background: color-mix(in srgb, #fb7185 9%, var(--workspace-surface));
+  color: #fb7185;
+}
+
+.project-archive-action:hover {
+  background: color-mix(in srgb, #fb7185 15%, var(--workspace-surface));
+}
+
+.project-archive-banner,
+.project-reopened-banner {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--workspace-surface) 88%, transparent);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
+}
+
+.project-archive-banner > div,
+.project-reopened-banner > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.project-archive-banner strong { color: #fb7185; }
+.project-reopened-banner strong { color: var(--brand-color); }
+.project-archive-banner span,
+.project-reopened-banner span { color: var(--workspace-muted); font-size: 0.78rem; }
+
+.project-attachment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.project-attachment-open {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--workspace-surface-raised) 72%, transparent);
+  color: var(--workspace-text);
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.project-attachment-open:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand-color) 45%, var(--workspace-border));
+  background: var(--workspace-surface-raised);
+}
+
+.project-attachment-open:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.project-attachment-delete {
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in srgb, #fb7185 30%, var(--workspace-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #fb7185 7%, var(--workspace-surface));
+  color: #fb7185;
+  font-size: 1.1rem;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.project-attachment-delete:hover { transform: translateY(-1px); background: color-mix(in srgb, #fb7185 14%, var(--workspace-surface)); }
+
 @media (prefers-reduced-motion: reduce) {
   .workspace-page *,
   .workspace-page *::before,

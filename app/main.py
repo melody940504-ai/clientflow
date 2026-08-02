@@ -6,6 +6,9 @@ import json
 import logging
 import secrets
 import sqlite3
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import date, datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
@@ -25,7 +28,7 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from itsdangerous import BadSignature, URLSafeSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 import os
 import resend
@@ -46,10 +49,10 @@ if not SESSION_SECRET:
     if IS_PRODUCTION:
         raise RuntimeError("SESSION_SECRET must be configured in production.")
     SESSION_SECRET = secrets.token_urlsafe(32)
-serializer = URLSafeSerializer(SESSION_SECRET, salt="clientflow-session")
+serializer = URLSafeTimedSerializer(SESSION_SECRET, salt="clientflow-session")
 
 app = FastAPI(title="Lumaire")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
@@ -98,10 +101,22 @@ DEFAULT_STUDIO_NAME = "Lumaire Studio"
 DEFAULT_BRAND_COLOR = "#9b8cf6"
 DEFAULT_EMAIL_SENDER_NAME = "Lumaire"
 EMAIL_TEST_RECIPIENT = os.getenv("EMAIL_TEST_RECIPIENT", "").strip()
+EMAIL_FROM_ADDRESS = os.getenv(
+    "EMAIL_FROM_ADDRESS", "onboarding@resend.dev"
+).strip()
+if (
+    "@" not in EMAIL_FROM_ADDRESS
+    or "\r" in EMAIL_FROM_ADDRESS
+    or "\n" in EMAIL_FROM_ADDRESS
+):
+    raise RuntimeError("EMAIL_FROM_ADDRESS must be a valid email address.")
 PASSWORD_ITERATIONS = 600_000
 MAX_VIDEO_UPLOAD_BYTES = int(os.getenv("MAX_VIDEO_UPLOAD_MB", "250")) * 1024 * 1024
 MAX_ATTACHMENT_UPLOAD_BYTES = int(os.getenv("MAX_ATTACHMENT_UPLOAD_MB", "25")) * 1024 * 1024
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
+LOGIN_RATE_LIMIT = (8, 15 * 60)
+PASSWORD_RESET_RATE_LIMIT = (4, 60 * 60)
+PUBLIC_UNLOCK_RATE_LIMIT = (8, 15 * 60)
 DEMO_ENABLED = os.getenv("DEMO_ENABLED", "true").strip().lower() in {
     "1",
     "true",
@@ -120,6 +135,11 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.getenv("RESEND_API_KEY")
 
+_rate_limit_events: dict[str, deque[float]] = defaultdict(deque)
+_rate_limit_lock = threading.Lock()
+_signed_url_cache: dict[tuple[str, str], tuple[str, float]] = {}
+_signed_url_cache_lock = threading.Lock()
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
@@ -135,6 +155,42 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
             "scope": "openid email profile"
         },
     )
+
+
+def request_client_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",", 1)[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def enforce_rate_limit(
+    request: Request,
+    scope: str,
+    identifier: str,
+    limit: tuple[int, int],
+) -> None:
+    max_attempts, window_seconds = limit
+    key = f"{scope}:{request_client_key(request)}:{identifier.strip().lower()}"
+    now = time.monotonic()
+    with _rate_limit_lock:
+        events = _rate_limit_events[key]
+        while events and now - events[0] >= window_seconds:
+            events.popleft()
+        if len(events) >= max_attempts:
+            retry_after = max(1, int(window_seconds - (now - events[0])))
+            raise HTTPException(
+                status_code=429,
+                detail="Too many attempts. Please wait and try again.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        events.append(now)
+
+
+def clear_rate_limit(request: Request, scope: str, identifier: str) -> None:
+    key = f"{scope}:{request_client_key(request)}:{identifier.strip().lower()}"
+    with _rate_limit_lock:
+        _rate_limit_events.pop(key, None)
 
 
 def clean_email_sender_name(value: str) -> str:
@@ -255,7 +311,7 @@ def send_activity_email(
     brand_name: str = DEFAULT_STUDIO_NAME,
     brand_color: str = DEFAULT_BRAND_COLOR,
     logo_url: str = "",
-) -> None:
+) -> bool:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
         safe_project_name = escape(str(project_name or "Untitled project"))
@@ -263,7 +319,7 @@ def send_activity_email(
         plain_link = validated_email_url(link_url) or "Link unavailable"
 
         resend.Emails.send({
-            "from": f"{clean_email_sender_name(sender_name)} <onboarding@resend.dev>",
+            "from": f"{clean_email_sender_name(sender_name)} <{EMAIL_FROM_ADDRESS}>",
             "to": [recipient],
             "subject": clean_email_subject(subject),
             "text": (
@@ -287,10 +343,12 @@ def send_activity_email(
             ),
         })
 
-        print(f"Email sent successfully to {recipient}")
+        logger.info("Activity email sent to %s", recipient)
+        return True
 
     except Exception as e:
-        print(f"❌ Email failed: {e}")
+        logger.error("Activity email failed: %s", e)
+        return False
 
 def send_client_invitation_email(
     to_email: str,
@@ -311,7 +369,7 @@ def send_client_invitation_email(
         plain_link = validated_email_url(login_url) or "Link unavailable"
 
         resend.Emails.send({
-            "from": f"{clean_email_sender_name(sender_name)} <onboarding@resend.dev>",
+            "from": f"{clean_email_sender_name(sender_name)} <{EMAIL_FROM_ADDRESS}>",
             "to": [recipient],
             "subject": f"You have been invited by {clean_email_sender_name(studio_name)}",
             "text": (
@@ -341,11 +399,11 @@ def send_client_invitation_email(
             ),
         })
 
-        print(f"Client invitation email sent successfully to {recipient}")
+        logger.info("Client invitation email sent to %s", recipient)
         return True
 
     except Exception as e:
-        print(f"Client invitation email failed: {e}")
+        logger.error("Client invitation email failed: %s", e)
         return False
 
 
@@ -358,12 +416,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 🎯 不論是在本機 Windows 還是雲端 Linux，都能精準拼出正確的資料庫絕對路徑
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 
-def send_verification_email(to_email: str, verify_url: str) -> None:
+def send_verification_email(to_email: str, verify_url: str) -> bool:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
 
         resend.Emails.send({
-            "from": "Lumaire <onboarding@resend.dev>",
+            "from": f"Lumaire <{EMAIL_FROM_ADDRESS}>",
             "to": [recipient],
             "subject": "Verify your Lumaire email",
             "text": (
@@ -382,18 +440,20 @@ def send_verification_email(to_email: str, verify_url: str) -> None:
             ),
         })
 
-        print(f"Verification email sent to {recipient}")
+        logger.info("Verification email sent to %s", recipient)
+        return True
 
     except Exception as e:
-        print(f"Verification email failed: {e}")
+        logger.error("Verification email failed: %s", e)
+        return False
 
 
-def send_password_reset_email(to_email: str, reset_url: str) -> None:
+def send_password_reset_email(to_email: str, reset_url: str) -> bool:
     try:
         recipient = EMAIL_TEST_RECIPIENT or to_email
 
         resend.Emails.send({
-            "from": "Lumaire <onboarding@resend.dev>",
+            "from": f"Lumaire <{EMAIL_FROM_ADDRESS}>",
             "to": [recipient],
             "subject": "Reset your Lumaire password",
             "text": (
@@ -413,10 +473,12 @@ def send_password_reset_email(to_email: str, reset_url: str) -> None:
             ),
         })
 
-        print(f"Password reset email sent to {recipient}")
+        logger.info("Password reset email sent to %s", recipient)
+        return True
 
     except Exception as e:
-        print(f"Password reset email failed: {e}")
+        logger.error("Password reset email failed: %s", e)
+        return False
 
 class PostgresDB:
     def __init__(self):
@@ -468,6 +530,11 @@ def init_db() -> None:
                 display_name TEXT,
                 workspace_owner_id INTEGER,
                 setup_completed BOOLEAN NOT NULL DEFAULT FALSE,
+                session_version INTEGER NOT NULL DEFAULT 1,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+                invitation_token TEXT,
+                invitation_expires_at TEXT,
                 created_at TEXT NOT NULL
             )
         """)
@@ -501,8 +568,14 @@ def init_db() -> None:
             )
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT")
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS workspace_owner_id INTEGER")
-        except Exception as e:
-            print(f"User verification migration skipped: {e}")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invitation_token TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invitation_expires_at TEXT")
+        except Exception:
+            logger.exception("User schema migration failed")
+            raise
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS clients (
@@ -512,10 +585,12 @@ def init_db() -> None:
                 email TEXT,
                 contact TEXT,
                 notes TEXT,
+                archived_at TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """)
+        db.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS archived_at TEXT")
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS projects (
@@ -529,7 +604,7 @@ def init_db() -> None:
                 review_token TEXT,
                 review_token_expires_at TEXT,
                 review_due_at TEXT,
-                guest_access TEXT NOT NULL DEFAULT 'approve',
+                guest_access TEXT NOT NULL DEFAULT 'comment',
                 review_password_hash TEXT,
                 review_link_enabled BOOLEAN NOT NULL DEFAULT TRUE,
                 review_allow_download BOOLEAN NOT NULL DEFAULT FALSE,
@@ -537,6 +612,9 @@ def init_db() -> None:
                 review_visit_count INTEGER NOT NULL DEFAULT 0,
                 review_last_visited_at TEXT,
                 delivery_checklist TEXT NOT NULL DEFAULT '',
+                archived_at TEXT,
+                reopened_at TEXT,
+                reopened_by TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id),
                 FOREIGN KEY(client_id) REFERENCES clients(id)
@@ -552,8 +630,9 @@ def init_db() -> None:
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_due_at TEXT"
         )
         db.execute(
-            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS guest_access TEXT NOT NULL DEFAULT 'approve'"
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS guest_access TEXT NOT NULL DEFAULT 'comment'"
         )
+        db.execute("ALTER TABLE projects ALTER COLUMN guest_access SET DEFAULT 'comment'")
         db.execute(
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS delivery_checklist TEXT NOT NULL DEFAULT ''"
         )
@@ -563,6 +642,9 @@ def init_db() -> None:
         db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_allow_versions BOOLEAN NOT NULL DEFAULT TRUE")
         db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_visit_count INTEGER NOT NULL DEFAULT 0")
         db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_last_visited_at TEXT")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_at TEXT")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS reopened_at TEXT")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS reopened_by TEXT")
         projects_without_tokens = db.execute(
             "SELECT id FROM projects WHERE review_token IS NULL OR review_token = ''"
         ).fetchall()
@@ -608,7 +690,10 @@ def init_db() -> None:
                 is_internal BOOLEAN NOT NULL DEFAULT FALSE,
                 attachment_url TEXT,
                 attachment_name TEXT,
+                attachment_storage_path TEXT,
                 annotation_data TEXT,
+                author_email TEXT,
+                identity_verified BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(video_version_id) REFERENCES video_versions(id)
             )
@@ -623,7 +708,10 @@ def init_db() -> None:
         db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE")
         db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_url TEXT")
         db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_name TEXT")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_storage_path TEXT")
         db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS annotation_data TEXT")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS author_email TEXT")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS identity_verified BOOLEAN NOT NULL DEFAULT FALSE")
         db.execute(
             """
             CREATE INDEX IF NOT EXISTS projects_user_created_idx
@@ -676,6 +764,76 @@ def init_db() -> None:
             )
         """)
         db.execute("CREATE INDEX IF NOT EXISTS project_members_user_idx ON project_members(user_id)")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS project_attachments (
+                id SERIAL PRIMARY KEY,
+                project_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                original_name TEXT NOT NULL,
+                storage_path TEXT,
+                public_url TEXT,
+                content_type TEXT,
+                size_bytes INTEGER NOT NULL DEFAULT 0,
+                created_by_user_id INTEGER,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(created_by_user_id) REFERENCES users(id)
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS project_attachments_project_idx ON project_attachments(project_id, created_at)")
+        legacy_attachment_projects = db.execute(
+            "SELECT id, notes, created_at FROM projects WHERE notes LIKE '%||%'"
+        ).fetchall()
+        for legacy_project in legacy_attachment_projects:
+            parts = (legacy_project["notes"] or "").split("||")
+            for legacy_attachment in parts[1:]:
+                if "::" not in legacy_attachment:
+                    continue
+                title, public_url = legacy_attachment.split("::", 1)
+                title = title.strip()
+                public_url = public_url.strip()
+                if not title or not public_url:
+                    continue
+                existing_attachment = db.execute(
+                    """
+                    SELECT id FROM project_attachments
+                    WHERE project_id = ? AND title = ? AND public_url = ?
+                    """,
+                    (legacy_project["id"], title, public_url),
+                ).fetchone()
+                if not existing_attachment:
+                    db.execute(
+                        """
+                        INSERT INTO project_attachments
+                        (project_id, title, original_name, public_url, created_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            legacy_project["id"],
+                            title,
+                            title,
+                            public_url,
+                            legacy_project["created_at"],
+                        ),
+                    )
+            db.execute(
+                "UPDATE projects SET notes = ? WHERE id = ?",
+                (parts[0].strip(), legacy_project["id"]),
+            )
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS project_lifecycle_events (
+                id SERIAL PRIMARY KEY,
+                project_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                actor_user_id INTEGER,
+                actor_name TEXT NOT NULL,
+                note TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(actor_user_id) REFERENCES users(id)
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS project_lifecycle_project_idx ON project_lifecycle_events(project_id, created_at)")
 
 
 def mark_project_notifications_read(db, user_id: int, project_id: int) -> None:
@@ -1012,7 +1170,7 @@ def startup() -> None:
     try:
         seed_demo_review_history()
     except Exception as exc:
-        print(f"Demo history seed skipped: {exc}")
+        logger.warning("Demo history seed skipped: %s", exc)
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
@@ -1081,10 +1239,21 @@ def validate_csrf(request: Request, submitted_token: str) -> None:
         raise HTTPException(status_code=403, detail="Invalid or expired form token.")
 
 
-def set_session_cookie(response: Response, request: Request, user_id: int) -> None:
+def set_session_cookie(
+    response: Response,
+    request: Request,
+    user_id: int,
+    session_version: Optional[int] = None,
+) -> None:
+    if session_version is None:
+        with get_db() as db:
+            row = db.execute(
+                "SELECT session_version FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+        session_version = int(row["session_version"] or 1) if row else 1
     response.set_cookie(
         "session",
-        serializer.dumps(user_id),
+        serializer.dumps({"user_id": user_id, "version": session_version}),
         max_age=SESSION_MAX_AGE_SECONDS,
         httponly=True,
         samesite="lax",
@@ -1135,7 +1304,7 @@ def get_review_actor(
                 status_code=403,
                 detail="Review link invalid or expired.",
             )
-        return "client", project["client_name"]
+        return "guest", "Guest reviewer"
 
     if user["role"] == "owner":
         owner_access = user["id"] == project["user_id"]
@@ -1173,17 +1342,149 @@ async def read_upload_with_limit(file: UploadFile, max_bytes: int) -> bytes:
             raise HTTPException(status_code=413, detail="Uploaded file is too large.")
 
 
+def upload_signature_matches(content: bytes, extension: str) -> bool:
+    if not content:
+        return False
+    signatures = {
+        ".pdf": lambda data: data.startswith(b"%PDF-"),
+        ".png": lambda data: data.startswith(b"\x89PNG\r\n\x1a\n"),
+        ".jpg": lambda data: data.startswith(b"\xff\xd8\xff"),
+        ".jpeg": lambda data: data.startswith(b"\xff\xd8\xff"),
+        ".gif": lambda data: data.startswith((b"GIF87a", b"GIF89a")),
+        ".webp": lambda data: data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+        ".zip": lambda data: data.startswith((b"PK\x03\x04", b"PK\x05\x06")),
+        ".docx": lambda data: data.startswith((b"PK\x03\x04", b"PK\x05\x06")),
+        ".doc": lambda data: data.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"),
+        ".txt": lambda data: b"\x00" not in data[:4096],
+        ".mp4": lambda data: b"ftyp" in data[4:16],
+        ".mov": lambda data: b"ftyp" in data[4:16],
+        ".webm": lambda data: data.startswith(b"\x1a\x45\xdf\xa3"),
+    }
+    validator = signatures.get(extension.lower())
+    return bool(validator and validator(content))
+
+
+def signed_storage_url(
+    bucket: str,
+    storage_path: Optional[str],
+    fallback_url: Optional[str] = None,
+    expires_in: int = 3600,
+) -> str:
+    if not storage_path or not SUPABASE_URL or not SUPABASE_KEY:
+        return fallback_url or ""
+    cache_key = (bucket, storage_path)
+    now = time.monotonic()
+    with _signed_url_cache_lock:
+        cached = _signed_url_cache.get(cache_key)
+        if cached and cached[1] > now:
+            return cached[0]
+        if cached:
+            _signed_url_cache.pop(cache_key, None)
+    try:
+        response = httpx.post(
+            f"{SUPABASE_URL}/storage/v1/object/sign/{bucket}/{storage_path}",
+            headers={
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "apikey": SUPABASE_KEY,
+            },
+            json={"expiresIn": expires_in},
+            timeout=10,
+        )
+        response.raise_for_status()
+        signed_path = response.json().get("signedURL", "")
+        if signed_path.startswith("http://") or signed_path.startswith("https://"):
+            signed_url = signed_path
+        elif signed_path:
+            signed_url = f"{SUPABASE_URL}/storage/v1{signed_path}"
+        else:
+            signed_url = ""
+        if signed_url:
+            with _signed_url_cache_lock:
+                if len(_signed_url_cache) >= 2_000:
+                    expired_keys = [
+                        key for key, value in _signed_url_cache.items()
+                        if value[1] <= now
+                    ]
+                    for key in expired_keys:
+                        _signed_url_cache.pop(key, None)
+                    if len(_signed_url_cache) >= 2_000:
+                        _signed_url_cache.pop(next(iter(_signed_url_cache)))
+                _signed_url_cache[cache_key] = (
+                    signed_url,
+                    now + max(60, expires_in - 300),
+                )
+            return signed_url
+    except Exception as exc:
+        logger.warning("Could not sign storage object %s/%s: %s", bucket, storage_path, exc)
+    return fallback_url or ""
+
+
+def hydrate_comment_attachment_urls(comments: list[object]) -> list[dict]:
+    hydrated: list[dict] = []
+    for row in comments:
+        item = dict(row)
+        item["attachment_url"] = signed_storage_url(
+            "attachments",
+            item.get("attachment_storage_path"),
+            item.get("attachment_url"),
+        )
+        hydrated.append(item)
+    return hydrated
+
+
+def load_project_attachments(db, project: object) -> tuple[str, list[dict]]:
+    raw_notes = project["notes"] or ""
+    display_notes = raw_notes.split("||", 1)[0].strip()
+    rows = db.execute(
+        """
+        SELECT id, title, original_name, storage_path, public_url,
+               content_type, size_bytes, created_at
+        FROM project_attachments
+        WHERE project_id = ?
+        ORDER BY created_at DESC, id DESC
+        """,
+        (project["id"],),
+    ).fetchall()
+    attachments = []
+    for row in rows:
+        item = dict(row)
+        item["url"] = signed_storage_url(
+            "attachments",
+            item.get("storage_path"),
+            item.get("public_url"),
+        )
+        attachments.append(item)
+    return display_notes, attachments
+
+
 templates.env.globals["csrf_token"] = get_csrf_token
 
 def get_user_from_session_token(token: Optional[str]) -> Optional[sqlite3.Row]:
     if not token:
         return None
     try:
-        user_id = serializer.loads(token)
-    except BadSignature:
+        payload = serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return None
+    if isinstance(payload, int):
+        user_id = payload
+        token_version = 1
+    elif isinstance(payload, dict):
+        user_id = payload.get("user_id")
+        token_version = int(payload.get("version") or 1)
+    else:
+        return None
+    if not isinstance(user_id, int):
         return None
     with get_db() as db:
-        return db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if (
+        not user
+        or not bool(user["is_active"])
+        or int(user["session_version"] or 1) != token_version
+    ):
+        return None
+    return user
 
 
 def get_current_user(request: Request) -> Optional[sqlite3.Row]:
@@ -1196,6 +1497,15 @@ def require_user(request: Request) -> sqlite3.Row:
         raise HTTPException(
             status_code=303,
             headers={"Location": "/login?error=session-expired"},
+        )
+    if bool(user["must_change_password"]) and request.url.path not in {
+        "/account",
+        "/account/password",
+        "/logout",
+    }:
+        raise HTTPException(
+            status_code=303,
+            headers={"Location": "/account?required=password"},
         )
     return user
 
@@ -1283,7 +1593,7 @@ def is_valid_hex_color(value: str) -> bool:
 
 def normalize_guest_access(value: str) -> str:
     normalized = (value or "").strip().lower()
-    return normalized if normalized in GUEST_ACCESS_OPTIONS else "approve"
+    return normalized if normalized in GUEST_ACCESS_OPTIONS else "comment"
 
 
 def guest_action_is_allowed(access: str, action_type: str) -> bool:
@@ -1342,6 +1652,30 @@ def parse_delivery_checklist(value: str) -> set[str]:
     }
 
 
+def record_project_lifecycle(
+    db,
+    project_id: int,
+    event_type: str,
+    user: object,
+    note: str = "",
+) -> None:
+    db.execute(
+        """
+        INSERT INTO project_lifecycle_events
+        (project_id, event_type, actor_user_id, actor_name, note, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            project_id,
+            event_type,
+            user["id"],
+            studio_display_name(user),
+            note.strip()[:500],
+            datetime.utcnow().isoformat(),
+        ),
+    )
+
+
 def normalize_branding(row: Optional[sqlite3.Row]) -> dict:
     studio_name = DEFAULT_STUDIO_NAME
     brand_color = DEFAULT_BRAND_COLOR
@@ -1395,6 +1729,8 @@ def owner_needs_setup(user: sqlite3.Row) -> bool:
     return user["role"] == "owner" and not bool(user["setup_completed"])
 
 def post_login_path(user: sqlite3.Row) -> str:
+    if bool(user["must_change_password"]):
+        return "/account?required=password"
     return "/setup" if owner_needs_setup(user) else "/dashboard"
 
 def sanitize_optional_url(value: str) -> str:
@@ -1585,7 +1921,6 @@ def register_page(request: Request):
 @app.post("/register")
 def register(
     request: Request,
-    background_tasks: BackgroundTasks,
     email: str = Form(...),
     password: str = Form(...),
     csrf_token: str = Form(...),
@@ -1619,24 +1954,16 @@ def register(
                 ),
             )
             user_id = cur.fetchone()["id"]
+            verify_url = f"{request.base_url}verify-email/{verification_token}"
+            if not send_verification_email(email.strip().lower(), verify_url):
+                raise InvitationDeliveryError
     except psycopg2.IntegrityError:
         return redirect("/register?error=email-exists")
-    
-    verify_url = f"{request.base_url}verify-email/{verification_token}"
-
-    getattr(background_tasks, "add_task")(
-        send_verification_email,
-        email.strip().lower(),
-        verify_url,
-    )
+    except InvitationDeliveryError:
+        return redirect("/register?error=verification-email-failed")
 
     return redirect("/login?success=verification-sent")
 
-
-import logging
-
-# 加入這行來設定記錄器，這樣我們能在 Render 的 Logs 看到後端發生什麼
-logger = logging.getLogger("uvicorn.error")
 
 @app.post("/login")
 def login(
@@ -1646,11 +1973,13 @@ def login(
     csrf_token: str = Form(...),
 ):
     validate_csrf(request, csrf_token)
-    logger.info(f"Login attempt for: {email}") # 這行會出現在 Logs
+    email_clean = email.strip().lower()
+    enforce_rate_limit(request, "login", email_clean, LOGIN_RATE_LIMIT)
+    logger.info("Login attempt")
     with get_db() as db:
-        user = db.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE email = ?", (email_clean,)).fetchone()
     
-    if not user:
+    if not user or not bool(user["is_active"]):
         return RedirectResponse(url="/login?error=no_account", status_code=303)
     
     if not user["is_verified"]:
@@ -1668,6 +1997,8 @@ def login(
                 "UPDATE users SET password_hash = ? WHERE id = ?",
                 (hash_password(password), user["id"]),
             )
+
+    clear_rate_limit(request, "login", email_clean)
     
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     set_session_cookie(response, request, user["id"])
@@ -1695,7 +2026,7 @@ def demo_login(request: Request, role: str, csrf_token: str = Form(...)):
             (email, role),
         ).fetchone()
 
-    if not user or not user["is_verified"]:
+    if not user or not bool(user["is_active"]) or not user["is_verified"]:
         return redirect("/login?error=demo-unavailable")
 
     current_user = get_current_user(request)
@@ -1729,6 +2060,12 @@ def forgot_password(
 ):
     validate_csrf(request, csrf_token)
     email_clean = email.strip().lower()
+    enforce_rate_limit(
+        request,
+        "forgot-password",
+        email_clean,
+        PASSWORD_RESET_RATE_LIMIT,
+    )
     if is_demo_email(email_clean):
         return redirect("/forgot-password?success=reset-link-sent")
 
@@ -1741,7 +2078,7 @@ def forgot_password(
             (email_clean,),
         ).fetchone()
 
-        if user:
+        if user and bool(user["is_active"]):
             db.execute(
                 """
                 UPDATE users
@@ -1769,7 +2106,7 @@ def reset_password_page(request: Request, token: str):
         ).fetchone()
 
     token_valid = False
-    if user and user["reset_token_expires_at"]:
+    if user and bool(user["is_active"]) and user["reset_token_expires_at"]:
         try:
             expires_at = datetime.fromisoformat(user["reset_token_expires_at"])
             token_valid = expires_at >= datetime.utcnow()
@@ -1816,7 +2153,11 @@ def reset_password(
             (token,),
         ).fetchone()
 
-        if not user or not user["reset_token_expires_at"]:
+        if (
+            not user
+            or not bool(user["is_active"])
+            or not user["reset_token_expires_at"]
+        ):
             return redirect(f"/reset-password/{token}?error=invalid-or-expired")
 
         if is_demo_email(user["email"]):
@@ -1836,7 +2177,9 @@ def reset_password(
             SET password_hash = ?,
                 reset_token = NULL,
                 reset_token_expires_at = NULL,
-                is_verified = TRUE
+                is_verified = TRUE,
+                must_change_password = FALSE,
+                session_version = session_version + 1
             WHERE id = ?
             """,
             (hash_password(password), user["id"]),
@@ -1858,7 +2201,14 @@ async def login_google(request: Request):
 
 @app.get("/auth/google/callback")
 async def auth_google_callback(request: Request):
-    token = await oauth.google.authorize_access_token(request)
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception as exc:
+        logger.warning("Google sign-in callback failed: %s", exc)
+        return RedirectResponse(
+            url="/login?error=google_login_failed",
+            status_code=303,
+        )
     user_info = token.get("userinfo")
 
     if not user_info or not user_info.get("email"):
@@ -1871,6 +2221,9 @@ async def auth_google_callback(request: Request):
             "SELECT * FROM users WHERE email = ?",
             (email,)
         ).fetchone()
+
+        if user and not bool(user["is_active"]):
+            return RedirectResponse(url="/login?error=no_account", status_code=303)
 
         if not user:
             db.execute(
@@ -1913,7 +2266,7 @@ def verify_email(token: str):
             (token,)
         ).fetchone()
 
-        if not user:
+        if not user or not bool(user["is_active"]):
             return redirect("/login?error=invalid-verification-link")
 
         db.execute(
@@ -1968,24 +2321,24 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
                      WHERE vv.project_id = p.id
                      AND p.status NOT IN ('Approved', 'Published')
-                     AND cm.author_role = 'client'
+                     AND cm.author_role IN ('client', 'guest')
                      AND cm.is_resolved = FALSE
                      AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%%')) AS unresolved_count
                 FROM projects p
                 JOIN clients c ON p.client_id = c.id
-                WHERE p.client_id = ?
+                WHERE p.client_id = ? AND p.archived_at IS NULL
             """
             params = [user["client_reference_id"]]
         else:
             # 工作室老闆視角：看所有
             workspace_id = workspace_id_for(user)
-            clients = db.execute("SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC", (workspace_id,)).fetchall()
+            clients = db.execute("SELECT * FROM clients WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC", (workspace_id,)).fetchall()
             query = """
                 SELECT p.*, c.name AS client_name,
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
                      WHERE vv.project_id = p.id
                      AND p.status NOT IN ('Approved', 'Published')
-                     AND cm.author_role = 'client'
+                     AND cm.author_role IN ('client', 'guest')
                      AND cm.is_resolved = FALSE
                      AND (cm.type = 'comment' OR cm.type LIKE 'timestamp_%%')) AS unresolved_count
                 FROM projects p
@@ -2010,11 +2363,32 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
         query += " ORDER BY p.created_at DESC"
         projects = db.execute(query, params).fetchall()
 
-        notifications = (
-            []
-            if user["role"] in {"client", "member"}
-            else get_owner_notifications(db, workspace_id_for(user), reader_id=user["id"])
-        )
+        if user["role"] == "client":
+            notifications = []
+        elif user["role"] == "member":
+            assigned_ids = {
+                row["project_id"]
+                for row in db.execute(
+                    "SELECT project_id FROM project_members WHERE user_id = ?",
+                    (user["id"],),
+                ).fetchall()
+            }
+            notifications = [
+                item
+                for item in get_owner_notifications(
+                    db,
+                    workspace_id_for(user),
+                    limit=80,
+                    reader_id=user["id"],
+                )
+                if item["project_id"] in assigned_ids
+            ][:8]
+        else:
+            notifications = get_owner_notifications(
+                db,
+                workspace_id_for(user),
+                reader_id=user["id"],
+            )
         
         # 統計數據卡片
         target_id = user["client_reference_id"] if user["role"] == "client" else workspace_id_for(user)
@@ -2032,7 +2406,7 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
                 SUM(CASE WHEN status='In Revision' THEN 1 ELSE 0 END) AS revision,
                 SUM(CASE WHEN status='Approved' THEN 1 ELSE 0 END) AS approved,
                 SUM(CASE WHEN status='Published' THEN 1 ELSE 0 END) AS published
-            FROM projects WHERE {col} = ? {stats_member_filter}
+            FROM projects WHERE {col} = ? AND archived_at IS NULL {stats_member_filter}
             """,
             stats_params,
         ).fetchone()
@@ -2074,27 +2448,31 @@ def analytics_page(request: Request):
         totals = db.execute(
             """
             SELECT
-                (SELECT COUNT(*) FROM clients WHERE user_id = ?) AS total_clients,
-                (SELECT COUNT(*) FROM projects WHERE user_id = ?) AS total_projects,
-                (SELECT COUNT(*) FROM video_versions WHERE user_id = ?) AS total_versions,
+                (SELECT COUNT(*) FROM clients WHERE user_id = ? AND archived_at IS NULL) AS total_clients,
+                (SELECT COUNT(*) FROM projects WHERE user_id = ? AND archived_at IS NULL) AS total_projects,
+                (
+                    SELECT COUNT(*) FROM video_versions vv
+                    JOIN projects p ON vv.project_id = p.id
+                    WHERE vv.user_id = ? AND p.archived_at IS NULL
+                ) AS total_versions,
                 (
                     SELECT COUNT(*)
                     FROM comments cm
                     JOIN video_versions vv ON cm.video_version_id = vv.id
                     JOIN projects p ON vv.project_id = p.id
-                    WHERE p.user_id = ?
+                    WHERE p.user_id = ? AND p.archived_at IS NULL
                 ) AS total_comments,
                 (
                     SELECT COUNT(*)
                     FROM projects
-                    WHERE user_id = ? AND status IN ('Approved', 'Published')
+                    WHERE user_id = ? AND archived_at IS NULL AND status IN ('Approved', 'Published')
                 ) AS completed_projects,
                 (
                     SELECT COUNT(*)
                     FROM comments cm
                     JOIN video_versions vv ON cm.video_version_id = vv.id
                     JOIN projects p ON vv.project_id = p.id
-                    WHERE p.user_id = ? AND cm.type IN ('approve', 'reject')
+                    WHERE p.user_id = ? AND p.archived_at IS NULL AND cm.type IN ('approve', 'reject')
                 ) AS decision_count
             """,
             (user_id, user_id, user_id, user_id, user_id, user_id),
@@ -2104,7 +2482,7 @@ def analytics_page(request: Request):
             """
             SELECT status, COUNT(*) AS count
             FROM projects
-            WHERE user_id = ?
+            WHERE user_id = ? AND archived_at IS NULL
             GROUP BY status
             ORDER BY count DESC, status ASC
             """,
@@ -2115,7 +2493,7 @@ def analytics_page(request: Request):
             """
             SELECT category, COUNT(*) AS count
             FROM projects
-            WHERE user_id = ?
+            WHERE user_id = ? AND archived_at IS NULL
             GROUP BY category
             ORDER BY count DESC, category ASC
             """,
@@ -2134,7 +2512,7 @@ def analytics_page(request: Request):
             LEFT JOIN projects p ON p.client_id = c.id
             LEFT JOIN video_versions vv ON vv.project_id = p.id
             LEFT JOIN comments cm ON cm.video_version_id = vv.id
-            WHERE c.user_id = ?
+            WHERE c.user_id = ? AND c.archived_at IS NULL
             GROUP BY c.id, c.name
             ORDER BY project_count DESC, comment_count DESC, c.name ASC
             LIMIT 5
@@ -2157,7 +2535,7 @@ def analytics_page(request: Request):
             JOIN clients c ON p.client_id = c.id
             LEFT JOIN video_versions vv ON vv.project_id = p.id
             LEFT JOIN comments cm ON cm.video_version_id = vv.id
-            WHERE p.user_id = ?
+            WHERE p.user_id = ? AND p.archived_at IS NULL
             GROUP BY p.id, p.name, p.status, p.category, p.created_at, c.name
             ORDER BY p.created_at DESC
             LIMIT 6
@@ -2270,6 +2648,8 @@ def settings_page(request: Request):
             "error": request.query_params.get("error"),
             "success": request.query_params.get("success"),
             "is_demo": is_demo_user(user),
+            "email_test_mode": bool(EMAIL_TEST_RECIPIENT) or EMAIL_FROM_ADDRESS == "onboarding@resend.dev",
+            "email_test_recipient": EMAIL_TEST_RECIPIENT,
         },
     )
 
@@ -2326,6 +2706,7 @@ def account_page(request: Request):
     successes = {
         "email-updated": "Account email updated.",
         "password-updated": "Password updated.",
+        "sessions-revoked": "Other signed-in sessions were revoked.",
     }
 
     with get_db() as db:
@@ -2377,7 +2758,7 @@ def update_account_email(
             return redirect("/account?error=email-in-use")
 
         db.execute(
-            "UPDATE users SET email = ? WHERE id = ?",
+            "UPDATE users SET email = ?, session_version = session_version + 1 WHERE id = ?",
             (email_clean, user["id"]),
         )
         if user["role"] == "client" and user["client_reference_id"]:
@@ -2385,8 +2766,18 @@ def update_account_email(
                 "UPDATE clients SET email = ? WHERE id = ?",
                 (email_clean, user["client_reference_id"]),
             )
+        refreshed = db.execute(
+            "SELECT session_version FROM users WHERE id = ?", (user["id"],)
+        ).fetchone()
 
-    return redirect("/account?success=email-updated")
+    response = redirect("/account?success=email-updated")
+    set_session_cookie(
+        response,
+        request,
+        user["id"],
+        int(refreshed["session_version"]),
+    )
+    return response
 
 
 @app.post("/account/password")
@@ -2416,13 +2807,51 @@ def update_account_password(
             UPDATE users
             SET password_hash = ?,
                 reset_token = NULL,
-                reset_token_expires_at = NULL
+                reset_token_expires_at = NULL,
+                must_change_password = FALSE,
+                session_version = session_version + 1
             WHERE id = ?
             """,
             (hash_password(new_password), user["id"]),
         )
+        refreshed = db.execute(
+            "SELECT session_version FROM users WHERE id = ?", (user["id"],)
+        ).fetchone()
 
-    return redirect("/account?success=password-updated")
+    response = redirect("/account?success=password-updated")
+    set_session_cookie(
+        response,
+        request,
+        user["id"],
+        int(refreshed["session_version"]),
+    )
+    return response
+
+
+@app.post("/account/sessions/revoke")
+def revoke_account_sessions(request: Request, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if is_demo_user(user):
+        return demo_read_only_redirect("/dashboard")
+
+    with get_db() as db:
+        db.execute(
+            "UPDATE users SET session_version = session_version + 1 WHERE id = ?",
+            (user["id"],),
+        )
+        refreshed = db.execute(
+            "SELECT session_version FROM users WHERE id = ?", (user["id"],)
+        ).fetchone()
+
+    response = redirect("/account?success=sessions-revoked")
+    set_session_cookie(
+        response,
+        request,
+        user["id"],
+        int(refreshed["session_version"]),
+    )
+    return response
 
 
 @app.post("/clients")
@@ -2485,9 +2914,10 @@ def create_client(
                     role,
                     client_reference_id,
                     is_verified,
+                    must_change_password,
                     created_at
                 )
-                VALUES (?, ?, 'client', ?, TRUE, ?)
+                VALUES (?, ?, 'client', ?, TRUE, TRUE, ?)
                 """,
                 (
                     email_clean,
@@ -2544,6 +2974,7 @@ def resend_client_invitation(
                     c.id,
                     c.name,
                     c.email,
+                    c.archived_at,
                     u.id AS client_user_id
                 FROM clients c
                 JOIN users u
@@ -2556,6 +2987,8 @@ def resend_client_invitation(
 
             if not client:
                 raise HTTPException(status_code=404, detail="Client not found.")
+            if client["archived_at"]:
+                return redirect("/clients?error=Restore+this+client+before+resending+an+invitation.")
 
             if not client["email"]:
                 return redirect("/clients?error=This+client+does+not+have+an+email+address.")
@@ -2565,7 +2998,9 @@ def resend_client_invitation(
                 UPDATE users
                 SET password_hash = ?,
                     reset_token = NULL,
-                    reset_token_expires_at = NULL
+                    reset_token_expires_at = NULL,
+                    must_change_password = TRUE,
+                    session_version = session_version + 1
                 WHERE id = ?
                 """,
                 (hash_password(temporary_password), client["client_user_id"]),
@@ -2626,18 +3061,78 @@ def clients_page(
         ).fetchall()
         branding = get_branding_for_user(db, user)
 
+    active_clients = [client for client in clients if not client["archived_at"]]
+    archived_clients = [client for client in clients if client["archived_at"]]
+
     return templates.TemplateResponse(
         "clients.html",
         {
             "request": request,
             "user": user,
-            "clients": clients,
+            "clients": active_clients,
+            "archived_clients": archived_clients,
             "branding": branding,
             "is_demo": is_demo_user(user),
             "success": success,
             "error": error,
         },
     )
+
+
+@app.post("/clients/{client_id}/archive")
+def archive_client(request: Request, client_id: int, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"} or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    with get_db() as db:
+        client = db.execute(
+            "SELECT * FROM clients WHERE id = ? AND user_id = ?",
+            (client_id, workspace_id_for(user)),
+        ).fetchone()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found.")
+        active_project = db.execute(
+            "SELECT id FROM projects WHERE client_id = ? AND archived_at IS NULL LIMIT 1",
+            (client_id,),
+        ).fetchone()
+        if active_project:
+            return redirect("/clients?error=Archive+the+client's+projects+before+archiving+the+client.")
+        db.execute(
+            "UPDATE clients SET archived_at = ? WHERE id = ?",
+            (datetime.utcnow().isoformat(), client_id),
+        )
+        db.execute(
+            """UPDATE users
+               SET is_active = FALSE, session_version = session_version + 1,
+                   reset_token = NULL, reset_token_expires_at = NULL
+               WHERE role = 'client' AND client_reference_id = ?""",
+            (client_id,),
+        )
+    return redirect("/clients?success=Client+archived.")
+
+
+@app.post("/clients/{client_id}/restore")
+def restore_client(request: Request, client_id: int, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"} or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    with get_db() as db:
+        client = db.execute(
+            "SELECT id FROM clients WHERE id = ? AND user_id = ?",
+            (client_id, workspace_id_for(user)),
+        ).fetchone()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found.")
+        db.execute("UPDATE clients SET archived_at = NULL WHERE id = ?", (client_id,))
+        db.execute(
+            """UPDATE users
+               SET is_active = TRUE, session_version = session_version + 1
+               WHERE role = 'client' AND client_reference_id = ?""",
+            (client_id,),
+        )
+    return redirect("/clients?success=Client+restored.")
 
 
 @app.get("/team", response_class=HTMLResponse)
@@ -2649,12 +3144,12 @@ def team_page(request: Request):
     with get_db() as db:
         members = db.execute(
             """SELECT id, email, display_name, role, created_at
-               FROM users WHERE id = ? OR workspace_owner_id = ?
+               FROM users WHERE is_active = TRUE AND (id = ? OR workspace_owner_id = ?)
                ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, created_at""",
             (workspace_id, workspace_id),
         ).fetchall()
         projects = db.execute(
-            "SELECT id, name, status FROM projects WHERE user_id = ? ORDER BY created_at DESC",
+            "SELECT id, name, status FROM projects WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC",
             (workspace_id,),
         ).fetchall()
         assignments = db.execute(
@@ -2676,7 +3171,6 @@ def team_page(request: Request):
             "assigned_by_user": assigned_by_user,
             "branding": branding,
             "is_demo": is_demo_user(user),
-            "credentials": request.query_params.get("credentials", ""),
         },
     )
 
@@ -2684,7 +3178,6 @@ def team_page(request: Request):
 @app.post("/team/invite")
 def invite_team_member(
     request: Request,
-    background_tasks: BackgroundTasks,
     email: str = Form(...),
     display_name: str = Form(""),
     role: str = Form("member"),
@@ -2699,34 +3192,57 @@ def invite_team_member(
         raise HTTPException(status_code=400, detail="Invalid team invitation.")
     temporary_password = secrets.token_urlsafe(10)
     workspace_id = workspace_id_for(user)
-    with get_db() as db:
-        if db.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
-            return redirect("/team?error=That+email+already+has+an+account.")
-        db.execute(
-            """INSERT INTO users
-               (email, password_hash, role, is_verified, display_name,
-                workspace_owner_id, setup_completed, created_at)
-               VALUES (?, ?, ?, TRUE, ?, ?, TRUE, ?)""",
-            (
-                email, hash_password(temporary_password), role,
-                display_name.strip() or email.split("@", 1)[0],
-                workspace_id, datetime.utcnow().isoformat(),
-            ),
-        )
-        branding = get_owner_branding(db, workspace_id)
-    background_tasks.add_task(
-        send_activity_email,
-        to_email=email,
-        subject=f"[{branding['studio_name']}] You were invited to the studio",
-        project_name=branding["studio_name"],
-        action_text=f"Your temporary password is: {temporary_password}",
-        link_url=f"{request.base_url}login",
-        sender_name=branding["email_sender_name"],
-        brand_name=branding["studio_name"],
-        brand_color=branding["brand_color"],
-        logo_url=branding["logo_url"],
-    )
-    return redirect(f"/team?{urlencode({'credentials': f'{email} / {temporary_password}'})}")
+    try:
+        with get_db() as db:
+            existing = db.execute(
+                "SELECT id, workspace_owner_id, is_active FROM users WHERE email = ?",
+                (email,),
+            ).fetchone()
+            member_name = display_name.strip() or email.split("@", 1)[0]
+            if existing:
+                if bool(existing["is_active"]) or existing["workspace_owner_id"] != workspace_id:
+                    return redirect("/team?error=That+email+already+has+an+account.")
+                db.execute(
+                    """UPDATE users
+                       SET password_hash = ?, role = ?, is_verified = TRUE,
+                           display_name = ?, is_active = TRUE,
+                           must_change_password = TRUE,
+                           session_version = session_version + 1
+                       WHERE id = ?""",
+                    (
+                        hash_password(temporary_password), role, member_name,
+                        existing["id"],
+                    ),
+                )
+            else:
+                db.execute(
+                    """INSERT INTO users
+                       (email, password_hash, role, is_verified, display_name,
+                        workspace_owner_id, setup_completed, must_change_password,
+                        is_active, created_at)
+                       VALUES (?, ?, ?, TRUE, ?, ?, TRUE, TRUE, TRUE, ?)""",
+                    (
+                        email, hash_password(temporary_password), role,
+                        member_name, workspace_id, datetime.utcnow().isoformat(),
+                    ),
+                )
+            branding = get_owner_branding(db, workspace_id)
+            sent = send_activity_email(
+                to_email=email,
+                subject=f"[{branding['studio_name']}] You were invited to the studio",
+                project_name=branding["studio_name"],
+                action_text=f"Your temporary password is: {temporary_password}",
+                link_url=f"{request.base_url}login",
+                sender_name=branding["email_sender_name"],
+                brand_name=branding["studio_name"],
+                brand_color=branding["brand_color"],
+                logo_url=branding["logo_url"],
+            )
+            if not sent:
+                raise InvitationDeliveryError
+    except InvitationDeliveryError:
+        return redirect("/team?error=Member+was+not+created+because+the+invitation+could+not+be+sent.")
+    return redirect("/team?success=Invitation+sent.+The+member+must+change+their+temporary+password+after+sign-in.")
 
 
 @app.post("/team/{member_id}/assignments")
@@ -2743,13 +3259,14 @@ def update_team_assignments(
     workspace_id = workspace_id_for(user)
     with get_db() as db:
         member = db.execute(
-            "SELECT id, role FROM users WHERE id = ? AND workspace_owner_id = ?",
+            "SELECT id, role FROM users WHERE id = ? AND workspace_owner_id = ? AND is_active = TRUE",
             (member_id, workspace_id),
         ).fetchone()
         if not member or member["role"] != "member":
             raise HTTPException(status_code=404)
         valid_rows = db.execute(
-            "SELECT id FROM projects WHERE user_id = ?", (workspace_id,)
+            "SELECT id FROM projects WHERE user_id = ? AND archived_at IS NULL",
+            (workspace_id,),
         ).fetchall()
         valid_ids = {row["id"] for row in valid_rows}
         selected_ids = set(project_ids) & valid_ids
@@ -2771,14 +3288,22 @@ def remove_team_member(request: Request, member_id: int, csrf_token: str = Form(
     workspace_id = workspace_id_for(user)
     with get_db() as db:
         member = db.execute(
-            "SELECT id FROM users WHERE id = ? AND workspace_owner_id = ?",
+            "SELECT id FROM users WHERE id = ? AND workspace_owner_id = ? AND is_active = TRUE",
             (member_id, workspace_id),
         ).fetchone()
         if not member:
             raise HTTPException(status_code=404)
         db.execute("DELETE FROM project_members WHERE user_id = ?", (member_id,))
         db.execute("DELETE FROM project_notification_reads WHERE user_id = ?", (member_id,))
-        db.execute("DELETE FROM users WHERE id = ?", (member_id,))
+        db.execute(
+            """UPDATE users
+               SET is_active = FALSE,
+                   session_version = session_version + 1,
+                   reset_token = NULL,
+                   reset_token_expires_at = NULL
+               WHERE id = ?""",
+            (member_id,),
+        )
     return redirect("/team?success=Team+member+removed.")
 
 
@@ -2800,7 +3325,7 @@ def new_project_page(
 
     with get_db() as db:
         clients = db.execute(
-            "SELECT id, name, email FROM clients WHERE user_id = ? ORDER BY name",
+            "SELECT id, name, email FROM clients WHERE user_id = ? AND archived_at IS NULL ORDER BY name",
             (workspace_id_for(user),),
         ).fetchall()
         branding = get_branding_for_user(db, user)
@@ -2828,7 +3353,7 @@ def create_project(
     status: str = Form("Awaiting Review"),
     notes: str = Form(""),
     review_due_at: str = Form(""),
-    guest_access: str = Form("approve"),
+    guest_access: str = Form("comment"),
     csrf_token: str = Form(...),
 ):
     validate_csrf(request, csrf_token)
@@ -2902,6 +3427,10 @@ def project_detail(request: Request, project_id: int):
             return redirect(
                 "/dashboard?error=This+project+is+not+available+for+the+active+account."
             )
+        if project["archived_at"] and user["role"] not in {"owner", "admin"}:
+            return redirect(
+                "/dashboard?error=This+archived+project+is+only+available+to+studio+managers."
+            )
 
         if is_studio_user(user):
             mark_project_notifications_read(db, user["id"], project_id)
@@ -2929,6 +3458,7 @@ def project_detail(request: Request, project_id: int):
                 cm.is_internal,
                 cm.attachment_url,
                 cm.attachment_name,
+                cm.attachment_storage_path,
                 cm.annotation_data,
                 cm.created_at, 
                 vv.version_label,
@@ -2953,6 +3483,7 @@ def project_detail(request: Request, project_id: int):
                 FALSE AS is_internal,
                 NULL AS attachment_url,
                 NULL AS attachment_name,
+                NULL AS attachment_storage_path,
                 NULL AS annotation_data,
                 created_at,
                 version_label,
@@ -2976,23 +3507,53 @@ def project_detail(request: Request, project_id: int):
                 FALSE AS is_internal,
                 NULL AS attachment_url,
                 NULL AS attachment_name,
+                NULL AS attachment_storage_path,
                 NULL AS annotation_data,
                 created_at,
                 '' AS version_label,
                 NULL AS video_url
             FROM projects
             WHERE id = ?
+
+            UNION ALL
+
+            SELECT
+                NULL AS id,
+                NULL AS video_version_id,
+                actor_name AS author_name,
+                'studio' AS author_role,
+                CASE event_type
+                    WHEN 'reopened' THEN 'Review cycle reopened' || CASE WHEN note <> '' THEN ': ' || note ELSE '' END
+                    WHEN 'archived' THEN 'Project archived'
+                    WHEN 'restored' THEN 'Project restored'
+                    ELSE 'Project updated'
+                END AS body,
+                event_type AS type,
+                FALSE AS is_resolved,
+                NULL AS resolved_at,
+                NULL AS parent_comment_id,
+                FALSE AS is_internal,
+                NULL AS attachment_url,
+                NULL AS attachment_name,
+                NULL AS attachment_storage_path,
+                NULL AS annotation_data,
+                created_at,
+                '' AS version_label,
+                NULL AS video_url
+            FROM project_lifecycle_events
+            WHERE project_id = ?
             
             ORDER BY created_at DESC
             """,
-            (project_id, is_studio_user(user), project_id, project_id),
+            (project_id, is_studio_user(user), project_id, project_id, project_id),
         ).fetchall()
+        comments = hydrate_comment_attachment_urls(comments)
         open_feedback_count = sum(
             1
             for comment in comments
             if (
                 (
-                    comment["author_role"] == "client"
+                    comment["author_role"] in {"client", "guest"}
                     and (
                         comment["type"] == "comment"
                         or comment["type"].startswith("timestamp_")
@@ -3004,18 +3565,7 @@ def project_detail(request: Request, project_id: int):
         if project["status"] in {"Approved", "Published"}:
             open_feedback_count = 0
         
-        # 📂 【新增附件與 Brief 解析邏輯】
-        attachments = []
-        raw_notes = project["notes"] or ""
-        display_notes = raw_notes
-        
-        if "||" in raw_notes:
-            parts = raw_notes.split("||")
-            display_notes = parts[0].strip()  # 第一部分是原本的備註文字
-            for att in parts[1:]:
-                if "::" in att:
-                    title, url = att.split("::", 1)
-                    attachments.append({"title": title.strip(), "url": url.strip()})
+        display_notes, attachments = load_project_attachments(db, project)
         branding = get_owner_branding(db, project["user_id"])
         delivery_completed = parse_delivery_checklist(
             project["delivery_checklist"]
@@ -3028,9 +3578,9 @@ def project_detail(request: Request, project_id: int):
             "user": user,
             "project": project,
             "branding": branding,
+            "versions": versions,
             "display_notes": display_notes,  # 傳遞乾淨的備註文字給前端
             "attachments": attachments,      # 傳遞解析好的附件清單給前端
-            "versions": versions,
             "comments": comments,
             "open_feedback_count": open_feedback_count,
             "status_options": STATUS_OPTIONS,
@@ -3058,6 +3608,8 @@ def compare_versions_page(
             (project_id,),
         ).fetchone()
         if not project or not can_access_project(db, user, project):
+            raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"] and user["role"] not in {"owner", "admin"}:
             raise HTTPException(status_code=404, detail="Project not found.")
         versions = db.execute(
             "SELECT * FROM video_versions WHERE project_id = ? ORDER BY created_at DESC, id DESC",
@@ -3102,7 +3654,7 @@ def update_project_review_settings(
     request: Request,
     project_id: int,
     review_due_at: str = Form(""),
-    guest_access: str = Form("approve"),
+    guest_access: str = Form("comment"),
     review_expires_at: str = Form(""),
     review_timezone_offset: int = Form(0),
     review_password: str = Form(""),
@@ -3139,6 +3691,8 @@ def update_project_review_settings(
         ).fetchone()
         if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+changing+review+settings.")
         password_hash = project["review_password_hash"]
         if clear_review_password:
             password_hash = None
@@ -3181,6 +3735,8 @@ def regenerate_review_link(request: Request, project_id: int, csrf_token: str = 
         project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404)
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+regenerating+its+review+link.")
         db.execute(
             "UPDATE projects SET review_token = ?, review_visit_count = 0, review_last_visited_at = NULL WHERE id = ?",
             (secrets.token_urlsafe(32), project_id),
@@ -3208,6 +3764,8 @@ def update_delivery_checklist(
         project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+updating+delivery+readiness.")
         if project["status"] == "Published":
             raise HTTPException(status_code=400, detail="Delivered projects are read-only.")
         db.execute(
@@ -3216,6 +3774,79 @@ def update_delivery_checklist(
         )
 
     return redirect(f"/projects/{project_id}?success=Delivery+readiness+saved.")
+
+
+@app.post("/projects/{project_id}/reopen")
+def reopen_project(
+    request: Request,
+    project_id: int,
+    reason: str = Form(""),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403)
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+    with get_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
+            raise HTTPException(status_code=404, detail="Project not found.")
+        if project["status"] not in {"Approved", "Published"}:
+            return redirect(f"/projects/{project_id}?error=Only+approved+or+delivered+projects+can+be+reopened.")
+        now = datetime.utcnow().isoformat()
+        db.execute(
+            """
+            UPDATE projects
+            SET status = 'Awaiting Review', archived_at = NULL,
+                reopened_at = ?, reopened_by = ?, delivery_checklist = '',
+                review_link_enabled = TRUE
+            WHERE id = ?
+            """,
+            (now, studio_display_name(user), project_id),
+        )
+        record_project_lifecycle(db, project_id, "reopened", user, reason)
+    return redirect(f"/projects/{project_id}?success=Project+reopened+for+a+new+review+cycle.")
+
+
+@app.post("/projects/{project_id}/archive")
+def archive_project(request: Request, project_id: int, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403)
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+    with get_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
+            raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?success=Project+is+already+archived.")
+        db.execute(
+            "UPDATE projects SET archived_at = ?, review_link_enabled = FALSE WHERE id = ?",
+            (datetime.utcnow().isoformat(), project_id),
+        )
+        record_project_lifecycle(db, project_id, "archived", user)
+    return redirect("/dashboard?success=Project+archived.")
+
+
+@app.post("/projects/{project_id}/restore")
+def restore_project(request: Request, project_id: int, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403)
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+    with get_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
+            raise HTTPException(status_code=404, detail="Project not found.")
+        db.execute("UPDATE projects SET archived_at = NULL WHERE id = ?", (project_id,))
+        record_project_lifecycle(db, project_id, "restored", user)
+    return redirect(f"/projects/{project_id}?success=Project+restored.+Public+link+remains+disabled.")
 
 
 @app.post("/projects/{project_id}/versions")
@@ -3244,6 +3875,10 @@ async def create_version(
         project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not project or not can_access_project(db, user, project):
             raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+uploading+a+version.")
+        if project["status"] in {"Approved", "Published"}:
+            return redirect(f"/projects/{project_id}?error=Reopen+this+project+before+uploading+a+new+version.")
 
     final_video_url = video_url.strip() if video_url else ""
 
@@ -3271,6 +3906,8 @@ async def create_version(
             return redirect(
                 f"/projects/{project_id}?error=Video+must+be+smaller+than+{max_mb}+MB."
             )
+        if not upload_signature_matches(video_bytes, extension):
+            return redirect(f"/projects/{project_id}?error=Video+content+does+not+match+its+file+type.")
 
         headers = {
             "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -3394,6 +4031,8 @@ async def version_decision(
 
         if not project:
             raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"]:
+            raise HTTPException(status_code=400, detail="Archived projects are read-only.")
 
         if not user and project["review_password_hash"] and not has_review_password_grant(request, review_token):
             raise HTTPException(status_code=403, detail="Review password required.")
@@ -3459,6 +4098,7 @@ async def version_decision(
         final_annotation = normalize_annotation_data(annotation_data)
         attachment_url = None
         attachment_name = None
+        attachment_storage_path = None
 
         if comment_attachment and comment_attachment.filename:
             if not SUPABASE_URL or not SUPABASE_KEY:
@@ -3472,6 +4112,8 @@ async def version_decision(
                 attachment_bytes = await read_upload_with_limit(comment_attachment, MAX_ATTACHMENT_UPLOAD_BYTES)
             except HTTPException:
                 return redirect(f"{target_path}?error=Comment+attachment+is+too+large.")
+            if not upload_signature_matches(attachment_bytes, extension):
+                return redirect(f"{target_path}?error=Attachment+content+does+not+match+its+file+type.")
             storage_path = f"comments/{version['project_id']}/{uuid.uuid4().hex}{extension}"
             upload_url = f"{SUPABASE_URL}/storage/v1/object/attachments/{storage_path}"
             headers = {
@@ -3484,7 +4126,7 @@ async def version_decision(
                 upload_response = await client.post(upload_url, headers=headers, content=attachment_bytes)
             if upload_response.status_code not in (200, 201):
                 return redirect(f"{target_path}?error=Comment+attachment+upload+failed.")
-            attachment_url = f"{SUPABASE_URL}/storage/v1/object/public/attachments/{storage_path}"
+            attachment_storage_path = storage_path
 
         if time_str and time_str.strip() and video_time:
             final_body = f"⏱️ [{time_str.strip()}] {final_body}"
@@ -3498,13 +4140,17 @@ async def version_decision(
             INSERT INTO comments
             (video_version_id, author_role, author_name, body, type,
              parent_comment_id, is_internal, attachment_url, attachment_name,
-             annotation_data, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             attachment_storage_path, annotation_data, author_email,
+             identity_verified, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 version_id, author_role, author_name, final_body, final_type,
                 parent_comment_id, is_internal, attachment_url, attachment_name,
-                final_annotation, now,
+                attachment_storage_path, final_annotation,
+                user["email"] if user else None,
+                bool(user),
+                now,
             ),
         )
 
@@ -3521,7 +4167,7 @@ async def version_decision(
                 """
                 UPDATE comments
                 SET is_resolved = TRUE, resolved_at = ?
-                WHERE author_role = 'client'
+                WHERE author_role IN ('client', 'guest')
                   AND is_resolved = FALSE
                   AND video_version_id IN (
                       SELECT id
@@ -3551,7 +4197,7 @@ async def version_decision(
                 (version["project_id"],)
             )
 
-        if project["owner_email"] and author_role == "client":
+        if project["owner_email"] and author_role in {"client", "guest"}:
             project_url = f"{request.base_url}projects/{version['project_id']}"
             status_emojis = {
                 "approve": "✅ Approved",
@@ -3569,7 +4215,7 @@ async def version_decision(
                 ),
                 project_name=project["name"],
                 action_text=(
-                    f"Client ({author_name}) has submitted an action "
+                    f"Reviewer ({author_name}) has submitted an action "
                     f"[{action_display}] on {version['version_label']}.\n"
                     f"Feedback: \"{final_body}\""
                 ),
@@ -3594,7 +4240,7 @@ def resolve_comment(
     if not is_studio_user(user):
         raise HTTPException(
             status_code=403,
-            detail="Only owners can update feedback status.",
+            detail="Only studio collaborators can update feedback status.",
         )
     if is_demo_user(user):
         return demo_read_only_redirect("/dashboard")
@@ -3608,6 +4254,7 @@ def resolve_comment(
             """
             SELECT cm.id, cm.type, cm.author_role, cm.is_resolved,
                    p.id AS project_id, p.status AS project_status,
+                   p.archived_at AS project_archived_at,
                    vv.status AS version_status
             FROM comments cm
             JOIN video_versions vv ON cm.video_version_id = vv.id
@@ -3618,6 +4265,8 @@ def resolve_comment(
         ).fetchone()
         if not comment:
             raise HTTPException(status_code=404, detail="Feedback not found.")
+        if comment["project_archived_at"]:
+            raise HTTPException(status_code=400, detail="Archived projects are read-only.")
         if comment["project_status"] in {"Approved", "Published"}:
             raise HTTPException(
                 status_code=400,
@@ -3629,7 +4278,7 @@ def resolve_comment(
                 detail="Approved versions are read-only.",
             )
         if (
-            comment["author_role"] != "client"
+            comment["author_role"] not in {"client", "guest"}
             or (
                 comment["type"] != "comment"
                 and not comment["type"].startswith("timestamp_")
@@ -3680,6 +4329,12 @@ def unlock_public_review(
     csrf_token: str = Form(...),
 ):
     validate_csrf(request, csrf_token)
+    enforce_rate_limit(
+        request,
+        "review-unlock",
+        review_token,
+        PUBLIC_UNLOCK_RATE_LIMIT,
+    )
     with get_db() as db:
         project = db.execute(
             "SELECT * FROM projects WHERE review_token = ?", (review_token,)
@@ -3688,6 +4343,7 @@ def unlock_public_review(
             raise HTTPException(status_code=404, detail="Review link invalid or expired")
         if not project["review_password_hash"] or not verify_password(password, project["review_password_hash"]):
             return redirect(f"/review/{review_token}?error=Incorrect+review+password.")
+    clear_rate_limit(request, "review-unlock", review_token)
     grants = list(request.session.get("review_password_grants", []))
     if review_token not in grants:
         grants.append(review_token)
@@ -3741,7 +4397,7 @@ def public_review_page(request: Request, review_token: str):
             """SELECT cm.id, cm.video_version_id, cm.author_name, cm.author_role, cm.body, cm.type,
                       cm.is_resolved, cm.resolved_at, cm.parent_comment_id,
                       cm.is_internal, cm.attachment_url, cm.attachment_name,
-                      cm.annotation_data, cm.created_at, vv.version_label, vv.video_url
+                      cm.annotation_data, cm.attachment_storage_path, cm.created_at, vv.version_label, vv.video_url
                FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
                WHERE vv.project_id = ? AND cm.is_internal = FALSE
                UNION ALL
@@ -3749,17 +4405,18 @@ def public_review_page(request: Request, review_token: str):
                       'Uploaded ' || version_label AS body, 'upload' AS type,
                       FALSE AS is_resolved, NULL AS resolved_at, NULL AS parent_comment_id,
                       FALSE AS is_internal, NULL AS attachment_url, NULL AS attachment_name,
-                      NULL AS annotation_data, created_at, version_label, video_url
+                      NULL AS annotation_data, NULL AS attachment_storage_path, created_at, version_label, video_url
                FROM video_versions WHERE project_id = ?
                UNION ALL
                SELECT NULL AS id, NULL AS video_version_id, 'System' AS author_name, 'system' AS author_role,
                       'Project Created' AS body, 'create' AS type,
                       FALSE AS is_resolved, NULL AS resolved_at, NULL AS parent_comment_id,
                       FALSE AS is_internal, NULL AS attachment_url, NULL AS attachment_name,
-                      NULL AS annotation_data, created_at, '' AS version_label, NULL AS video_url
+                      NULL AS annotation_data, NULL AS attachment_storage_path, created_at, '' AS version_label, NULL AS video_url
                FROM projects WHERE id = ?
                ORDER BY created_at DESC""", (project_id, project_id, project_id)
         ).fetchall()
+        comments = hydrate_comment_attachment_urls(comments)
         if not project["review_allow_versions"]:
             visible_version_ids = {version["id"] for version in versions}
             comments = [
@@ -3773,7 +4430,7 @@ def public_review_page(request: Request, review_token: str):
             for comment in comments
             if (
                 (
-                    comment["author_role"] == "client"
+                    comment["author_role"] in {"client", "guest"}
                     and (
                         comment["type"] == "comment"
                         or comment["type"].startswith("timestamp_")
@@ -3785,17 +4442,9 @@ def public_review_page(request: Request, review_token: str):
         if project["status"] in {"Approved", "Published"}:
             open_feedback_count = 0
 
-        # 📂 公開頁面同步解析附件
-        attachments = []
-        raw_notes = project["notes"] or ""
-        display_notes = raw_notes
-        if "||" in raw_notes:
-            parts = raw_notes.split("||")
-            display_notes = parts[0].strip()
-            for att in parts[1:]:
-                if "::" in att:
-                    title, url = att.split("::", 1)
-                    attachments.append({"title": title.strip(), "url": url.strip()})
+        display_notes, attachments = load_project_attachments(db, project)
+        if not project["review_allow_download"]:
+            attachments = []
         branding = get_owner_branding(db, project["user_id"])
         delivery_completed = parse_delivery_checklist(
             project["delivery_checklist"]
@@ -3805,12 +4454,12 @@ def public_review_page(request: Request, review_token: str):
         "project.html",
         {
             "request": request,
-            "user": {"role": "client", "email": "Public Reviewer"},
+            "user": {"role": "guest", "email": "Public Reviewer"},
             "project": project,
             "branding": branding,
+            "versions": versions,
             "display_notes": display_notes,
             "attachments": attachments,
-            "versions": versions,
             "comments": comments,
             "open_feedback_count": open_feedback_count,
             "status_options": STATUS_OPTIONS,
@@ -3846,6 +4495,8 @@ def deliver_project(
         project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404)
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+final+delivery.")
             
         # 將專案狀態更新為 Published (代表最終交付結案)
         if project["status"] != "Approved":
@@ -3914,6 +4565,8 @@ async def add_project_attachment(
         owned_project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not owned_project or not can_access_project(db, user, owned_project):
             raise HTTPException(status_code=404, detail="Project not found.")
+        if owned_project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+adding+attachments.")
 
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise HTTPException(status_code=500, detail="Supabase storage is not configured.")
@@ -3939,6 +4592,8 @@ async def add_project_attachment(
         return redirect(
             f"/projects/{project_id}?error=Attachment+must+be+smaller+than+{max_mb}+MB."
         )
+    if not upload_signature_matches(file_bytes, extension):
+        return redirect(f"/projects/{project_id}?error=Attachment+content+does+not+match+its+file+type.")
 
     headers = {
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -3956,22 +4611,77 @@ async def add_project_attachment(
             detail=f"Failed to upload attachment: {response.text}",
         )
 
-    public_url = f"{SUPABASE_URL}/storage/v1/object/public/attachments/{storage_path}"
-
     with get_db() as db:
-        project = db.execute("SELECT notes FROM projects WHERE id=?", (project_id,)).fetchone()
-        if not project:
+        project = db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project):
             raise HTTPException(status_code=404, detail="Project not found.")
-
-        current_notes = project["notes"] or ""
-        new_notes = f"{current_notes} || {safe_title} :: {public_url}"
-
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+adding+attachments.")
         db.execute(
-            "UPDATE projects SET notes=? WHERE id=?",
-            (new_notes, project_id),
+            """
+            INSERT INTO project_attachments
+            (project_id, title, original_name, storage_path, content_type,
+             size_bytes, created_by_user_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id,
+                safe_title,
+                os.path.basename(original_name)[:180],
+                storage_path,
+                file.content_type or "application/octet-stream",
+                len(file_bytes),
+                user["id"],
+                datetime.utcnow().isoformat(),
+            ),
         )
 
-    return redirect(f"/projects/{project_id}")
+    return redirect(f"/projects/{project_id}?success=Attachment+uploaded.")
+
+
+@app.post("/projects/{project_id}/attachments/{attachment_id}/delete")
+async def delete_project_attachment(
+    project_id: int,
+    attachment_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403)
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+    with get_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
+            raise HTTPException(status_code=404, detail="Project not found.")
+        if project["archived_at"]:
+            return redirect(f"/projects/{project_id}?error=Restore+this+project+before+deleting+attachments.")
+        attachment = db.execute(
+            "SELECT * FROM project_attachments WHERE id = ? AND project_id = ?",
+            (attachment_id, project_id),
+        ).fetchone()
+        if not attachment:
+            raise HTTPException(status_code=404, detail="Attachment not found.")
+        if attachment["storage_path"] and SUPABASE_URL and SUPABASE_KEY:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.delete(
+                    f"{SUPABASE_URL}/storage/v1/object/attachments/{attachment['storage_path']}",
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_KEY}",
+                        "apikey": SUPABASE_KEY,
+                    },
+                )
+            if response.status_code not in {200, 204, 404}:
+                return redirect(f"/projects/{project_id}?error=Attachment+could+not+be+removed+from+storage.")
+            with _signed_url_cache_lock:
+                _signed_url_cache.pop(
+                    ("attachments", attachment["storage_path"]),
+                    None,
+                )
+        db.execute("DELETE FROM project_attachments WHERE id = ?", (attachment_id,))
+    return redirect(f"/projects/{project_id}?success=Attachment+deleted.")
 
 @app.get("/db-test")
 def db_test():
