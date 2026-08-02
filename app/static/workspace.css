@@ -1355,3 +1355,146 @@ html {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Review plan and activity log */
+.project-activity > .activity-log-card {
+  max-height: min(650px, calc(100vh - 136px)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 56%, var(--workspace-border)) transparent;
+  scrollbar-width: thin;
+}
+
+.project-activity > .activity-log-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.project-activity > .activity-log-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-activity > .activity-log-card::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 54%, var(--workspace-border));
+  background-clip: padding-box;
+}
+
+.review-plan-card {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 8%, transparent), transparent 44%),
+    color-mix(in srgb, var(--workspace-surface) 92%, transparent) !important;
+}
+
+.review-plan-form {
+  display: grid;
+  gap: 16px !important;
+}
+
+.review-plan-field {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.review-plan-field > span {
+  color: var(--workspace-muted) !important;
+  font-size: 0.64rem !important;
+}
+
+.review-plan-field :is(input, select) {
+  min-height: 48px;
+  border-color: var(--workspace-border) !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--workspace-surface-raised) 82%, transparent) !important;
+  color: var(--workspace-text) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset;
+}
+
+.review-plan-field :is(input, select):focus {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 64%, var(--workspace-border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color, #9b8cf6) 13%, transparent);
+  outline: none;
+}
+
+.review-plan-field input:-webkit-autofill,
+.review-plan-field input:-webkit-autofill:hover,
+.review-plan-field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--workspace-text) !important;
+  box-shadow: 0 0 0 1000px var(--workspace-surface-raised) inset !important;
+  transition: background-color 9999s ease-out;
+}
+
+.review-plan-options {
+  gap: 8px !important;
+}
+
+.review-option {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--workspace-surface-raised) 62%, transparent);
+  color: var(--workspace-muted);
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.review-option:hover {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 42%, var(--workspace-border));
+  transform: translateY(-1px);
+}
+
+.review-option:has(.review-option-input:checked) {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 38%, var(--workspace-border));
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 9%, var(--workspace-surface-raised));
+  color: var(--workspace-text);
+}
+
+.review-option-input {
+  appearance: none;
+  display: grid;
+  flex: 0 0 21px;
+  width: 21px;
+  height: 21px;
+  place-content: center;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--workspace-muted) 46%, var(--workspace-border));
+  border-radius: 6px;
+  background: var(--workspace-surface);
+}
+
+.review-option-input::after {
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  content: "";
+  opacity: 0;
+  transform: translateY(-1px) rotate(45deg) scale(0.5);
+  transition: opacity 130ms ease, transform 170ms ease;
+}
+
+.review-option-input:checked {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 74%, #fff);
+  background: var(--brand-color, #9b8cf6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color, #9b8cf6) 13%, transparent);
+}
+
+.review-option-input:checked::after {
+  opacity: 1;
+  transform: translateY(-1px) rotate(45deg) scale(1);
+}
+
+.light-theme .review-plan-card {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 6%, white), transparent 46%),
+    rgba(255, 255, 255, 0.96) !important;
+}
+
+.light-theme .review-plan-field :is(input, select),
+.light-theme .review-option {
+  background: rgba(255, 255, 255, 0.88) !important;
+}

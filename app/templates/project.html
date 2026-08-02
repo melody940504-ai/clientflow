@@ -192,7 +192,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260730-studio-polish">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260802-review-layout">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -612,9 +612,9 @@
                     </span>
                 </div>
                 {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo and project.status != 'Published' %}
-                <form action="/projects/{{ project.id }}/review-settings" method="post" class="mt-4 space-y-3">
+                <form action="/projects/{{ project.id }}/review-settings" method="post" class="review-plan-form mt-4 space-y-3">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                    <label class="block space-y-1.5">
+                    <label class="review-plan-field block space-y-1.5">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Review due</span>
                         <input
                             type="text"
@@ -627,7 +627,7 @@
                             class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white"
                         >
                     </label>
-                    <label class="block space-y-1.5">
+                    <label class="review-plan-field block space-y-1.5">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Public link access</span>
                         <select name="guest_access" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
                             <option value="view" {% if guest_access == 'view' %}selected{% endif %}>View only</option>
@@ -635,20 +635,20 @@
                             <option value="approve" {% if guest_access == 'approve' %}selected{% endif %}>Comment and approve</option>
                         </select>
                     </label>
-                    <label class="block space-y-1.5">
+                    <label class="review-plan-field block space-y-1.5">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Link expires</span>
-                        <input id="review-expiry-input" type="datetime-local" name="review_expires_at" data-utc="{{ project.review_token_expires_at|utc_iso }}" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                        <input id="review-expiry-input" type="text" name="review_expires_at" data-utc="{{ project.review_token_expires_at|utc_iso }}" placeholder="YYYY-MM-DD HH:MM" inputmode="numeric" pattern="\d{4}-\d{2}-\d{2} \d{2}:\d{2}" title="Enter date and time as YYYY-MM-DD HH:MM" autocomplete="off" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
                         <input id="review-timezone-offset" type="hidden" name="review_timezone_offset" value="0">
                     </label>
-                    <label class="block space-y-1.5">
+                    <label class="review-plan-field block space-y-1.5">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Link password</span>
-                        <input type="password" name="review_password" placeholder="{% if project.review_password_hash %}Password is set{% else %}Optional, 6+ characters{% endif %}" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                        <input type="password" name="review_password" placeholder="{% if project.review_password_hash %}Password is set{% else %}Optional, 6+ characters{% endif %}" autocomplete="new-password" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
                     </label>
-                    {% if project.review_password_hash %}<label class="flex items-center gap-2 text-xs text-gray-400-fix"><input type="checkbox" name="clear_review_password" value="1"> Remove current password</label>{% endif %}
-                    <div class="grid gap-2 text-xs text-gray-400-fix">
-                        <label class="flex items-center gap-2"><input type="checkbox" name="review_link_enabled" value="1" {% if project.review_link_enabled %}checked{% endif %}> Public link enabled</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="review_allow_versions" value="1" {% if project.review_allow_versions %}checked{% endif %}> Show version history</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="review_allow_download" value="1" {% if project.review_allow_download %}checked{% endif %}> Allow downloads</label>
+                    {% if project.review_password_hash %}<label class="review-option"><input class="review-option-input" type="checkbox" name="clear_review_password" value="1"><span>Remove current password</span></label>{% endif %}
+                    <div class="review-plan-options grid gap-2 text-xs text-gray-400-fix">
+                        <label class="review-option"><input class="review-option-input" type="checkbox" name="review_link_enabled" value="1" {% if project.review_link_enabled %}checked{% endif %}><span>Public link enabled</span></label>
+                        <label class="review-option"><input class="review-option-input" type="checkbox" name="review_allow_versions" value="1" {% if project.review_allow_versions %}checked{% endif %}><span>Show version history</span></label>
+                        <label class="review-option"><input class="review-option-input" type="checkbox" name="review_allow_download" value="1" {% if project.review_allow_download %}checked{% endif %}><span>Allow downloads</span></label>
                     </div>
                     <p class="text-[10px] text-gray-500">{{ project.review_visit_count or 0 }} public visits{% if project.review_last_visited_at %} · last visited <time data-utc="{{ project.review_last_visited_at|utc_iso }}" data-format="datetime">{{ project.review_last_visited_at[:16] }}</time>{% endif %}</p>
                     <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">
@@ -667,7 +667,7 @@
                 {% endif %}
             </section>
 
-            <div class="bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
+            <div class="activity-log-card bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
                 
                 <div class="absolute left-9 top-8 bottom-8 w-0.5 bg-gray-700/50"></div>
 
@@ -1261,7 +1261,7 @@
         const expiry = new Date(reviewExpiryInput.dataset.utc);
         if (!Number.isNaN(expiry.getTime())) {
             const localExpiry = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
-            reviewExpiryInput.value = localExpiry.toISOString().slice(0, 16);
+            reviewExpiryInput.value = localExpiry.toISOString().slice(0, 16).replace('T', ' ');
         }
     }
 
