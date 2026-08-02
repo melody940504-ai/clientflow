@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lumaire_staging
+      POSTGRES_USER: lumaire
+      POSTGRES_PASSWORD: lumaire
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumaire -d lumaire_staging"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - staging-db:/var/lib/postgresql/data
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    env_file: .env.staging
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  staging-db:

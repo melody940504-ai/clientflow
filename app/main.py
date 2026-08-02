@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode, urlparse
 
 from fastapi import (
     BackgroundTasks,
@@ -36,6 +36,10 @@ import uuid
 import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
+try:
+    import redis
+except ImportError:  # Optional until REDIS_URL is configured.
+    redis = None
 from authlib.integrations.starlette_client import OAuth
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
@@ -88,6 +92,7 @@ def format_utc_iso(value: object) -> str:
 templates.env.filters["utc_iso"] = format_utc_iso
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_SSLMODE = os.getenv("DATABASE_SSLMODE", "require").strip() or "require"
 STATUS_OPTIONS = ["Awaiting Review", "In Revision", "Approved", "Published"]
 GUEST_ACCESS_OPTIONS = {"view", "comment", "approve"}
 DELIVERY_CHECKLIST_ITEMS = (
@@ -133,10 +138,23 @@ DEMO_CLIENT_EMAIL = os.getenv(
 ).strip().lower()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+ATTACHMENTS_BUCKET_PRIVATE = os.getenv(
+    "ATTACHMENTS_BUCKET_PRIVATE", "true"
+).strip().lower() in {"1", "true", "yes", "on"}
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+RUN_DB_MIGRATIONS = os.getenv("RUN_DB_MIGRATIONS", "true").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 resend.api_key = os.getenv("RESEND_API_KEY")
 
 _rate_limit_events: dict[str, deque[float]] = defaultdict(deque)
 _rate_limit_lock = threading.Lock()
+_redis_rate_limit_client = (
+    redis.Redis.from_url(REDIS_URL, decode_responses=True)
+    if REDIS_URL and redis is not None
+    else None
+)
+_redis_rate_limit_retry_at = 0.0
 _signed_url_cache: dict[tuple[str, str], tuple[str, float]] = {}
 _signed_url_cache_lock = threading.Lock()
 
@@ -170,8 +188,39 @@ def enforce_rate_limit(
     identifier: str,
     limit: tuple[int, int],
 ) -> None:
+    global _redis_rate_limit_retry_at
     max_attempts, window_seconds = limit
     key = f"{scope}:{request_client_key(request)}:{identifier.strip().lower()}"
+    if _redis_rate_limit_client is not None and time.monotonic() >= _redis_rate_limit_retry_at:
+        redis_key = "lumaire:rate-limit:" + hashlib.sha256(key.encode("utf-8")).hexdigest()
+        try:
+            attempts, ttl = _redis_rate_limit_client.eval(
+                """
+                local attempts = redis.call('INCR', KEYS[1])
+                if attempts == 1 then
+                    redis.call('EXPIRE', KEYS[1], ARGV[1])
+                end
+                return {attempts, redis.call('TTL', KEYS[1])}
+                """,
+                1,
+                redis_key,
+                window_seconds,
+            )
+            attempts = int(attempts)
+            if attempts > max_attempts:
+                retry_after = max(1, int(ttl))
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many attempts. Please wait and try again.",
+                    headers={"Retry-After": str(retry_after)},
+                )
+            return
+        except HTTPException:
+            raise
+        except Exception as exc:
+            _redis_rate_limit_retry_at = time.monotonic() + 60
+            logger.warning("Shared rate limiter unavailable; using memory fallback: %s", exc)
+
     now = time.monotonic()
     with _rate_limit_lock:
         events = _rate_limit_events[key]
@@ -188,7 +237,15 @@ def enforce_rate_limit(
 
 
 def clear_rate_limit(request: Request, scope: str, identifier: str) -> None:
+    global _redis_rate_limit_retry_at
     key = f"{scope}:{request_client_key(request)}:{identifier.strip().lower()}"
+    if _redis_rate_limit_client is not None and time.monotonic() >= _redis_rate_limit_retry_at:
+        redis_key = "lumaire:rate-limit:" + hashlib.sha256(key.encode("utf-8")).hexdigest()
+        try:
+            _redis_rate_limit_client.delete(redis_key)
+        except Exception as exc:
+            _redis_rate_limit_retry_at = time.monotonic() + 60
+            logger.warning("Could not clear shared rate limit: %s", exc)
     with _rate_limit_lock:
         _rate_limit_events.pop(key, None)
 
@@ -485,7 +542,7 @@ class PostgresDB:
         self.conn = psycopg2.connect(
             DATABASE_URL,
             cursor_factory=RealDictCursor,
-            sslmode="require"
+            sslmode=DATABASE_SSLMODE,
         )
 
     def __enter__(self):
@@ -1257,8 +1314,34 @@ def seed_demo_review_history() -> None:
             )
 
 
+def run_db_migrations() -> None:
+    if not RUN_DB_MIGRATIONS:
+        logger.warning("Automatic database migrations are disabled.")
+        return
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is required for database migrations.")
+
+    from alembic import command
+    from alembic.config import Config
+
+    lock_connection = psycopg2.connect(DATABASE_URL, sslmode=DATABASE_SSLMODE)
+    lock_connection.autocommit = True
+    lock_cursor = lock_connection.cursor()
+    try:
+        lock_cursor.execute("SELECT pg_advisory_lock(1280134173)")
+        config = Config(str(BASE_DIR.parent / "alembic.ini"))
+        config.set_main_option("script_location", str(BASE_DIR.parent / "migrations"))
+        config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
+        command.upgrade(config, "head")
+    finally:
+        lock_cursor.execute("SELECT pg_advisory_unlock(1280134173)")
+        lock_cursor.close()
+        lock_connection.close()
+
+
 @app.on_event("startup")
 def startup() -> None:
+    run_db_migrations()
     init_db()
     try:
         seed_demo_review_history()
@@ -1457,6 +1540,34 @@ def upload_signature_matches(content: bytes, extension: str) -> bool:
     return bool(validator and validator(content))
 
 
+def storage_path_from_url(url: Optional[str], bucket: str) -> Optional[str]:
+    """Recover an object path from a legacy Supabase public or signed URL."""
+    if not url:
+        return None
+    try:
+        parsed = urlparse(str(url).strip())
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    if SUPABASE_URL:
+        expected = urlparse(SUPABASE_URL)
+        if expected.netloc and parsed.netloc.lower() != expected.netloc.lower():
+            return None
+    markers = (
+        f"/storage/v1/object/public/{bucket}/",
+        f"/storage/v1/object/sign/{bucket}/",
+        f"/storage/v1/object/authenticated/{bucket}/",
+    )
+    for marker in markers:
+        if marker not in parsed.path:
+            continue
+        storage_path = unquote(parsed.path.split(marker, 1)[1]).strip("/")
+        if storage_path and ".." not in storage_path.split("/"):
+            return storage_path
+    return None
+
+
 def signed_storage_url(
     bucket: str,
     storage_path: Optional[str],
@@ -1516,10 +1627,14 @@ def hydrate_comment_attachment_urls(comments: list[object]) -> list[dict]:
     hydrated: list[dict] = []
     for row in comments:
         item = dict(row)
+        storage_path = item.get("attachment_storage_path") or storage_path_from_url(
+            item.get("attachment_url"),
+            "attachments",
+        )
         item["attachment_url"] = signed_storage_url(
             "attachments",
-            item.get("attachment_storage_path"),
-            item.get("attachment_url"),
+            storage_path,
+            None if ATTACHMENTS_BUCKET_PRIVATE else item.get("attachment_url"),
         )
         hydrated.append(item)
     return hydrated
@@ -1541,10 +1656,14 @@ def load_project_attachments(db, project: object) -> tuple[str, list[dict]]:
     attachments = []
     for row in rows:
         item = dict(row)
+        storage_path = item.get("storage_path") or storage_path_from_url(
+            item.get("public_url"),
+            "attachments",
+        )
         item["url"] = signed_storage_url(
             "attachments",
-            item.get("storage_path"),
-            item.get("public_url"),
+            storage_path,
+            None if ATTACHMENTS_BUCKET_PRIVATE else item.get("public_url"),
         )
         attachments.append(item)
     return display_notes, attachments

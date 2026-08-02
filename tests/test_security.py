@@ -1011,5 +1011,66 @@ class CollaborationFeatureTests(unittest.TestCase):
             self.assertIn(claim, landing)
 
 
+class InfrastructureSafetyTests(unittest.TestCase):
+    def test_legacy_attachment_url_becomes_storage_path(self):
+        with patch.object(main, "SUPABASE_URL", "https://project.supabase.co"):
+            path = main.storage_path_from_url(
+                "https://project.supabase.co/storage/v1/object/public/attachments/projects/7/file%20name.pdf",
+                "attachments",
+            )
+        self.assertEqual(path, "projects/7/file name.pdf")
+
+    def test_external_attachment_url_is_not_treated_as_storage_object(self):
+        with patch.object(main, "SUPABASE_URL", "https://project.supabase.co"):
+            path = main.storage_path_from_url(
+                "https://example.com/storage/v1/object/public/attachments/private.pdf",
+                "attachments",
+            )
+        self.assertIsNone(path)
+
+    def test_private_attachment_never_falls_back_to_public_url(self):
+        row = {
+            "attachment_storage_path": None,
+            "attachment_url": "https://project.supabase.co/storage/v1/object/public/attachments/comments/file.pdf",
+        }
+        with (
+            patch.object(main, "SUPABASE_URL", "https://project.supabase.co"),
+            patch.object(main, "ATTACHMENTS_BUCKET_PRIVATE", True),
+            patch.object(main, "signed_storage_url", return_value="signed") as signer,
+        ):
+            result = main.hydrate_comment_attachment_urls([row])
+        self.assertEqual(result[0]["attachment_url"], "signed")
+        signer.assert_called_once_with("attachments", "comments/file.pdf", None)
+
+    def test_shared_rate_limit_is_atomic_and_clearable(self):
+        class FakeRedis:
+            def __init__(self):
+                self.values = {}
+
+            def eval(self, script, key_count, key, window):
+                self.values[key] = self.values.get(key, 0) + 1
+                return [self.values[key], int(window)]
+
+            def delete(self, key):
+                self.values.pop(key, None)
+
+        request = types.SimpleNamespace(
+            headers={},
+            client=types.SimpleNamespace(host="127.0.0.1"),
+        )
+        fake_redis = FakeRedis()
+        with (
+            patch.object(main, "_redis_rate_limit_client", fake_redis),
+            patch.object(main, "_redis_rate_limit_retry_at", 0.0),
+        ):
+            main.enforce_rate_limit(request, "login", "test@example.com", (2, 60))
+            main.enforce_rate_limit(request, "login", "test@example.com", (2, 60))
+            with self.assertRaises(HTTPException) as error:
+                main.enforce_rate_limit(request, "login", "test@example.com", (2, 60))
+            self.assertEqual(error.exception.status_code, 429)
+            main.clear_rate_limit(request, "login", "test@example.com")
+            main.enforce_rate_limit(request, "login", "test@example.com", (2, 60))
+
+
 if __name__ == "__main__":
     unittest.main()
