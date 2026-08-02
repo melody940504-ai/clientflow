@@ -192,7 +192,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260802-project-followup">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260803-project-sidebar">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -635,8 +635,10 @@
         </div>
 
         <div class="project-activity space-y-4">
-            <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
-            <span class="feedback-summary-count">{{ open_feedback_count }} open feedback</span>
+            <div class="project-activity-heading">
+                <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">📊 Project Activity Timeline</h2>
+                <span class="feedback-summary-count">{{ open_feedback_count }} open feedback</span>
+            </div>
 
             <section class="review-plan-card bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">

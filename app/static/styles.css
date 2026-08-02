@@ -176,22 +176,23 @@ button, input, textarea, select { font: inherit; }
 .demo-notice {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 14px;
-  width: min(100%, 760px);
-  margin: 22px 0 30px auto;
-  padding: 11px 14px;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  margin: 0 0 28px;
+  padding: 14px 16px;
   border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
-  border-radius: 8px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   box-shadow: 0 12px 30px color-mix(in srgb, var(--primary) 8%, transparent);
 }
+.demo-notice > div { display: grid; gap: 4px; min-width: 0; }
 .demo-notice strong {
   display: inline-flex;
-  flex: 0 0 auto;
   align-items: center;
   gap: 9px;
   color: var(--primary);
+  font-size: 0.88rem;
 }
 .demo-notice strong::before {
   width: 7px;
@@ -201,7 +202,26 @@ button, input, textarea, select { font: inherit; }
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent);
   content: "";
 }
-.demo-notice span { color: var(--muted); font-size: 0.88rem; text-align: left; }
+.demo-notice span { color: var(--muted); font-size: 0.78rem; text-align: left; }
+.demo-notice-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border));
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--primary) 74%, var(--text));
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.demo-notice-action:hover {
+  border-color: color-mix(in srgb, var(--primary) 68%, var(--border));
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
 
 .hero, .project-header {
   display: flex;
@@ -1166,8 +1186,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
     flex-direction: column;
     gap: 7px;
     width: 100%;
-    margin-top: 16px;
   }
+  .demo-notice-action { width: 100%; }
   .demo-notice span { text-align: left; }
   .product-preview-panel { border-radius: 22px; }
   .preview-project { flex-direction: column; padding: 24px; }
