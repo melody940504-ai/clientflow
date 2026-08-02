@@ -561,6 +561,10 @@ html {
   overflow: hidden;
 }
 
+.light-theme .activity-entry p.text-gray-300 {
+  color: #303440 !important;
+}
+
 .activity-entry.is-resolved {
   opacity: 0.72;
 }
