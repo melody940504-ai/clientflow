@@ -45,8 +45,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "clientflow.db"
+APP_DIR = Path(__file__).resolve().parent
+DB_PATH = APP_DIR / "clientflow.db"
 IS_PRODUCTION = os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes"}
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 if not SESSION_SECRET:
@@ -67,8 +67,8 @@ app.add_middleware(
     https_only=IS_PRODUCTION,
 )
 
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=BASE_DIR / "templates")
+app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=APP_DIR / "templates")
 
 
 def format_utc_iso(value: object) -> str:
@@ -1329,8 +1329,9 @@ def run_db_migrations() -> None:
     lock_cursor = lock_connection.cursor()
     try:
         lock_cursor.execute("SELECT pg_advisory_lock(1280134173)")
-        config = Config(str(BASE_DIR.parent / "alembic.ini"))
-        config.set_main_option("script_location", str(BASE_DIR.parent / "migrations"))
+        project_root = Path(__file__).resolve().parent.parent
+        config = Config(str(project_root / "alembic.ini"))
+        config.set_main_option("script_location", str(project_root / "migrations"))
         config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
         command.upgrade(config, "head")
     finally:

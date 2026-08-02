@@ -1012,6 +1012,56 @@ class CollaborationFeatureTests(unittest.TestCase):
 
 
 class InfrastructureSafetyTests(unittest.TestCase):
+    def test_migration_paths_do_not_depend_on_legacy_base_dir_type(self):
+        captured = {}
+
+        class FakeConfig:
+            def __init__(self, filename):
+                captured["filename"] = filename
+
+            def set_main_option(self, key, value):
+                captured[key] = value
+
+        class FakeCursor:
+            def execute(self, query):
+                captured.setdefault("queries", []).append(query)
+
+            def close(self):
+                pass
+
+        class FakeConnection:
+            autocommit = False
+
+            def cursor(self):
+                return FakeCursor()
+
+            def close(self):
+                pass
+
+        alembic = types.ModuleType("alembic")
+        alembic.command = types.SimpleNamespace(
+            upgrade=lambda config, revision: captured.update(revision=revision)
+        )
+        alembic_config = types.ModuleType("alembic.config")
+        alembic_config.Config = FakeConfig
+
+        with (
+            patch.dict(sys.modules, {"alembic": alembic, "alembic.config": alembic_config}),
+            patch.object(main, "RUN_DB_MIGRATIONS", True),
+            patch.object(main, "DATABASE_URL", "postgresql://example/test"),
+            patch.object(main.psycopg2, "connect", return_value=FakeConnection()),
+        ):
+            main.run_db_migrations()
+
+        project_root = Path(main.__file__).resolve().parent.parent
+        self.assertEqual(captured["filename"], str(project_root / "alembic.ini"))
+        self.assertEqual(captured["script_location"], str(project_root / "migrations"))
+        self.assertEqual(captured["revision"], "head")
+        self.assertEqual(
+            captured["queries"],
+            ["SELECT pg_advisory_lock(1280134173)", "SELECT pg_advisory_unlock(1280134173)"],
+        )
+
     def test_legacy_attachment_url_becomes_storage_path(self):
         with patch.object(main, "SUPABASE_URL", "https://project.supabase.co"):
             path = main.storage_path_from_url(
