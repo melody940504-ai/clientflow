@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% set title = 'Protected review - ' ~ project.name %}
+{% block content %}
+<section class="auth-shell">
+  <div class="auth-card">
+    <span class="eyebrow">PROTECTED REVIEW</span>
+    <h1>{{ project.name }}</h1>
+    <p>This workspace is protected by the studio. Enter the review password to continue.</p>
+    {% if error %}<div class="form-alert error">{{ error }}</div>{% endif %}
+    <form method="post" action="/review/{{ review_token }}/unlock">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+      <label>Review password<input type="password" name="password" required autofocus autocomplete="current-password"></label>
+      <button class="top-primary" type="submit">Open review</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

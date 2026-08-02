@@ -877,5 +877,39 @@ class TemplateSecurityTests(unittest.TestCase):
                 self.assertNotIn(old_copy, source)
 
 
+class CollaborationFeatureTests(unittest.TestCase):
+    def test_annotation_payload_is_normalized_and_bounded(self):
+        payload = main.normalize_annotation_data(
+            '{"strokes":[[{"x":0.2,"y":0.4}]]}'
+        )
+        self.assertEqual(payload, '{"strokes":[[{"x":0.2,"y":0.4}]]}')
+        with self.assertRaises(HTTPException):
+            main.normalize_annotation_data('{"strokes":"invalid"}')
+
+    def test_disabled_public_link_is_rejected(self):
+        project = {
+            "review_token": "token",
+            "review_token_expires_at": None,
+            "review_link_enabled": False,
+        }
+        self.assertFalse(main.review_token_is_valid(project, "token"))
+
+    def test_new_collaboration_routes_and_claims_exist(self):
+        routes = {route.path for route in main.app.routes}
+        self.assertIn("/projects/{project_id}/compare", routes)
+        self.assertIn("/projects/{project_id}/review-link/regenerate", routes)
+        self.assertIn("/review/{review_token}/unlock", routes)
+        self.assertIn("/team", routes)
+        landing = (Path(__file__).parents[1] / "app" / "templates" / "landing.html").read_text(encoding="utf-8")
+        for claim in (
+            "Side-by-side comparison",
+            "Protected review links",
+            "Frame annotations",
+            "Threaded discussion",
+            "Shared studio",
+        ):
+            self.assertIn(claim, landing)
+
+
 if __name__ == "__main__":
     unittest.main()

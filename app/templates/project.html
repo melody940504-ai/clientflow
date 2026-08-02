@@ -245,7 +245,7 @@
                             Dashboard
                         </a>
                         {% endif %}
-                        {% if user and user.role == 'owner' and not is_public_link %}
+                        {% if user and user.role in ['owner', 'admin'] and not is_public_link %}
                         <a href="/clients" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
                             Clients
                         </a>
@@ -319,7 +319,7 @@
                     {% endfor %}
                 </div>
 
-                {% if project.status != 'Published' and user.role == 'owner' and not is_demo %}
+                {% if project.status != 'Published' and user.role in ['owner', 'admin', 'member'] and not is_demo %}
                 <form
                     action="/projects/{{ project.id }}/attachments"
                     method="post"
@@ -383,7 +383,7 @@
                     <p class="text-xs text-gray-400-fix mt-0.5">This project has been finalized, delivered, and archived. Historical versions and event streams have been converted to read-only, irrefutable evidence.</p>
                 </div>
             </div>
-            {% elif user.role == 'owner' and not is_demo %}
+            {% elif user.role in ['owner', 'admin', 'member'] and not is_demo %}
             <div class="bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-3">
                 <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                     <h3 class="text-sm font-semibold text-white-fix">Upload New Version</h3>
@@ -451,7 +451,7 @@
             </div>
             {% endif %}
 
-            {% if user.role == 'owner' and project.status in ['Approved', 'Published'] %}
+            {% if user.role in ['owner', 'admin'] and project.status in ['Approved', 'Published'] %}
             <section class="delivery-readiness-card bg-card-fix bg-gray-800/30 border border-gray-800 p-4 sm:p-5 rounded-2xl space-y-4">
                 <div class="delivery-readiness-heading flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -503,7 +503,12 @@
             {% endif %}
 
             <div class="space-y-6">
-                <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">🎬 Video Versions Timeline</h2>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 class="text-base font-bold text-gray-400-fix uppercase tracking-wider">Video Versions Timeline</h2>
+                    {% if versions|length > 1 and not is_public_link %}
+                    <a href="/projects/{{ project.id }}/compare" class="neutral-action-fix rounded-xl border px-4 py-2 text-center text-xs font-semibold">Compare versions</a>
+                    {% endif %}
+                </div>
                 
                 {% for v in versions %}
                 <div class="bg-card-fix bg-gray-800/40 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
@@ -523,6 +528,9 @@
                         <button type="button" onclick="openVideoModal('{{ v.video_url }}', '/versions/{{ v.id }}/action')" class="brand-bg-fix primary-action-fix w-full justify-center text-sm px-4 py-2.5 text-white font-medium rounded-xl transition flex items-center gap-2 shadow-sm transform active:scale-95 opacity-95 hover:opacity-100 sm:w-auto sm:py-2">
                             ▶ Play Video
                         </button>
+                        {% if is_public_link and project.review_allow_download %}
+                        <a href="{{ v.video_url }}" download target="_blank" rel="noopener" class="neutral-action-fix flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm transition sm:w-auto sm:py-2">Download</a>
+                        {% endif %}
                     </div>
 
                     {% if v.notes %}
@@ -552,12 +560,16 @@
                             This review link is view-only. Sign in through the client portal or ask the studio for comment access.
                         </div>
                         {% else %}
-                        <form action="/versions/{{ v.id }}/action" method="post" novalidate class="space-y-3" onsubmit="return validateComment(this)">
+                        <form action="/versions/{{ v.id }}/action" method="post" enctype="multipart/form-data" novalidate class="space-y-3" onsubmit="return validateComment(this)">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                             {% if is_public_link %}
                             <input type="hidden" name="review_token" value="{{ review_token }}">
                             {% endif %}
                             <textarea name="body" required placeholder="Type feedback or approval notes here..." class="input-fix w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm h-16 focus:outline-none focus:border-indigo-500 text-white"></textarea>
+                            <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-400-fix">
+                                <label class="cursor-pointer rounded-lg border border-gray-700 px-3 py-2 hover:border-gray-500">Attach file<input class="hidden" type="file" name="comment_attachment" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.doc,.docx"></label>
+                                {% if user.role in ['owner', 'admin', 'member'] and not is_public_link %}<label class="flex items-center gap-2"><input type="checkbox" name="internal_note" value="1"> Studio-only note</label>{% endif %}
+                            </div>
                             
                             <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
                                 <button type="submit" name="action_type" value="comment" class="neutral-action-fix w-full text-xs px-4 py-2.5 border font-medium rounded-xl transition sm:w-auto sm:py-2">
@@ -599,7 +611,7 @@
                         {% if guest_access == 'view' %}View only{% elif guest_access == 'comment' %}Comments{% else %}Approval{% endif %}
                     </span>
                 </div>
-                {% if user.role == 'owner' and not is_public_link and not is_demo and project.status != 'Published' %}
+                {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo and project.status != 'Published' %}
                 <form action="/projects/{{ project.id }}/review-settings" method="post" class="mt-4 space-y-3">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                     <label class="block space-y-1.5">
@@ -623,9 +635,29 @@
                             <option value="approve" {% if guest_access == 'approve' %}selected{% endif %}>Comment and approve</option>
                         </select>
                     </label>
+                    <label class="block space-y-1.5">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Link expires</span>
+                        <input id="review-expiry-input" type="datetime-local" name="review_expires_at" data-utc="{{ project.review_token_expires_at|utc_iso }}" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                        <input id="review-timezone-offset" type="hidden" name="review_timezone_offset" value="0">
+                    </label>
+                    <label class="block space-y-1.5">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Link password</span>
+                        <input type="password" name="review_password" placeholder="{% if project.review_password_hash %}Password is set{% else %}Optional, 6+ characters{% endif %}" class="input-fix w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white">
+                    </label>
+                    {% if project.review_password_hash %}<label class="flex items-center gap-2 text-xs text-gray-400-fix"><input type="checkbox" name="clear_review_password" value="1"> Remove current password</label>{% endif %}
+                    <div class="grid gap-2 text-xs text-gray-400-fix">
+                        <label class="flex items-center gap-2"><input type="checkbox" name="review_link_enabled" value="1" {% if project.review_link_enabled %}checked{% endif %}> Public link enabled</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="review_allow_versions" value="1" {% if project.review_allow_versions %}checked{% endif %}> Show version history</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="review_allow_download" value="1" {% if project.review_allow_download %}checked{% endif %}> Allow downloads</label>
+                    </div>
+                    <p class="text-[10px] text-gray-500">{{ project.review_visit_count or 0 }} public visits{% if project.review_last_visited_at %} · last visited <time data-utc="{{ project.review_last_visited_at|utc_iso }}" data-format="datetime">{{ project.review_last_visited_at[:16] }}</time>{% endif %}</p>
                     <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">
                         Save review plan
                     </button>
+                </form>
+                <form action="/projects/{{ project.id }}/review-link/regenerate" method="post" class="mt-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                    <button type="submit" class="w-full rounded-xl border border-gray-700 px-3 py-2 text-xs text-gray-400-fix transition hover:border-gray-500">Regenerate public link</button>
                 </form>
                 {% elif is_public_link %}
                 <p class="mt-3 text-xs leading-relaxed text-gray-400-fix">
@@ -641,7 +673,7 @@
 
                 <div class="space-y-6 relative">
                     {% for c in comments %}
-                    <div class="flex items-start gap-4 group">
+                    <div class="flex items-start gap-4 group {% if c.parent_comment_id %}ml-8 sm:ml-12{% endif %}">
                         
                         <div class="flex items-center justify-center w-6 h-6 rounded-full shrink-0 z-10 text-[10px] font-bold mt-1 shadow-sm
                             {% if c.type == 'approve' %} bg-emerald-500 text-white
@@ -656,18 +688,19 @@
                             {% else %} 💬 {% endif %}
                         </div>
 
-                        <div class="activity-entry min-w-0 flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700 {% if c.is_resolved %}is-resolved{% endif %}">
+                        <div class="activity-entry min-w-0 flex-1 bg-gray-950/20 border border-gray-800/60 rounded-xl p-3 space-y-1.5 transition hover:border-gray-700 {% if c.is_resolved %}is-resolved{% endif %} {% if c.is_internal %}border-violet-500/40{% endif %}">
                             <div class="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-baseline">
                                 <span class="break-words text-xs font-bold text-white-fix capitalize">
                                     {{ c.author_name }} 
                                     <span class="text-[10px] text-gray-500 font-normal">({{ c.author_role }})</span>
+                                    {% if c.is_internal %}<span class="ml-1 rounded border border-violet-500/40 px-1.5 py-0.5 text-[9px] text-violet-300">Studio only</span>{% endif %}
                                 </span>
                                 <time class="shrink-0 text-[10px] text-gray-500 font-mono" data-utc="{{ c.created_at|utc_iso }}" data-format="datetime">{{ c.created_at[:10] }} {{ c.created_at[11:16] }}</time>
                             </div>
                             
                             {% if c.type.startswith('timestamp_') %}
                             <p class="brand-soft-fix break-words text-sm font-medium cursor-pointer transition inline-block border px-2.5 py-0.5 rounded-xl shadow-sm mt-0.5"
-                               onclick="openVideoModalWithTime('{{ v.video_url if v else project.id }}', '{{ c.type.split('_')[1] }}')">
+                               onclick="openVideoModal('{{ c.video_url }}', '/versions/{{ c.video_version_id }}/action', {{ c.type.split('_')[1] }})">
                                 {{ c.body }} ↩
                             </p>
                             {% else %}
@@ -678,13 +711,24 @@
                             </p>
                             {% endif %}
 
+                            {% if c.attachment_url %}<a href="{{ c.attachment_url }}" target="_blank" rel="noopener" class="inline-flex rounded-lg border border-gray-700 px-2.5 py-1.5 text-[11px] text-gray-300 hover:border-gray-500">Attachment: {{ c.attachment_name }}</a>{% endif %}
+                            {% if c.annotation_data %}<button type="button" class="brand-soft-fix rounded-lg border px-2.5 py-1.5 text-[11px]" onclick='openSavedAnnotation({{ c.video_url|tojson }}, "/versions/{{ c.video_version_id }}/action", {{ c.annotation_data|safe }})'>View frame annotation</button>{% endif %}
+                            {% if c.id and c.video_version_id and project.status not in ['Approved', 'Published'] and not is_demo %}
+                            <button type="button" class="text-[10px] text-gray-500 hover:text-gray-300" onclick="document.getElementById('reply-{{ c.id }}').classList.toggle('hidden')">Reply</button>
+                            <form id="reply-{{ c.id }}" action="/versions/{{ c.video_version_id }}/action" method="post" enctype="multipart/form-data" class="hidden space-y-2 pt-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}"><input type="hidden" name="action_type" value="comment"><input type="hidden" name="parent_comment_id" value="{{ c.id }}">{% if is_public_link %}<input type="hidden" name="review_token" value="{{ review_token }}">{% endif %}
+                                <textarea name="body" required class="input-fix h-16 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-white" placeholder="Write a reply..."></textarea>
+                                <div class="flex items-center justify-between gap-2"><input type="file" name="comment_attachment" class="max-w-[65%] text-[10px] text-gray-500"><button class="neutral-action-fix rounded-lg border px-3 py-1.5 text-[10px]" type="submit">Send reply</button></div>
+                            </form>
+                            {% endif %}
+
                             {% if c.version_label %}
                             <div class="activity-entry-footer text-[10px] flex flex-wrap items-center justify-end gap-2">
                                 {% if c.author_role == 'client' and (c.type == 'comment' or c.type.startswith('timestamp_')) %}
                                 <span class="feedback-state {% if c.is_resolved or project.status in ['Approved', 'Published'] %}is-resolved{% endif %}">
                                     {% if project.status in ['Approved', 'Published'] %}Closed{% elif c.is_resolved %}Resolved{% else %}Open feedback{% endif %}
                                 </span>
-                                {% if user.role == 'owner' and not is_demo and c.id and project.status not in ['Approved', 'Published'] %}
+                                {% if user.role in ['owner', 'admin', 'member'] and not is_demo and c.id and project.status not in ['Approved', 'Published'] %}
                                 <form action="/comments/{{ c.id }}/resolve" method="post" class="m-0">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                                     <button type="submit" class="feedback-resolve-action">
@@ -712,6 +756,7 @@
             <div class="md:col-span-2 bg-black flex items-center justify-center relative aspect-video md:aspect-auto">
                 <button onclick="closeVideoModal()" class="absolute top-4 left-4 text-white bg-gray-800/80 hover:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold transition z-50 md:hidden">✕</button>
                 <div id="player-container" class="w-full h-full min-h-[220px] sm:min-h-[300px] md:h-full"></div>
+                <canvas id="annotation-canvas" class="pointer-events-none absolute inset-0 z-20 h-full w-full"></canvas>
             </div>
 
             <div class="max-h-[48vh] overflow-y-auto p-4 sm:p-5 border-t md:max-h-none md:border-t-0 md:border-l border-gray-800 flex flex-col justify-between bg-gray-900/40">
@@ -726,6 +771,10 @@
                         <span class="text-xs font-semibold">Current Stamp</span>
                         <span id="live-timestamp" class="brand-soft-fix text-sm font-mono font-bold px-2.5 py-0.5 rounded border">00:00</span>
                     </div>
+                    <div class="mb-4 flex items-center gap-2">
+                        <button type="button" id="annotation-toggle" class="neutral-action-fix rounded-lg border px-3 py-1.5 text-[11px]">Draw on frame</button>
+                        <button type="button" id="annotation-clear" class="rounded-lg border border-gray-700 px-3 py-1.5 text-[11px] text-gray-400-fix">Clear</button>
+                    </div>
                 </div>
 
                 {% if is_demo or project.status == 'Approved' or project.status == 'Published' or (is_public_link and guest_access == 'view') %}
@@ -734,7 +783,7 @@
                     <p class="text-[11px] text-gray-500">{% if is_demo %}Timestamp comments are disabled in the shared demo.{% else %}This version has been approved by the client, and the timeline has been secured for read-only access.{% endif %}</p>
                 </div>
                 {% else %}
-                <form id="modal-comment-form" method="post" novalidate class="space-y-3 m-0" onsubmit="return validateComment(this)">
+                <form id="modal-comment-form" method="post" enctype="multipart/form-data" novalidate class="space-y-3 m-0" onsubmit="return validateComment(this)">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                     {% if is_public_link %}
                     <input type="hidden" name="review_token" value="{{ review_token }}">
@@ -742,8 +791,13 @@
                     <input type="hidden" name="action_type" value="comment">
                     <input type="hidden" id="modal-video-time" name="video_time" value="0">
                     <input type="hidden" id="modal-time-str" name="time_str" value="00:00">
+                    <input type="hidden" id="modal-annotation-data" name="annotation_data" value="">
 
                     <textarea name="body" required id="modal-textarea" placeholder="Press pause and enter your suggested changes for that number of seconds here..." class="input-fix w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs h-20 focus:outline-none focus:border-indigo-500 text-white placeholder-gray-600"></textarea>
+                    <div class="flex flex-wrap items-center gap-3 text-[10px] text-gray-400-fix">
+                        <label class="cursor-pointer rounded-lg border border-gray-700 px-2.5 py-1.5">Attach file<input class="hidden" type="file" name="comment_attachment" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.doc,.docx"></label>
+                        {% if user.role in ['owner', 'admin', 'member'] and not is_public_link %}<label class="flex items-center gap-2"><input type="checkbox" name="internal_note" value="1"> Studio only</label>{% endif %}
+                    </div>
                     
                     <button type="submit" class="brand-bg-fix w-full text-white font-bold rounded-xl py-2 transition text-xs shadow-md">
                         💬 Submit Timestamped Comment
@@ -798,6 +852,76 @@
 
     <script src="/static/app.js?v=20260730-unified-theme"></script>
     <script>
+        const annotationCanvas = document.getElementById('annotation-canvas');
+        const annotationContext = annotationCanvas?.getContext('2d');
+        const annotationToggle = document.getElementById('annotation-toggle');
+        const annotationClear = document.getElementById('annotation-clear');
+        let annotationEnabled = false;
+        let annotationDrawing = false;
+        let annotationStrokes = [];
+        let activeStroke = null;
+
+        function sizeAnnotationCanvas() {
+            if (!annotationCanvas) return;
+            const rect = annotationCanvas.getBoundingClientRect();
+            annotationCanvas.width = Math.max(1, Math.round(rect.width * devicePixelRatio));
+            annotationCanvas.height = Math.max(1, Math.round(rect.height * devicePixelRatio));
+            drawAnnotations();
+        }
+        function drawAnnotations() {
+            if (!annotationContext || !annotationCanvas) return;
+            annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+            annotationContext.lineCap = 'round';
+            annotationContext.lineJoin = 'round';
+            annotationContext.strokeStyle = '#a99cff';
+            annotationContext.lineWidth = 3 * devicePixelRatio;
+            annotationStrokes.forEach((stroke) => {
+                if (!stroke.length) return;
+                annotationContext.beginPath();
+                stroke.forEach((point, index) => {
+                    const x = point.x * annotationCanvas.width;
+                    const y = point.y * annotationCanvas.height;
+                    if (!index) annotationContext.moveTo(x, y); else annotationContext.lineTo(x, y);
+                });
+                annotationContext.stroke();
+            });
+            const field = document.getElementById('modal-annotation-data');
+            if (field) field.value = annotationStrokes.length ? JSON.stringify({strokes: annotationStrokes}) : '';
+        }
+        function annotationPoint(event) {
+            const rect = annotationCanvas.getBoundingClientRect();
+            return {x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height};
+        }
+        annotationToggle?.addEventListener('click', () => {
+            annotationEnabled = !annotationEnabled;
+            annotationCanvas.classList.toggle('pointer-events-none', !annotationEnabled);
+            annotationToggle.textContent = annotationEnabled ? 'Drawing enabled' : 'Draw on frame';
+            annotationToggle.setAttribute('aria-pressed', String(annotationEnabled));
+            if (annotationEnabled && player?.pauseVideo) player.pauseVideo();
+        });
+        annotationClear?.addEventListener('click', () => { annotationStrokes = []; drawAnnotations(); });
+        annotationCanvas?.addEventListener('pointerdown', (event) => {
+            if (!annotationEnabled) return;
+            annotationDrawing = true; activeStroke = [annotationPoint(event)]; annotationStrokes.push(activeStroke);
+            annotationCanvas.setPointerCapture(event.pointerId); drawAnnotations();
+        });
+        annotationCanvas?.addEventListener('pointermove', (event) => {
+            if (!annotationDrawing || !activeStroke) return;
+            activeStroke.push(annotationPoint(event)); drawAnnotations();
+        });
+        annotationCanvas?.addEventListener('pointerup', () => { annotationDrawing = false; activeStroke = null; drawAnnotations(); });
+        window.addEventListener('resize', sizeAnnotationCanvas);
+        function showSavedAnnotation(payload) {
+            annotationStrokes = Array.isArray(payload?.strokes) ? payload.strokes : [];
+            sizeAnnotationCanvas();
+            document.getElementById('video-modal')?.classList.remove('hidden');
+            document.getElementById('modal-card')?.classList.remove('opacity-0', 'scale-95');
+        }
+        function openSavedAnnotation(url, actionUrl, payload) {
+            openVideoModal(url, actionUrl, 0);
+            window.setTimeout(() => showSavedAnnotation(payload), 120);
+        }
+
         const projectMenuToggle = document.getElementById("project-menu-toggle");
         const projectMenuPanel = document.getElementById("project-menu-panel");
 
@@ -959,7 +1083,12 @@
             modal.classList.remove('hidden');
             setTimeout(() => {
                 card.classList.remove('opacity-0', 'scale-95');
+                sizeAnnotationCanvas();
             }, 50);
+            annotationStrokes = [];
+            annotationEnabled = false;
+            annotationCanvas?.classList.add('pointer-events-none');
+            if (annotationToggle) annotationToggle.textContent = 'Draw on frame';
 
             if (videoId) {
                 document.getElementById('player-container').innerHTML = "<div id='yt-player' class='w-full h-full aspect-video'></div>";
@@ -1121,6 +1250,19 @@
             : "No video selected";
 
     document.getElementById("selectedVideoFileName").textContent = fileName;
+    }
+
+    const reviewExpiryInput = document.getElementById("review-expiry-input");
+    const reviewTimezoneOffset = document.getElementById("review-timezone-offset");
+    if (reviewTimezoneOffset) {
+        reviewTimezoneOffset.value = String(new Date().getTimezoneOffset());
+    }
+    if (reviewExpiryInput && reviewExpiryInput.dataset.utc) {
+        const expiry = new Date(reviewExpiryInput.dataset.utc);
+        if (!Number.isNaN(expiry.getTime())) {
+            const localExpiry = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
+            reviewExpiryInput.value = localExpiry.toISOString().slice(0, 16);
+        }
     }
 
     </script>

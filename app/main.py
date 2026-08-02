@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import secrets
 import sqlite3
@@ -9,6 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import (
     BackgroundTasks,
@@ -463,6 +465,8 @@ def init_db() -> None:
                 brand_color TEXT DEFAULT '#9b8cf6',
                 logo_url TEXT,
                 email_sender_name TEXT DEFAULT 'Lumaire',
+                display_name TEXT,
+                workspace_owner_id INTEGER,
                 setup_completed BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TEXT NOT NULL
             )
@@ -495,6 +499,8 @@ def init_db() -> None:
             db.execute(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_completed BOOLEAN NOT NULL DEFAULT FALSE"
             )
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS workspace_owner_id INTEGER")
         except Exception as e:
             print(f"User verification migration skipped: {e}")
 
@@ -524,6 +530,12 @@ def init_db() -> None:
                 review_token_expires_at TEXT,
                 review_due_at TEXT,
                 guest_access TEXT NOT NULL DEFAULT 'approve',
+                review_password_hash TEXT,
+                review_link_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                review_allow_download BOOLEAN NOT NULL DEFAULT FALSE,
+                review_allow_versions BOOLEAN NOT NULL DEFAULT TRUE,
+                review_visit_count INTEGER NOT NULL DEFAULT 0,
+                review_last_visited_at TEXT,
                 delivery_checklist TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id),
@@ -545,6 +557,12 @@ def init_db() -> None:
         db.execute(
             "ALTER TABLE projects ADD COLUMN IF NOT EXISTS delivery_checklist TEXT NOT NULL DEFAULT ''"
         )
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_password_hash TEXT")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_link_enabled BOOLEAN NOT NULL DEFAULT TRUE")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_allow_download BOOLEAN NOT NULL DEFAULT FALSE")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_allow_versions BOOLEAN NOT NULL DEFAULT TRUE")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_visit_count INTEGER NOT NULL DEFAULT 0")
+        db.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS review_last_visited_at TEXT")
         projects_without_tokens = db.execute(
             "SELECT id FROM projects WHERE review_token IS NULL OR review_token = ''"
         ).fetchall()
@@ -569,10 +587,12 @@ def init_db() -> None:
                 video_url TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'Awaiting Review',
                 notes TEXT,
+                created_by_name TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(project_id) REFERENCES projects(id)
             )
         """)
+        db.execute("ALTER TABLE video_versions ADD COLUMN IF NOT EXISTS created_by_name TEXT")
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS comments (
@@ -584,6 +604,11 @@ def init_db() -> None:
                 type TEXT NOT NULL DEFAULT 'comment',
                 is_resolved BOOLEAN NOT NULL DEFAULT FALSE,
                 resolved_at TEXT,
+                parent_comment_id INTEGER,
+                is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+                attachment_url TEXT,
+                attachment_name TEXT,
+                annotation_data TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(video_version_id) REFERENCES video_versions(id)
             )
@@ -594,6 +619,11 @@ def init_db() -> None:
         db.execute(
             "ALTER TABLE comments ADD COLUMN IF NOT EXISTS resolved_at TEXT"
         )
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_comment_id INTEGER")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_url TEXT")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_name TEXT")
+        db.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS annotation_data TEXT")
         db.execute(
             """
             CREATE INDEX IF NOT EXISTS projects_user_created_idx
@@ -635,6 +665,17 @@ def init_db() -> None:
                 FOREIGN KEY(project_id) REFERENCES projects(id)
             )
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS project_members (
+                project_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                assigned_at TEXT NOT NULL,
+                PRIMARY KEY(project_id, user_id),
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS project_members_user_idx ON project_members(user_id)")
 
 
 def mark_project_notifications_read(db, user_id: int, project_id: int) -> None:
@@ -654,7 +695,8 @@ def mark_project_notifications_read(db, user_id: int, project_id: int) -> None:
     )
 
 
-def get_owner_notifications(db, user_id: int, limit: int = 8):
+def get_owner_notifications(db, user_id: int, limit: int = 8, reader_id: Optional[int] = None):
+    reader_id = reader_id or user_id
     return db.execute(
         """
         WITH events AS (
@@ -679,7 +721,7 @@ def get_owner_notifications(db, user_id: int, limit: int = 8):
 
             SELECT
                 'upload-' || CAST(vv.id AS TEXT) AS notification_id,
-                'Studio' AS author_name,
+                COALESCE(created_by_name, 'Studio') AS author_name,
                 'studio' AS author_role,
                 'Uploaded ' || vv.version_label AS body,
                 'upload' AS type,
@@ -725,7 +767,7 @@ def get_owner_notifications(db, user_id: int, limit: int = 8):
         ORDER BY events.created_at DESC
         LIMIT ?
         """,
-        (user_id, user_id, user_id, user_id, limit),
+        (user_id, user_id, user_id, reader_id, limit),
     ).fetchall()
 
 
@@ -1051,6 +1093,11 @@ def set_session_cookie(response: Response, request: Request, user_id: int) -> No
 
 
 def review_token_is_valid(project: object, submitted_token: str) -> bool:
+    try:
+        if project["review_link_enabled"] is False:
+            return False
+    except (KeyError, IndexError):
+        pass
     stored_token = project["review_token"]
     if (
         not stored_token
@@ -1072,6 +1119,10 @@ def review_token_is_valid(project: object, submitted_token: str) -> bool:
         return False
 
 
+def has_review_password_grant(request: Request, review_token: str) -> bool:
+    return review_token in request.session.get("review_password_grants", [])
+
+
 def get_review_actor(
     user: Optional[object],
     project: object,
@@ -1086,23 +1137,29 @@ def get_review_actor(
             )
         return "client", project["client_name"]
 
-    owner_access = (
-        user["role"] == "owner" and user["id"] == project["user_id"]
-    )
+    if user["role"] == "owner":
+        owner_access = user["id"] == project["user_id"]
+    elif user["role"] == "admin":
+        owner_access = workspace_id_for(user) == project["user_id"]
+    elif user["role"] == "member":
+        with get_db() as db:
+            owner_access = can_access_project(db, user, project)
+    else:
+        owner_access = False
     client_access = (
         user["role"] == "client"
         and user["client_reference_id"] == project["client_id"]
     )
     if not owner_access and not client_access:
         raise HTTPException(status_code=403, detail="Project access denied.")
-    if owner_access and action_type in {"approve", "reject"}:
+    if is_studio_user(user) and owner_access and action_type in {"approve", "reject"}:
         raise HTTPException(
             status_code=403,
             detail="Only the assigned client can approve or reject a version.",
         )
     if client_access:
         return "client", project["client_name"]
-    return "studio", normalize_branding(user)["studio_name"]
+    return "studio", studio_display_name(user)
 
 
 async def read_upload_with_limit(file: UploadFile, max_bytes: int) -> bytes:
@@ -1141,6 +1198,51 @@ def require_user(request: Request) -> sqlite3.Row:
             headers={"Location": "/login?error=session-expired"},
         )
     return user
+
+
+STUDIO_ROLES = {"owner", "admin", "member"}
+
+
+def is_studio_user(user: Optional[object]) -> bool:
+    return bool(user and user["role"] in STUDIO_ROLES)
+
+
+def workspace_id_for(user: object) -> int:
+    if user["role"] == "owner":
+        return int(user["id"])
+    return int(user["workspace_owner_id"] or user["id"])
+
+
+def studio_display_name(user: object) -> str:
+    try:
+        display_name = user["display_name"]
+    except (KeyError, IndexError):
+        display_name = ""
+    try:
+        email_name = user["email"].split("@", 1)[0]
+    except (KeyError, IndexError):
+        try:
+            email_name = user["studio_name"] or "Studio"
+        except (KeyError, IndexError):
+            email_name = "Studio"
+    return (display_name or email_name).strip()
+
+
+def can_access_project(db, user: object, project: object, manage: bool = False) -> bool:
+    if user["role"] == "client":
+        return not manage and user["client_reference_id"] == project["client_id"]
+    if not is_studio_user(user) or workspace_id_for(user) != project["user_id"]:
+        return False
+    if user["role"] in {"owner", "admin"}:
+        return True
+    if manage:
+        return False
+    return bool(
+        db.execute(
+            "SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?",
+            (project["id"], user["id"]),
+        ).fetchone()
+    )
 
 
 def is_demo_email(email: Optional[str]) -> bool:
@@ -1191,6 +1293,34 @@ def guest_action_is_allowed(access: str, action_type: str) -> bool:
         "approve": {"comment", "approve", "reject"},
     }
     return action_type in allowed_actions[normalize_guest_access(access)]
+
+
+def normalize_annotation_data(value: str) -> Optional[str]:
+    if not value or not value.strip():
+        return None
+    if len(value) > 100_000:
+        raise HTTPException(status_code=400, detail="Annotation is too large.")
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid annotation data.")
+    strokes = payload.get("strokes") if isinstance(payload, dict) else None
+    if not isinstance(strokes, list) or len(strokes) > 200:
+        raise HTTPException(status_code=400, detail="Invalid annotation data.")
+    normalized_strokes = []
+    for stroke in strokes:
+        if not isinstance(stroke, list) or len(stroke) > 2_000:
+            raise HTTPException(status_code=400, detail="Invalid annotation data.")
+        normalized_stroke = []
+        for point in stroke:
+            if not isinstance(point, dict):
+                raise HTTPException(status_code=400, detail="Invalid annotation data.")
+            x, y = point.get("x"), point.get("y")
+            if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+                raise HTTPException(status_code=400, detail="Invalid annotation data.")
+            normalized_stroke.append({"x": max(0, min(1, x)), "y": max(0, min(1, y))})
+        normalized_strokes.append(normalized_stroke)
+    return json.dumps({"strokes": normalized_strokes}, separators=(",", ":"))
 
 
 def normalize_review_due_at(value: str) -> str:
@@ -1257,6 +1387,8 @@ def get_branding_for_user(db, user: sqlite3.Row) -> dict:
         ).fetchone()
         return normalize_branding(owner)
 
+    if user["role"] in {"admin", "member"}:
+        return get_owner_branding(db, workspace_id_for(user))
     return normalize_branding(user)
 
 def owner_needs_setup(user: sqlite3.Row) -> bool:
@@ -1492,7 +1624,7 @@ def register(
     
     verify_url = f"{request.base_url}verify-email/{verification_token}"
 
-    background_tasks.add_task(
+    getattr(background_tasks, "add_task")(
         send_verification_email,
         email.strip().lower(),
         verify_url,
@@ -1846,7 +1978,8 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
             params = [user["client_reference_id"]]
         else:
             # 工作室老闆視角：看所有
-            clients = db.execute("SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC", (user["id"],)).fetchall()
+            workspace_id = workspace_id_for(user)
+            clients = db.execute("SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC", (workspace_id,)).fetchall()
             query = """
                 SELECT p.*, c.name AS client_name,
                     (SELECT COUNT(*) FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
@@ -1859,7 +1992,10 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
                 JOIN clients c ON p.client_id = c.id
                 WHERE p.user_id = ?
             """
-            params = [user["id"]]
+            params = [workspace_id]
+            if user["role"] == "member":
+                query += " AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)"
+                params.append(user["id"])
 
         if status != "all":
             query += " AND p.status = ?"
@@ -1876,13 +2012,18 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
 
         notifications = (
             []
-            if user["role"] == "client"
-            else get_owner_notifications(db, user["id"])
+            if user["role"] in {"client", "member"}
+            else get_owner_notifications(db, workspace_id_for(user), reader_id=user["id"])
         )
         
         # 統計數據卡片
-        target_id = user["client_reference_id"] if user["role"] == "client" else user["id"]
+        target_id = user["client_reference_id"] if user["role"] == "client" else workspace_id_for(user)
         col = "client_id" if user["role"] == "client" else "user_id"
+        stats_member_filter = ""
+        stats_params = [target_id]
+        if user["role"] == "member":
+            stats_member_filter = " AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = projects.id AND pm.user_id = ?)"
+            stats_params.append(user["id"])
         stats = db.execute(
             f"""
             SELECT
@@ -1891,9 +2032,9 @@ def dashboard(request: Request, status: str = "all", category: str = "all", clie
                 SUM(CASE WHEN status='In Revision' THEN 1 ELSE 0 END) AS revision,
                 SUM(CASE WHEN status='Approved' THEN 1 ELSE 0 END) AS approved,
                 SUM(CASE WHEN status='Published' THEN 1 ELSE 0 END) AS published
-            FROM projects WHERE {col} = ?
+            FROM projects WHERE {col} = ? {stats_member_filter}
             """,
-            (target_id,),
+            stats_params,
         ).fetchone()
         branding = get_branding_for_user(db, user)
 
@@ -1924,10 +2065,10 @@ def analytics_page(request: Request):
     if owner_needs_setup(user):
         return redirect("/setup")
 
-    if user["role"] != "owner":
+    if user["role"] not in {"owner", "admin"}:
         return redirect("/dashboard")
 
-    user_id = user["id"]
+    user_id = workspace_id_for(user)
 
     with get_db() as db:
         totals = db.execute(
@@ -2063,7 +2204,7 @@ def analytics_page(request: Request):
 def setup_page(request: Request):
     user = require_user(request)
 
-    if user["role"] != "owner":
+    if user["role"] not in {"owner", "admin"}:
         return redirect("/dashboard")
 
     return templates.TemplateResponse(
@@ -2296,8 +2437,8 @@ def create_client(
     validate_csrf(request, csrf_token)
     user = require_user(request)
 
-    if user["role"] != "owner":
-        raise HTTPException(status_code=403, detail="Only studio owners can create clients.")
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Only studio managers can create clients.")
 
     if is_demo_user(user):
         return demo_read_only_redirect("/clients")
@@ -2310,6 +2451,7 @@ def create_client(
 
     email_clean = email.strip().lower()
     client_password = secrets.token_urlsafe(9)
+    workspace_id = workspace_id_for(user)
 
     try:
         with get_db() as db:
@@ -2324,7 +2466,7 @@ def create_client(
             cur = db.execute(
                 "INSERT INTO clients (user_id, name, email, contact, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
                 (
-                    user["id"],
+                    workspace_id,
                     name.strip(),
                     email_clean,
                     contact.strip(),
@@ -2386,8 +2528,8 @@ def resend_client_invitation(
     validate_csrf(request, csrf_token)
     user = require_user(request)
 
-    if user["role"] != "owner":
-        raise HTTPException(status_code=403, detail="Only studio owners can resend invitations.")
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Only studio managers can resend invitations.")
 
     if is_demo_user(user):
         return demo_read_only_redirect("/clients")
@@ -2409,7 +2551,7 @@ def resend_client_invitation(
                    AND u.role = 'client'
                 WHERE c.id = ? AND c.user_id = ?
                 """,
-                (client_id, user["id"]),
+                (client_id, workspace_id_for(user)),
             ).fetchone()
 
             if not client:
@@ -2464,7 +2606,7 @@ def clients_page(
     if owner_needs_setup(user):
         return redirect("/setup")
 
-    if user["role"] != "owner":
+    if user["role"] not in {"owner", "admin"}:
         return redirect("/dashboard")
 
     with get_db() as db:
@@ -2480,7 +2622,7 @@ def clients_page(
             GROUP BY c.id
             ORDER BY c.created_at DESC
             """,
-            (user["id"],),
+            (workspace_id_for(user),),
         ).fetchall()
         branding = get_branding_for_user(db, user)
 
@@ -2498,6 +2640,148 @@ def clients_page(
     )
 
 
+@app.get("/team", response_class=HTMLResponse)
+def team_page(request: Request):
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"}:
+        return redirect("/dashboard")
+    workspace_id = workspace_id_for(user)
+    with get_db() as db:
+        members = db.execute(
+            """SELECT id, email, display_name, role, created_at
+               FROM users WHERE id = ? OR workspace_owner_id = ?
+               ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, created_at""",
+            (workspace_id, workspace_id),
+        ).fetchall()
+        projects = db.execute(
+            "SELECT id, name, status FROM projects WHERE user_id = ? ORDER BY created_at DESC",
+            (workspace_id,),
+        ).fetchall()
+        assignments = db.execute(
+            """SELECT pm.user_id, pm.project_id FROM project_members pm
+               JOIN projects p ON pm.project_id = p.id WHERE p.user_id = ?""",
+            (workspace_id,),
+        ).fetchall()
+        assigned_by_user = {}
+        for row in assignments:
+            assigned_by_user.setdefault(row["user_id"], set()).add(row["project_id"])
+        branding = get_owner_branding(db, workspace_id)
+    return templates.TemplateResponse(
+        "team.html",
+        {
+            "request": request,
+            "user": user,
+            "members": members,
+            "projects": projects,
+            "assigned_by_user": assigned_by_user,
+            "branding": branding,
+            "is_demo": is_demo_user(user),
+            "credentials": request.query_params.get("credentials", ""),
+        },
+    )
+
+
+@app.post("/team/invite")
+def invite_team_member(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    email: str = Form(...),
+    display_name: str = Form(""),
+    role: str = Form("member"),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner" or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    email = email.strip().lower()
+    if role not in {"admin", "member"} or not is_valid_email(email):
+        raise HTTPException(status_code=400, detail="Invalid team invitation.")
+    temporary_password = secrets.token_urlsafe(10)
+    workspace_id = workspace_id_for(user)
+    with get_db() as db:
+        if db.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
+            return redirect("/team?error=That+email+already+has+an+account.")
+        db.execute(
+            """INSERT INTO users
+               (email, password_hash, role, is_verified, display_name,
+                workspace_owner_id, setup_completed, created_at)
+               VALUES (?, ?, ?, TRUE, ?, ?, TRUE, ?)""",
+            (
+                email, hash_password(temporary_password), role,
+                display_name.strip() or email.split("@", 1)[0],
+                workspace_id, datetime.utcnow().isoformat(),
+            ),
+        )
+        branding = get_owner_branding(db, workspace_id)
+    background_tasks.add_task(
+        send_activity_email,
+        to_email=email,
+        subject=f"[{branding['studio_name']}] You were invited to the studio",
+        project_name=branding["studio_name"],
+        action_text=f"Your temporary password is: {temporary_password}",
+        link_url=f"{request.base_url}login",
+        sender_name=branding["email_sender_name"],
+        brand_name=branding["studio_name"],
+        brand_color=branding["brand_color"],
+        logo_url=branding["logo_url"],
+    )
+    return redirect(f"/team?{urlencode({'credentials': f'{email} / {temporary_password}'})}")
+
+
+@app.post("/team/{member_id}/assignments")
+def update_team_assignments(
+    request: Request,
+    member_id: int,
+    project_ids: list[int] = Form([]),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"} or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    workspace_id = workspace_id_for(user)
+    with get_db() as db:
+        member = db.execute(
+            "SELECT id, role FROM users WHERE id = ? AND workspace_owner_id = ?",
+            (member_id, workspace_id),
+        ).fetchone()
+        if not member or member["role"] != "member":
+            raise HTTPException(status_code=404)
+        valid_rows = db.execute(
+            "SELECT id FROM projects WHERE user_id = ?", (workspace_id,)
+        ).fetchall()
+        valid_ids = {row["id"] for row in valid_rows}
+        selected_ids = set(project_ids) & valid_ids
+        db.execute("DELETE FROM project_members WHERE user_id = ?", (member_id,))
+        for project_id in selected_ids:
+            db.execute(
+                "INSERT INTO project_members (project_id, user_id, assigned_at) VALUES (?, ?, ?)",
+                (project_id, member_id, datetime.utcnow().isoformat()),
+            )
+    return redirect("/team?success=Project+access+updated.")
+
+
+@app.post("/team/{member_id}/remove")
+def remove_team_member(request: Request, member_id: int, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner" or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    workspace_id = workspace_id_for(user)
+    with get_db() as db:
+        member = db.execute(
+            "SELECT id FROM users WHERE id = ? AND workspace_owner_id = ?",
+            (member_id, workspace_id),
+        ).fetchone()
+        if not member:
+            raise HTTPException(status_code=404)
+        db.execute("DELETE FROM project_members WHERE user_id = ?", (member_id,))
+        db.execute("DELETE FROM project_notification_reads WHERE user_id = ?", (member_id,))
+        db.execute("DELETE FROM users WHERE id = ?", (member_id,))
+    return redirect("/team?success=Team+member+removed.")
+
+
 @app.get("/projects/new", response_class=HTMLResponse)
 def new_project_page(
     request: Request,
@@ -2508,7 +2792,7 @@ def new_project_page(
     if owner_needs_setup(user):
         return redirect("/setup")
 
-    if user["role"] != "owner":
+    if user["role"] not in {"owner", "admin"}:
         return redirect("/dashboard")
 
     if is_demo_user(user):
@@ -2517,7 +2801,7 @@ def new_project_page(
     with get_db() as db:
         clients = db.execute(
             "SELECT id, name, email FROM clients WHERE user_id = ? ORDER BY name",
-            (user["id"],),
+            (workspace_id_for(user),),
         ).fetchall()
         branding = get_branding_for_user(db, user)
 
@@ -2550,7 +2834,7 @@ def create_project(
     validate_csrf(request, csrf_token)
     user = require_user(request)
 
-    if user["role"] != "owner":
+    if user["role"] not in {"owner", "admin"}:
         raise HTTPException(status_code=403)
 
     if is_demo_user(user):
@@ -2571,11 +2855,12 @@ def create_project(
         raise HTTPException(status_code=400, detail="Invalid public review access.")
     normalized_due_at = normalize_review_due_at(review_due_at)
     normalized_guest_access = normalize_guest_access(guest_access)
+    workspace_id = workspace_id_for(user)
 
     with get_db() as db:
         client = db.execute(
             "SELECT id FROM clients WHERE id = ? AND user_id = ?",
-            (client_id_int, user["id"]),
+            (client_id_int, workspace_id),
         ).fetchone()
         if not client:
             raise HTTPException(status_code=404, detail="Client not found.")
@@ -2588,7 +2873,7 @@ def create_project(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                user["id"],
+                workspace_id,
                 client_id_int,
                 name.strip(),
                 category,
@@ -2608,23 +2893,17 @@ def create_project(
 def project_detail(request: Request, project_id: int):
     user = require_user(request)
     with get_db() as db:
-        if user["role"] == "client":
-            project = db.execute(
-                "SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=? AND p.client_id=?",
-                (project_id, user["client_reference_id"]),
-            ).fetchone()
-        else:
-            project = db.execute(
-                "SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=? AND p.user_id=?",
-                (project_id, user["id"]),
-            ).fetchone()
+        project = db.execute(
+            "SELECT p.*, c.name AS client_name FROM projects p JOIN clients c ON p.client_id=c.id WHERE p.id=?",
+            (project_id,),
+        ).fetchone()
             
-        if not project:
+        if not project or not can_access_project(db, user, project):
             return redirect(
                 "/dashboard?error=This+project+is+not+available+for+the+active+account."
             )
 
-        if user["role"] == "owner":
+        if is_studio_user(user):
             mark_project_notifications_read(db, user["id"], project_id)
 
         # 撈取版本時間軸（由新到舊）
@@ -2639,31 +2918,45 @@ def project_detail(request: Request, project_id: int):
             -- 1. 撈取客戶的審核與留言
             SELECT 
                 cm.id,
+                cm.video_version_id,
                 cm.author_name, 
                 cm.author_role, 
                 cm.body, 
                 cm.type, 
                 cm.is_resolved,
                 cm.resolved_at,
+                cm.parent_comment_id,
+                cm.is_internal,
+                cm.attachment_url,
+                cm.attachment_name,
+                cm.annotation_data,
                 cm.created_at, 
-                vv.version_label
+                vv.version_label,
+                vv.video_url
             FROM comments cm 
             JOIN video_versions vv ON cm.video_version_id = vv.id
-            WHERE vv.project_id = ?
+            WHERE vv.project_id = ? AND (cm.is_internal = FALSE OR ? = TRUE)
             
             UNION ALL
             
             -- 2. 撈取工作室上傳新影片版本的事件
             SELECT 
                 NULL AS id,
+                NULL AS video_version_id,
                 'Studio' AS author_name,
                 'studio' AS author_role,
                 'Uploaded ' || version_label AS body,
                 'upload' AS type,
                 FALSE AS is_resolved,
                 NULL AS resolved_at,
+                NULL AS parent_comment_id,
+                FALSE AS is_internal,
+                NULL AS attachment_url,
+                NULL AS attachment_name,
+                NULL AS annotation_data,
                 created_at,
-                version_label
+                version_label,
+                video_url
             FROM video_versions
             WHERE project_id = ?
             
@@ -2672,20 +2965,27 @@ def project_detail(request: Request, project_id: int):
             -- 3. 撈取專案最初建立的事件
             SELECT 
                 NULL AS id,
+                NULL AS video_version_id,
                 'System' AS author_name,
                 'system' AS author_role,
                 'Project Created' AS body,
                 'create' AS type,
                 FALSE AS is_resolved,
                 NULL AS resolved_at,
+                NULL AS parent_comment_id,
+                FALSE AS is_internal,
+                NULL AS attachment_url,
+                NULL AS attachment_name,
+                NULL AS annotation_data,
                 created_at,
-                '' AS version_label
+                '' AS version_label,
+                NULL AS video_url
             FROM projects
             WHERE id = ?
             
             ORDER BY created_at DESC
             """,
-            (project_id, project_id, project_id),
+            (project_id, is_studio_user(user), project_id, project_id),
         ).fetchall()
         open_feedback_count = sum(
             1
@@ -2743,18 +3043,79 @@ def project_detail(request: Request, project_id: int):
     )
 
 
+@app.get("/projects/{project_id}/compare", response_class=HTMLResponse)
+def compare_versions_page(
+    request: Request,
+    project_id: int,
+    left: Optional[int] = None,
+    right: Optional[int] = None,
+):
+    user = require_user(request)
+    with get_db() as db:
+        project = db.execute(
+            """SELECT p.*, c.name AS client_name FROM projects p
+               JOIN clients c ON p.client_id = c.id WHERE p.id = ?""",
+            (project_id,),
+        ).fetchone()
+        if not project or not can_access_project(db, user, project):
+            raise HTTPException(status_code=404, detail="Project not found.")
+        versions = db.execute(
+            "SELECT * FROM video_versions WHERE project_id = ? ORDER BY created_at DESC, id DESC",
+            (project_id,),
+        ).fetchall()
+        if len(versions) < 2:
+            return redirect(f"/projects/{project_id}?warning=Upload+at+least+two+versions+to+compare.")
+        by_id = {row["id"]: row for row in versions}
+        left_version = by_id.get(left) if left else versions[1]
+        right_version = by_id.get(right) if right else versions[0]
+        if not left_version or not right_version:
+            raise HTTPException(status_code=400, detail="Invalid comparison selection.")
+        comparison_comments = db.execute(
+            """SELECT video_version_id, author_name, body, type, created_at
+               FROM comments WHERE video_version_id IN (?, ?)
+                 AND (is_internal = FALSE OR ? = TRUE)
+               ORDER BY created_at ASC""",
+            (left_version["id"], right_version["id"], is_studio_user(user)),
+        ).fetchall()
+        comments_by_version = {left_version["id"]: [], right_version["id"]: []}
+        for comment in comparison_comments:
+            comments_by_version.setdefault(comment["video_version_id"], []).append(comment)
+        branding = get_owner_branding(db, project["user_id"])
+    return templates.TemplateResponse(
+        "compare.html",
+        {
+            "request": request,
+            "user": user,
+            "project": project,
+            "versions": versions,
+            "left_version": left_version,
+            "right_version": right_version,
+            "comments_by_version": comments_by_version,
+            "branding": branding,
+            "is_demo": is_demo_user(user),
+        },
+    )
+
+
 @app.post("/projects/{project_id}/review-settings")
 def update_project_review_settings(
     request: Request,
     project_id: int,
     review_due_at: str = Form(""),
     guest_access: str = Form("approve"),
+    review_expires_at: str = Form(""),
+    review_timezone_offset: int = Form(0),
+    review_password: str = Form(""),
+    clear_review_password: Optional[str] = Form(None),
+    review_link_enabled: Optional[str] = Form(None),
+    review_allow_download: Optional[str] = Form(None),
+    review_allow_versions: Optional[str] = Form(None),
     csrf_token: str = Form(...),
 ):
     validate_csrf(request, csrf_token)
     user = require_user(request)
-    if user["role"] != "owner":
-        raise HTTPException(status_code=403, detail="Only owners can update review settings.")
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Only studio managers can update review settings.")
     if is_demo_user(user):
         return demo_read_only_redirect(f"/projects/{project_id}")
 
@@ -2762,29 +3123,69 @@ def update_project_review_settings(
         raise HTTPException(status_code=400, detail="Invalid public review access.")
     normalized_due_at = normalize_review_due_at(review_due_at)
     normalized_guest_access = normalize_guest_access(guest_access)
+    normalized_expiry = None
+    if review_expires_at.strip():
+        try:
+            local_expiry = datetime.fromisoformat(review_expires_at.strip())
+            bounded_offset = max(-840, min(840, review_timezone_offset))
+            normalized_expiry = (local_expiry + timedelta(minutes=bounded_offset)).isoformat()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid review link expiration.")
 
     with get_db() as db:
         project = db.execute(
-            "SELECT id FROM projects WHERE id = ? AND user_id = ?",
-            (project_id, user["id"]),
+            "SELECT * FROM projects WHERE id = ?",
+            (project_id,),
         ).fetchone()
-        if not project:
+        if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404, detail="Project not found.")
+        password_hash = project["review_password_hash"]
+        if clear_review_password:
+            password_hash = None
+        elif review_password.strip():
+            if len(review_password) < 6:
+                raise HTTPException(status_code=400, detail="Review password must be at least 6 characters.")
+            password_hash = hash_password(review_password.strip())
         db.execute(
             """
             UPDATE projects
-            SET review_due_at = ?, guest_access = ?
-            WHERE id = ? AND user_id = ?
+            SET review_due_at = ?, guest_access = ?, review_token_expires_at = ?,
+                review_password_hash = ?, review_link_enabled = ?,
+                review_allow_download = ?, review_allow_versions = ?
+            WHERE id = ?
             """,
             (
                 normalized_due_at or None,
                 normalized_guest_access,
+                normalized_expiry,
+                password_hash,
+                bool(review_link_enabled),
+                bool(review_allow_download),
+                bool(review_allow_versions),
                 project_id,
-                user["id"],
             ),
         )
 
     return redirect(f"/projects/{project_id}?success=Review+settings+updated.")
+
+
+@app.post("/projects/{project_id}/review-link/regenerate")
+def regenerate_review_link(request: Request, project_id: int, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403)
+    if is_demo_user(user):
+        return demo_read_only_redirect(f"/projects/{project_id}")
+    with get_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
+            raise HTTPException(status_code=404)
+        db.execute(
+            "UPDATE projects SET review_token = ?, review_visit_count = 0, review_last_visited_at = NULL WHERE id = ?",
+            (secrets.token_urlsafe(32), project_id),
+        )
+    return redirect(f"/projects/{project_id}?success=Public+review+link+regenerated.")
 
 
 @app.post("/projects/{project_id}/delivery-checklist")
@@ -2796,19 +3197,16 @@ def update_delivery_checklist(
 ):
     validate_csrf(request, csrf_token)
     user = require_user(request)
-    if user["role"] != "owner":
-        raise HTTPException(status_code=403, detail="Only owners can update delivery readiness.")
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Only studio managers can update delivery readiness.")
     if is_demo_user(user):
         return demo_read_only_redirect(f"/projects/{project_id}")
 
     valid_keys = {key for key, _ in DELIVERY_CHECKLIST_ITEMS}
     completed = sorted(set(delivery_items) & valid_keys)
     with get_db() as db:
-        project = db.execute(
-            "SELECT id, status FROM projects WHERE id = ? AND user_id = ?",
-            (project_id, user["id"]),
-        ).fetchone()
-        if not project:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404, detail="Project not found.")
         if project["status"] == "Published":
             raise HTTPException(status_code=400, detail="Delivered projects are read-only.")
@@ -2836,18 +3234,15 @@ async def create_version(
         return redirect(f"/projects/{project_id}?warning=Version+label+is+required.")
 
     user = require_user(request)
-    if user["role"] != "owner":
+    if not is_studio_user(user):
         raise HTTPException(status_code=403, detail="Clients cannot upload versions.")
 
     if is_demo_user(user):
         return demo_read_only_redirect(f"/projects/{project_id}")
 
     with get_db() as db:
-        project = db.execute(
-            "SELECT id FROM projects WHERE id = ? AND user_id = ?",
-            (project_id, user["id"]),
-        ).fetchone()
-        if not project:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project):
             raise HTTPException(status_code=404, detail="Project not found.")
 
     final_video_url = video_url.strip() if video_url else ""
@@ -2899,15 +3294,16 @@ async def create_version(
         db.execute(
             """
             INSERT INTO video_versions
-            (user_id, project_id, version_label, video_url, status, notes, created_at)
-            VALUES (?, ?, ?, ?, 'Awaiting Review', ?, ?)
+            (user_id, project_id, version_label, video_url, status, notes, created_by_name, created_at)
+            VALUES (?, ?, ?, ?, 'Awaiting Review', ?, ?, ?)
             """,
             (
-                user["id"],
+                project["user_id"],
                 project_id,
                 version_label.strip(),
                 final_video_url,
                 notes.strip(),
+                studio_display_name(user),
                 datetime.utcnow().isoformat(),
             ),
         )
@@ -2954,7 +3350,7 @@ async def create_version(
 
 
 @app.post("/versions/{version_id}/action")
-def version_decision(
+async def version_decision(
     request: Request,
     version_id: int,
     background_tasks: BackgroundTasks,
@@ -2962,6 +3358,10 @@ def version_decision(
     body: str = Form(...),
     video_time: Optional[str] = Form(None),
     time_str: Optional[str] = Form(None),
+    parent_comment_id: Optional[int] = Form(None),
+    internal_note: Optional[str] = Form(None),
+    annotation_data: str = Form(""),
+    comment_attachment: UploadFile = File(None),
     review_token: str = Form(""),
     csrf_token: str = Form(...),
 ):
@@ -2995,6 +3395,16 @@ def version_decision(
         if not project:
             raise HTTPException(status_code=404, detail="Project not found.")
 
+        if not user and project["review_password_hash"] and not has_review_password_grant(request, review_token):
+            raise HTTPException(status_code=403, detail="Review password required.")
+        if not user and not project["review_allow_versions"]:
+            latest_version = db.execute(
+                "SELECT id FROM video_versions WHERE project_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                (version["project_id"],),
+            ).fetchone()
+            if not latest_version or latest_version["id"] != version_id:
+                raise HTTPException(status_code=403, detail="Version history is hidden for this link.")
+
         author_role, author_name = get_review_actor(
             user,
             project,
@@ -3010,6 +3420,20 @@ def version_decision(
                     status_code=403,
                     detail="This public review link does not allow that action.",
                 )
+        is_internal = bool(internal_note)
+        if is_internal and (not user or not is_studio_user(user)):
+            raise HTTPException(status_code=403, detail="Only studio members can add internal notes.")
+        if parent_comment_id:
+            parent = db.execute(
+                """SELECT cm.id, cm.is_internal FROM comments cm JOIN video_versions vv
+                   ON cm.video_version_id = vv.id
+                   WHERE cm.id = ? AND vv.project_id = ?""",
+                (parent_comment_id, version["project_id"]),
+            ).fetchone()
+            if not parent:
+                raise HTTPException(status_code=400, detail="Invalid reply target.")
+            if parent["is_internal"] and (not user or not is_studio_user(user)):
+                raise HTTPException(status_code=403, detail="Reply target is not available.")
         target_path = (
             f"/projects/{version['project_id']}"
             if user
@@ -3032,6 +3456,35 @@ def version_decision(
 
         final_body = body.strip()
         final_type = action_type
+        final_annotation = normalize_annotation_data(annotation_data)
+        attachment_url = None
+        attachment_name = None
+
+        if comment_attachment and comment_attachment.filename:
+            if not SUPABASE_URL or not SUPABASE_KEY:
+                return redirect(f"{target_path}?error=Attachment+storage+is+not+configured.")
+            attachment_name = os.path.basename(comment_attachment.filename)[:180]
+            extension = os.path.splitext(attachment_name)[1].lower()
+            allowed_extensions = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".txt", ".doc", ".docx"}
+            if extension not in allowed_extensions:
+                return redirect(f"{target_path}?error=Unsupported+comment+attachment.")
+            try:
+                attachment_bytes = await read_upload_with_limit(comment_attachment, MAX_ATTACHMENT_UPLOAD_BYTES)
+            except HTTPException:
+                return redirect(f"{target_path}?error=Comment+attachment+is+too+large.")
+            storage_path = f"comments/{version['project_id']}/{uuid.uuid4().hex}{extension}"
+            upload_url = f"{SUPABASE_URL}/storage/v1/object/attachments/{storage_path}"
+            headers = {
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "apikey": SUPABASE_KEY,
+                "Content-Type": comment_attachment.content_type or "application/octet-stream",
+                "x-upsert": "false",
+            }
+            async with httpx.AsyncClient(timeout=45) as client:
+                upload_response = await client.post(upload_url, headers=headers, content=attachment_bytes)
+            if upload_response.status_code not in (200, 201):
+                return redirect(f"{target_path}?error=Comment+attachment+upload+failed.")
+            attachment_url = f"{SUPABASE_URL}/storage/v1/object/public/attachments/{storage_path}"
 
         if time_str and time_str.strip() and video_time:
             final_body = f"⏱️ [{time_str.strip()}] {final_body}"
@@ -3043,10 +3496,16 @@ def version_decision(
         db.execute(
             """
             INSERT INTO comments
-            (video_version_id, author_role, author_name, body, type, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (video_version_id, author_role, author_name, body, type,
+             parent_comment_id, is_internal, attachment_url, attachment_name,
+             annotation_data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (version_id, author_role, author_name, final_body, final_type, now),
+            (
+                version_id, author_role, author_name, final_body, final_type,
+                parent_comment_id, is_internal, attachment_url, attachment_name,
+                final_annotation, now,
+            ),
         )
 
         if action_type == "approve":
@@ -3132,7 +3591,7 @@ def resolve_comment(
 ):
     validate_csrf(request, csrf_token)
     user = require_user(request)
-    if user["role"] != "owner":
+    if not is_studio_user(user):
         raise HTTPException(
             status_code=403,
             detail="Only owners can update feedback status.",
@@ -3141,6 +3600,10 @@ def resolve_comment(
         return demo_read_only_redirect("/dashboard")
 
     with get_db() as db:
+        member_filter = "" if user["role"] != "member" else " AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)"
+        params = [comment_id, workspace_id_for(user)]
+        if user["role"] == "member":
+            params.append(user["id"])
         comment = db.execute(
             """
             SELECT cm.id, cm.type, cm.author_role, cm.is_resolved,
@@ -3150,8 +3613,8 @@ def resolve_comment(
             JOIN video_versions vv ON cm.video_version_id = vv.id
             JOIN projects p ON vv.project_id = p.id
             WHERE cm.id = ? AND p.user_id = ?
-            """,
-            (comment_id, user["id"]),
+            """ + member_filter,
+            params,
         ).fetchone()
         if not comment:
             raise HTTPException(status_code=404, detail="Feedback not found.")
@@ -3209,6 +3672,29 @@ def resolve_comment(
 # 客戶免登入公開審片連結路由 (Frame.io 模式)
 # ==========================================
 
+@app.post("/review/{review_token}/unlock")
+def unlock_public_review(
+    request: Request,
+    review_token: str,
+    password: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    with get_db() as db:
+        project = db.execute(
+            "SELECT * FROM projects WHERE review_token = ?", (review_token,)
+        ).fetchone()
+        if not project or not review_token_is_valid(project, review_token):
+            raise HTTPException(status_code=404, detail="Review link invalid or expired")
+        if not project["review_password_hash"] or not verify_password(password, project["review_password_hash"]):
+            return redirect(f"/review/{review_token}?error=Incorrect+review+password.")
+    grants = list(request.session.get("review_password_grants", []))
+    if review_token not in grants:
+        grants.append(review_token)
+    request.session["review_password_grants"] = grants[-10:]
+    return redirect(f"/review/{review_token}")
+
+
 @app.get("/review/{review_token}", response_class=HTMLResponse)
 def public_review_page(request: Request, review_token: str):
     with get_db() as db:
@@ -3227,24 +3713,61 @@ def public_review_page(request: Request, review_token: str):
                 status_code=404,
                 detail="Review link invalid or expired",
             )
+        if project["review_password_hash"] and not has_review_password_grant(request, review_token):
+            return templates.TemplateResponse(
+                "review_unlock.html",
+                {
+                    "request": request,
+                    "project": project,
+                    "review_token": review_token,
+                    "branding": get_owner_branding(db, project["user_id"]),
+                    "error": request.query_params.get("error", ""),
+                },
+            )
         project_id = project["id"]
-        versions = db.execute("SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
+        visit_key = "review_visit_" + hashlib.sha256(review_token.encode("utf-8")).hexdigest()[:16]
+        if not request.session.get(visit_key):
+            db.execute(
+                "UPDATE projects SET review_visit_count = review_visit_count + 1, review_last_visited_at = ? WHERE id = ?",
+                (datetime.utcnow().isoformat(), project_id),
+            )
+            request.session[visit_key] = True
+        version_limit = "" if project["review_allow_versions"] else " LIMIT 1"
+        versions = db.execute(
+            "SELECT * FROM video_versions WHERE project_id=? ORDER BY created_at DESC" + version_limit,
+            (project_id,),
+        ).fetchall()
         comments = db.execute(
-            """SELECT cm.id, cm.author_name, cm.author_role, cm.body, cm.type,
-                      cm.is_resolved, cm.resolved_at, cm.created_at, vv.version_label
-               FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id WHERE vv.project_id = ?
+            """SELECT cm.id, cm.video_version_id, cm.author_name, cm.author_role, cm.body, cm.type,
+                      cm.is_resolved, cm.resolved_at, cm.parent_comment_id,
+                      cm.is_internal, cm.attachment_url, cm.attachment_name,
+                      cm.annotation_data, cm.created_at, vv.version_label, vv.video_url
+               FROM comments cm JOIN video_versions vv ON cm.video_version_id = vv.id
+               WHERE vv.project_id = ? AND cm.is_internal = FALSE
                UNION ALL
-               SELECT NULL AS id, 'Studio' AS author_name, 'studio' AS author_role,
+                SELECT NULL AS id, id AS video_version_id, COALESCE(created_by_name, 'Studio') AS author_name, 'studio' AS author_role,
                       'Uploaded ' || version_label AS body, 'upload' AS type,
-                      FALSE AS is_resolved, NULL AS resolved_at, created_at, version_label
+                      FALSE AS is_resolved, NULL AS resolved_at, NULL AS parent_comment_id,
+                      FALSE AS is_internal, NULL AS attachment_url, NULL AS attachment_name,
+                      NULL AS annotation_data, created_at, version_label, video_url
                FROM video_versions WHERE project_id = ?
                UNION ALL
-               SELECT NULL AS id, 'System' AS author_name, 'system' AS author_role,
+               SELECT NULL AS id, NULL AS video_version_id, 'System' AS author_name, 'system' AS author_role,
                       'Project Created' AS body, 'create' AS type,
-                      FALSE AS is_resolved, NULL AS resolved_at, created_at, '' AS version_label
+                      FALSE AS is_resolved, NULL AS resolved_at, NULL AS parent_comment_id,
+                      FALSE AS is_internal, NULL AS attachment_url, NULL AS attachment_name,
+                      NULL AS annotation_data, created_at, '' AS version_label, NULL AS video_url
                FROM projects WHERE id = ?
                ORDER BY created_at DESC""", (project_id, project_id, project_id)
         ).fetchall()
+        if not project["review_allow_versions"]:
+            visible_version_ids = {version["id"] for version in versions}
+            comments = [
+                comment
+                for comment in comments
+                if comment["video_version_id"] is None
+                or comment["video_version_id"] in visible_version_ids
+            ]
         open_feedback_count = sum(
             1
             for comment in comments
@@ -3313,18 +3836,15 @@ def deliver_project(
 ):
     validate_csrf(request, csrf_token)
     user = require_user(request)
-    if user["role"] != "owner":
-        raise HTTPException(status_code=403, detail="Only owners can mark final delivery.")
+    if user["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Only studio managers can mark final delivery.")
 
     if is_demo_user(user):
         return demo_read_only_redirect(f"/projects/{project_id}")
         
     with get_db() as db:
-        project = db.execute(
-            "SELECT * FROM projects WHERE id = ? AND user_id = ?",
-            (project_id, user["id"]),
-        ).fetchone()
-        if not project:
+        project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404)
             
         # 將專案狀態更新為 Published (代表最終交付結案)
@@ -3346,7 +3866,7 @@ def deliver_project(
         db.execute("UPDATE projects SET status='Published' WHERE id=?", (project_id,))
         
         # 📬 【加分功能】：同時自動觸發一封結案信通知客戶前來下載最終成片！
-        branding = get_owner_branding(db, user["id"])
+        branding = get_owner_branding(db, project["user_id"])
         client_info = db.execute("SELECT email FROM clients WHERE id=?", (project["client_id"],)).fetchone()
         if client_info and client_info["email"]:
             background_tasks.add_task(
@@ -3384,18 +3904,15 @@ async def add_project_attachment(
         return redirect(f"/projects/{project_id}?error=File+name+cannot+be+empty.")
 
     user = require_user(request)
-    if user["role"] != "owner":
+    if not is_studio_user(user):
         raise HTTPException(status_code=403)
 
     if is_demo_user(user):
         return demo_read_only_redirect(f"/projects/{project_id}")
 
     with get_db() as db:
-        owned_project = db.execute(
-            "SELECT id FROM projects WHERE id = ? AND user_id = ?",
-            (project_id, user["id"]),
-        ).fetchone()
-        if not owned_project:
+        owned_project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not owned_project or not can_access_project(db, user, owned_project):
             raise HTTPException(status_code=404, detail="Project not found.")
 
     if not SUPABASE_URL or not SUPABASE_KEY:

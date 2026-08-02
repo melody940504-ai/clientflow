@@ -208,6 +208,10 @@
             <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full font-bold border border-gray-700 tracking-wider uppercase">
                 {% if user.role == 'client' %}
                     Client Portal
+                {% elif user.role == 'member' %}
+                    Studio Member
+                {% elif user.role == 'admin' %}
+                    Studio Admin
                 {% else %}
                     Owner Portal
                 {% endif %}
@@ -273,12 +277,15 @@
                 </button>
                 <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
                     <div class="grid gap-2">
-                    {% if user.role != 'client' %}
+                    {% if user.role in ['owner', 'admin'] %}
                     <a href="/clients" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Clients</a>
                     {% if not is_demo %}
                     <a href="/projects/new" class="brand-bg-fix menu-item-fix text-center text-xs px-3 py-2 rounded-xl transition text-white font-semibold">New project</a>
                     {% endif %}
                     <a href="/analytics" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Analytics</a>
+                    <a href="/team" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Team</a>
+                    {% endif %}
+                    {% if user.role == 'owner' %}
                     <a href="/settings" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Settings</a>
                     {% endif %}
                     {% if not is_demo %}
@@ -317,7 +324,7 @@
                 </h1>
             </div>
             <div class="workspace-heading-copy">
-                {% if user.role != 'client' and not is_demo %}
+                {% if user.role in ['owner', 'admin'] and not is_demo %}
                 <div class="workspace-heading-actions">
                     <a href="/clients" class="nav-action-fix">Clients</a>
                     <a href="/projects/new" class="brand-bg-fix">New project</a>
@@ -403,7 +410,7 @@
                 {% else %}
                 <div class="col-span-full py-8 text-center">
                     <p class="text-sm text-gray-500">No active projects found.</p>
-                    {% if user.role != 'client' and not is_demo %}
+                    {% if user.role in ['owner', 'admin'] and not is_demo %}
                     <a href="/projects/new" class="mt-3 inline-flex text-sm font-bold text-indigo-400 transition hover:text-indigo-300">Create your first project</a>
                     {% endif %}
                 </div>
@@ -455,7 +462,7 @@
           "target": ".workspace-projects",
           "mobileTarget": ".workspace-projects h3",
           "placement": "top"
-        }{% if user.role != 'client' %},
+        }{% if user.role in ['owner', 'admin'] %},
         {
           "title": "Create work when you need it",
           "body": "Use Clients to manage access, or New project to start the next review workflow.",

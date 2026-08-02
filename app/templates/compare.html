@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% set title = project.name ~ ' - Version comparison' %}
+{% block content %}
+<section class="compare-page">
+  <a class="page-back" href="/projects/{{ project.id }}">&#8592; Back to project</a>
+  <div class="compare-heading">
+    <div>
+      <span class="eyebrow">VERSION COMPARISON</span>
+      <h1>{{ project.name }}</h1>
+    </div>
+    <button class="ghost" type="button" id="sync-toggle" aria-pressed="true">Sync players: on</button>
+  </div>
+
+  <form class="compare-selectors" method="get">
+    <label>Left version
+      <select name="left">
+        {% for version in versions %}<option value="{{ version.id }}" {% if version.id == left_version.id %}selected{% endif %}>{{ version.version_label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Right version
+      <select name="right">
+        {% for version in versions %}<option value="{{ version.id }}" {% if version.id == right_version.id %}selected{% endif %}>{{ version.version_label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="top-primary" type="submit">Compare</button>
+  </form>
+
+  <div class="compare-grid">
+    {% for side, version in [('left', left_version), ('right', right_version)] %}
+    <article class="compare-panel">
+      <header><strong>{{ version.version_label }}</strong><span>{{ version.status }}</span></header>
+      {% set lower_url = version.video_url|lower %}
+      {% if '.mp4' in lower_url or '.webm' in lower_url or '.mov' in lower_url or 'supabase' in lower_url %}
+      <video class="compare-video" data-side="{{ side }}" controls preload="metadata" src="{{ version.video_url }}"></video>
+      {% elif 'youtube.com/watch?v=' in lower_url %}
+      <iframe class="compare-video" src="{{ version.video_url.replace('watch?v=', 'embed/') }}" title="{{ version.version_label }}" allowfullscreen></iframe>
+      {% elif 'youtu.be/' in lower_url %}
+      <iframe class="compare-video" src="{{ version.video_url.replace('youtu.be/', 'youtube.com/embed/') }}" title="{{ version.version_label }}" allowfullscreen></iframe>
+      {% else %}
+      <div class="compare-external">
+        <p>This hosted video opens in its native player.</p>
+        <a class="top-primary" href="{{ version.video_url }}" target="_blank" rel="noopener">Open {{ version.version_label }}</a>
+      </div>
+      {% endif %}
+      <footer>{{ version.notes or 'No version notes.' }}</footer>
+      <div class="compare-notes">
+        <strong>{{ comments_by_version.get(version.id, [])|length }} review notes</strong>
+        {% for comment in comments_by_version.get(version.id, []) %}
+        <p><span>{{ comment.author_name }}</span>{{ comment.body }}</p>
+        {% else %}<p>No feedback on this cut.</p>{% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+<script>
+(() => {
+  const videos = [...document.querySelectorAll('.compare-video')];
+  const toggle = document.getElementById('sync-toggle');
+  let syncing = true;
+  let applying = false;
+  toggle?.addEventListener('click', () => {
+    syncing = !syncing;
+    toggle.setAttribute('aria-pressed', String(syncing));
+    toggle.textContent = `Sync players: ${syncing ? 'on' : 'off'}`;
+  });
+  videos.forEach((source) => {
+    ['play', 'pause', 'seeking'].forEach((eventName) => source.addEventListener(eventName, () => {
+      if (!syncing || applying) return;
+      const target = videos.find((video) => video !== source);
+      if (!target) return;
+      applying = true;
+      if (Math.abs(target.currentTime - source.currentTime) > .12) target.currentTime = source.currentTime;
+      if (eventName === 'play') target.play().catch(() => {});
+      if (eventName === 'pause') target.pause();
+      window.setTimeout(() => { applying = false; }, 80);
+    }));
+  });
+})();
+</script>
+{% endblock %}

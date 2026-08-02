@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% set title = 'Studio team - Lumaire' %}
+{% block content %}
+<section class="team-page">
+  <a class="page-back" href="/dashboard">&#8592; Back to dashboard</a>
+  <div class="page-heading"><span class="eyebrow">SHARED STUDIO</span><h1>Team access</h1></div>
+  {% if credentials %}<div class="form-alert success"><strong>Member created.</strong> Temporary sign-in: {{ credentials }}</div>{% endif %}
+  {% if request.query_params.get('error') %}<div class="form-alert error">{{ request.query_params.get('error') }}</div>{% endif %}
+
+  {% if user.role == 'owner' and not is_demo %}
+  <form class="team-invite" method="post" action="/team/invite">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label>Name<input name="display_name" placeholder="Team member name"></label>
+    <label>Email<input type="email" name="email" required placeholder="name@studio.com"></label>
+    <label>Role<select name="role"><option value="member">Member</option><option value="admin">Admin</option></select></label>
+    <button class="top-primary" type="submit">Invite member</button>
+  </form>
+  {% endif %}
+
+  <div class="team-list" id="team-access-list">
+    {% for member in members %}
+    <article class="team-member">
+      <header><div><strong>{{ member.display_name or member.email }}</strong><span>{{ member.email }}</span></div><span class="role-chip">{{ member.role }}</span></header>
+      {% if member.role == 'member' %}
+      <form method="post" action="/team/{{ member.id }}/assignments">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <p>Assigned projects</p>
+        <div class="project-access-grid">
+          {% for project in projects %}
+          <label><input type="checkbox" name="project_ids" value="{{ project.id }}" {% if project.id in assigned_by_user.get(member.id, set()) %}checked{% endif %}> <span>{{ project.name }}</span><small>{{ project.status }}</small></label>
+          {% else %}<span class="muted">No projects yet.</span>{% endfor %}
+        </div>
+        {% if not is_demo %}<button class="ghost" type="submit">Save access</button>{% endif %}
+      </form>
+      {% else %}<p class="muted">Admins can manage every project in this studio.</p>{% endif %}
+      {% if user.role == 'owner' and member.role != 'owner' and not is_demo %}
+      <form method="post" action="/team/{{ member.id }}/remove" onsubmit="return confirm('Remove this member from the studio?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <button class="text-danger" type="submit">Remove member</button>
+      </form>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<script id="lumaire-onboarding-data" type="application/json">
+{
+  "userId": "{{ user.id }}",
+  "key": "studio-team",
+  "label": "Shared studio",
+  "steps": [
+    {% if user.role == 'owner' and not is_demo %}{
+      "title": "Invite the people you work with",
+      "body": "Admins can manage the full studio. Members only see projects assigned to them.",
+      "target": ".team-invite",
+      "mobileTarget": ".team-invite label",
+      "placement": "bottom"
+    },{% endif %}
+    {
+      "title": "Keep access tied to the work",
+      "body": "Assign each member only the projects they need, then update access as the studio changes.",
+      "target": "#team-access-list",
+      "mobileTarget": ".team-member",
+      "placement": "top"
+    }
+  ]
+}
+</script>
+{% endblock %}
