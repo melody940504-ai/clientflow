@@ -782,7 +782,8 @@ def init_db() -> None:
         """)
         db.execute("CREATE INDEX IF NOT EXISTS project_attachments_project_idx ON project_attachments(project_id, created_at)")
         legacy_attachment_projects = db.execute(
-            "SELECT id, notes, created_at FROM projects WHERE notes LIKE '%||%'"
+            "SELECT id, notes, created_at FROM projects WHERE notes LIKE ?",
+            ("%||%",),
         ).fetchall()
         for legacy_project in legacy_attachment_projects:
             parts = (legacy_project["notes"] or "").split("||")
