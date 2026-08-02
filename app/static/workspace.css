@@ -1603,6 +1603,16 @@ html {
   gap: 8px !important;
 }
 
+.project-activity .review-plan-options {
+  grid-template-columns: 1fr;
+}
+
+.review-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
 .review-option {
   display: flex;
   min-height: 38px;

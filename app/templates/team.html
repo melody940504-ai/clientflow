@@ -20,7 +20,18 @@
   <div class="team-list" id="team-access-list">
     {% for member in members %}
     <article class="team-member">
-      <header><div><strong>{{ member.display_name or member.email }}</strong><span>{{ member.email }}</span></div><span class="role-chip">{{ member.role }}</span></header>
+      <header>
+        <div>
+          {% if is_demo and member.role == 'owner' %}
+          <strong>Lumaire Demo</strong>
+          <span>demo@gmail.com</span>
+          {% else %}
+          <strong>{{ member.display_name or member.email }}</strong>
+          <span>{{ member.email }}</span>
+          {% endif %}
+        </div>
+        <span class="role-chip">{{ member.role }}</span>
+      </header>
       {% if member.role == 'member' %}
       <form method="post" action="/team/{{ member.id }}/assignments">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">

@@ -192,7 +192,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260802-menu-actions">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260802-project-followup">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -259,16 +259,28 @@
                         <a href="/analytics" class="nav-action-fix workspace-menu-row">
                             Analytics
                         </a>
+                        <a href="/team" class="nav-action-fix workspace-menu-row">
+                            Team
+                        </a>
                         <div class="workspace-menu-divider"></div>
                         <p class="workspace-menu-section-label">Settings</p>
+                        {% if user.role == 'owner' %}
                         <a href="/settings" class="nav-action-fix workspace-menu-row">
                             Studio settings
                         </a>
+                        {% endif %}
                         {% endif %}
                         {% if not is_public_link and not is_demo %}
                         <a href="/account" class="nav-action-fix workspace-menu-row">
                             Account settings
                         </a>
+                        {% endif %}
+                        {% if not is_public_link %}
+                        <div class="workspace-menu-divider"></div>
+                        <form action="/logout" method="post" class="m-0">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                            <button type="submit" class="logout-action workspace-menu-row w-full">Logout</button>
+                        </form>
                         {% endif %}
                     </div>
                 </div>
@@ -704,35 +716,6 @@
                 {% endif %}
             </section>
 
-            {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo %}
-            <section class="project-actions-card bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
-                <div>
-                    <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Project controls</p>
-                    <h2 class="mt-1 text-sm font-semibold text-white-fix">Project actions</h2>
-                    <p class="mt-1 text-xs leading-relaxed text-gray-400-fix">Manage this project's lifecycle without changing its review history.</p>
-                </div>
-                <div class="project-actions-list mt-4">
-                    {% if project.archived_at %}
-                    <form method="post" action="/projects/{{ project.id }}/restore">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">Restore project</button>
-                    </form>
-                    {% else %}
-                    {% if project.status in ['Approved', 'Published'] %}
-                    <form method="post" action="/projects/{{ project.id }}/reopen">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">Reopen review cycle</button>
-                    </form>
-                    {% endif %}
-                    <form method="post" action="/projects/{{ project.id }}/archive">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <button type="submit" class="project-archive-action w-full rounded-xl px-3 py-2 text-xs font-semibold transition">Archive project</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </section>
-            {% endif %}
-
             <div class="activity-log-card bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
                 
                 <div class="absolute left-9 top-8 bottom-8 w-0.5 bg-gray-700/50"></div>
@@ -813,6 +796,35 @@
                     {% endfor %}
                 </div>
             </div>
+
+            {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo %}
+            <section class="project-actions-card bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
+                <div>
+                    <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Project controls</p>
+                    <h2 class="mt-1 text-sm font-semibold text-white-fix">Project actions</h2>
+                    <p class="mt-1 text-xs leading-relaxed text-gray-400-fix">Manage this project's lifecycle without changing its review history.</p>
+                </div>
+                <div class="project-actions-list mt-4">
+                    {% if project.archived_at %}
+                    <form method="post" action="/projects/{{ project.id }}/restore">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">Restore project</button>
+                    </form>
+                    {% else %}
+                    {% if project.status in ['Approved', 'Published'] %}
+                    <form method="post" action="/projects/{{ project.id }}/reopen">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">Reopen review cycle</button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="/projects/{{ project.id }}/archive">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="project-archive-action w-full rounded-xl px-3 py-2 text-xs font-semibold transition">Archive project</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
         </div>
     </main>
 
