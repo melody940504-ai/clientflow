@@ -27,7 +27,7 @@
         <p>Assigned projects</p>
         <div class="project-access-grid">
           {% for project in projects %}
-          <label><input type="checkbox" name="project_ids" value="{{ project.id }}" {% if project.id in assigned_by_user.get(member.id, set()) %}checked{% endif %}> <span>{{ project.name }}</span><small>{{ project.status }}</small></label>
+          <label><input type="checkbox" name="project_ids" value="{{ project.id }}" {% if project.id in assigned_by_user.get(member.id, set()) %}checked{% endif %} {% if is_demo %}disabled{% endif %}> <span>{{ project.name }}</span><small>{{ project.status }}</small></label>
           {% else %}<span class="muted">No projects yet.</span>{% endfor %}
         </div>
         {% if not is_demo %}<button class="ghost" type="submit">Save access</button>{% endif %}

@@ -702,6 +702,16 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
                     <button type="submit" class="w-full rounded-xl border border-gray-700 px-3 py-2 text-xs text-gray-400-fix transition hover:border-gray-500">Regenerate public link</button>
                 </form>
+                {% elif is_demo and not is_public_link %}
+                <div class="review-plan-demo mt-4">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Shared demo configuration</p>
+                    <div class="review-plan-options mt-2 grid gap-2 text-xs text-gray-400-fix">
+                        <label class="review-option"><input class="review-option-input" type="checkbox" disabled {% if project.review_link_enabled %}checked{% endif %}><span>Public link enabled</span></label>
+                        <label class="review-option"><input class="review-option-input" type="checkbox" disabled {% if project.review_allow_versions %}checked{% endif %}><span>Show version history</span></label>
+                        <label class="review-option"><input class="review-option-input" type="checkbox" disabled {% if project.review_allow_download %}checked{% endif %}><span>Allow downloads</span></label>
+                    </div>
+                    <p class="mt-3 text-[10px] leading-relaxed text-gray-500">This seeded configuration is visible but locked so every visitor sees the same review workflow.</p>
+                </div>
                 {% elif is_public_link %}
                 <p class="mt-3 text-xs leading-relaxed text-gray-400-fix">
                     This shared link allows

@@ -971,6 +971,38 @@ def seed_demo_review_history() -> None:
             ),
         )
 
+    def add_lifecycle_event(
+        db,
+        project_id: int,
+        owner_id: int,
+        event_type: str,
+        note: str,
+        minutes_ago: int,
+    ) -> None:
+        existing = db.execute(
+            """
+            SELECT id FROM project_lifecycle_events
+            WHERE project_id = ? AND event_type = ? AND note = ?
+            """,
+            (project_id, event_type, note),
+        ).fetchone()
+        if existing:
+            return
+        db.execute(
+            """
+            INSERT INTO project_lifecycle_events
+            (project_id, event_type, actor_user_id, actor_name, note, created_at)
+            VALUES (?, ?, ?, 'Lumaire Studio', ?, ?)
+            """,
+            (
+                project_id,
+                event_type,
+                owner_id,
+                note,
+                (now - timedelta(minutes=minutes_ago)).isoformat(),
+            ),
+        )
+
     with get_db() as db:
         owner = db.execute(
             "SELECT id FROM users WHERE email = ? AND role = 'owner'",
@@ -1061,12 +1093,44 @@ def seed_demo_review_history() -> None:
                 130,
             )
             db.execute(
+                """
+                UPDATE comments
+                SET is_resolved = TRUE, resolved_at = ?
+                WHERE video_version_id = ? AND type = 'comment' AND body = ?
+                """,
+                (
+                    (now - timedelta(minutes=430)).isoformat(),
+                    first_version["id"],
+                    "Could we tighten the opening and bring the product shot in sooner?",
+                ),
+            )
+            db.execute(
                 "UPDATE video_versions SET status = 'Revision Requested' WHERE id IN (?, ?)",
                 (first_version["id"], latest_version["id"]),
             )
             db.execute(
-                "UPDATE projects SET status = 'In Revision' WHERE id = ?",
-                (launch_project["id"],),
+                """
+                UPDATE projects
+                SET status = 'In Revision', review_due_at = ?,
+                    guest_access = 'approve', review_link_enabled = TRUE,
+                    review_allow_versions = TRUE, review_allow_download = TRUE,
+                    review_token_expires_at = ?,
+                    delivery_checklist = 'captions,thumbnail'
+                WHERE id = ?
+                """,
+                (
+                    (now + timedelta(days=3)).date().isoformat(),
+                    (now + timedelta(days=14)).isoformat(),
+                    launch_project["id"],
+                ),
+            )
+            add_lifecycle_event(
+                db,
+                launch_project["id"],
+                owner["id"],
+                "reopened",
+                "Review reopened after the first round of client feedback.",
+                470,
             )
 
         completed_projects = [
@@ -1104,9 +1168,24 @@ def seed_demo_review_history() -> None:
                 (latest_version["id"],),
             )
             db.execute(
-                "UPDATE projects SET status = ? WHERE id = ?",
-                (project_status, project["id"]),
+                "UPDATE projects SET status = ?, delivery_checklist = ? WHERE id = ?",
+                (
+                    project_status,
+                    "master,captions,thumbnail,delivery_link"
+                    if project_status == "Published"
+                    else "master,captions,thumbnail",
+                    project["id"],
+                ),
             )
+            if project_status == "Published":
+                add_lifecycle_event(
+                    db,
+                    project["id"],
+                    owner["id"],
+                    "archived",
+                    "Final delivery recorded.",
+                    minutes_ago - 35,
+                )
 
         summer_project = projects_by_name.get("Summer Campaign Cutdowns")
         summer_versions = versions_for("Summer Campaign Cutdowns")
@@ -1160,8 +1239,21 @@ def seed_demo_review_history() -> None:
                 (latest_version["id"],),
             )
             db.execute(
-                "UPDATE projects SET status = 'Published' WHERE id = ?",
+                """
+                UPDATE projects
+                SET status = 'Published',
+                    delivery_checklist = 'master,captions,thumbnail,delivery_link'
+                WHERE id = ?
+                """,
                 (summer_project["id"],),
+            )
+            add_lifecycle_event(
+                db,
+                summer_project["id"],
+                owner["id"],
+                "archived",
+                "Approved package delivered with every checklist item complete.",
+                200,
             )
 
 
@@ -3161,6 +3253,20 @@ def team_page(request: Request):
         assigned_by_user = {}
         for row in assignments:
             assigned_by_user.setdefault(row["user_id"], set()).add(row["project_id"])
+        if is_demo_user(user):
+            demo_member_id = -1
+            members = list(members) + [
+                {
+                    "id": demo_member_id,
+                    "email": "editor@demo.lumaire.app",
+                    "display_name": "Maya Chen",
+                    "role": "member",
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+            ]
+            assigned_by_user[demo_member_id] = {
+                project["id"] for project in projects[:2]
+            }
         branding = get_owner_branding(db, workspace_id)
     return templates.TemplateResponse(
         "team.html",

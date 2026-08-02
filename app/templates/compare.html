@@ -22,7 +22,9 @@
         {% for version in versions %}<option value="{{ version.id }}" {% if version.id == right_version.id %}selected{% endif %}>{{ version.version_label }}</option>{% endfor %}
       </select>
     </label>
-    <button class="top-primary" type="submit">Compare</button>
+    <div class="compare-selector-actions">
+      <button class="top-primary" type="submit">Compare</button>
+    </div>
   </form>
 
   <div class="compare-grid">
