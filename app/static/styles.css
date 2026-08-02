@@ -3558,6 +3558,7 @@ html:not([data-theme="dark"]) :is(
 .capability-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: start;
   gap: 14px;
   max-width: 1460px;
   margin: 0 auto;
@@ -3567,7 +3568,7 @@ html:not([data-theme="dark"]) :is(
 .capability-grid article {
   grid-column: span 1;
   min-width: 0;
-  min-height: 390px;
+  min-height: 300px;
   padding: 30px;
   overflow: hidden;
   border: 1px solid #29272e;
@@ -3576,7 +3577,7 @@ html:not([data-theme="dark"]) :is(
     linear-gradient(145deg, rgba(169, 156, 247, 0.055), transparent 46%),
     rgba(255, 255, 255, 0.012);
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.16);
-  transition: border-color 220ms ease, background-color 220ms ease, transform 220ms ease, box-shadow 220ms ease, opacity 220ms ease;
+  transition: min-height 360ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, background-color 220ms ease, transform 220ms ease, box-shadow 220ms ease, opacity 220ms ease;
 }
 
 .capability-grid article:hover {
@@ -3598,9 +3599,34 @@ html:not([data-theme="dark"]) :is(
     opacity: 0.58;
   }
 
-  .capability-grid:has(article:hover) article:not(:hover) :is(p, ul) {
-    opacity: 0;
-    transform: translateY(8px);
+  .capability-grid article {
+    min-height: 180px;
+  }
+
+  .capability-grid .capability-title-short {
+    display: block;
+  }
+
+  .capability-grid article:hover {
+    min-height: 350px;
+  }
+
+  .capability-grid .capability-title-full,
+  .capability-grid .capability-details {
+    display: none;
+  }
+
+  .capability-grid article:hover .capability-title-short {
+    display: none;
+  }
+
+  .capability-grid article:hover .capability-title-full {
+    display: block;
+  }
+
+  .capability-grid article:hover .capability-details {
+    display: block;
+    animation: capability-detail-in 260ms 80ms both;
   }
 }
 
@@ -3617,6 +3643,10 @@ html:not([data-theme="dark"]) :is(
   line-height: 1.08;
 }
 
+.capability-title-short {
+  display: none;
+}
+
 .capability-grid p {
   margin: 0;
   color: #85818c;
@@ -3625,20 +3655,8 @@ html:not([data-theme="dark"]) :is(
   transition: opacity 180ms ease, transform 220ms ease;
 }
 
-.capability-grid .capability-expanded {
-  max-height: 0;
-  margin-top: 0;
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: max-height 300ms ease, margin-top 300ms ease, opacity 220ms ease, transform 300ms ease;
-}
-
-.capability-grid article:hover .capability-expanded {
-  max-height: 120px;
-  margin-top: 14px;
-  opacity: 1;
-  transform: translateY(0);
+.capability-details > p + p {
+  margin-top: 12px;
 }
 
 .capability-grid ul {
@@ -3659,6 +3677,11 @@ html:not([data-theme="dark"]) :is(
   background: rgba(255, 255, 255, 0.025);
   font-size: 0.7rem;
   font-weight: 750;
+}
+
+@keyframes capability-detail-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .showcase-switcher span {
