@@ -3557,16 +3557,18 @@ html:not([data-theme="dark"]) :is(
 
 .capability-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   max-width: 1460px;
   margin: 0 auto;
+  transition: grid-template-columns 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .capability-grid article {
-  grid-column: span 2;
-  min-height: 310px;
-  padding: 36px;
+  grid-column: span 1;
+  min-width: 0;
+  min-height: 390px;
+  padding: 30px;
   overflow: hidden;
   border: 1px solid #29272e;
   border-radius: 8px;
@@ -3574,12 +3576,7 @@ html:not([data-theme="dark"]) :is(
     linear-gradient(145deg, rgba(169, 156, 247, 0.055), transparent 46%),
     rgba(255, 255, 255, 0.012);
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.16);
-  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-}
-
-.capability-grid article.capability-card-wide {
-  grid-column: span 3;
-  min-height: 360px;
+  transition: border-color 220ms ease, background-color 220ms ease, transform 220ms ease, box-shadow 220ms ease, opacity 220ms ease;
 }
 
 .capability-grid article:hover {
@@ -3588,6 +3585,23 @@ html:not([data-theme="dark"]) :is(
   background-color: #0d0d10;
   transform: translateY(-4px);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.28);
+}
+
+@media (min-width: 981px) {
+  .capability-grid:has(article:nth-child(1):hover) { grid-template-columns: 2fr repeat(4, 0.76fr); }
+  .capability-grid:has(article:nth-child(2):hover) { grid-template-columns: 0.76fr 2fr repeat(3, 0.76fr); }
+  .capability-grid:has(article:nth-child(3):hover) { grid-template-columns: repeat(2, 0.76fr) 2fr repeat(2, 0.76fr); }
+  .capability-grid:has(article:nth-child(4):hover) { grid-template-columns: repeat(3, 0.76fr) 2fr 0.76fr; }
+  .capability-grid:has(article:nth-child(5):hover) { grid-template-columns: repeat(4, 0.76fr) 2fr; }
+
+  .capability-grid:has(article:hover) article:not(:hover) {
+    opacity: 0.58;
+  }
+
+  .capability-grid:has(article:hover) article:not(:hover) :is(p, ul) {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .capability-grid article > span {
@@ -3599,7 +3613,7 @@ html:not([data-theme="dark"]) :is(
 .capability-grid h3 {
   max-width: 620px;
   margin: 62px 0 14px;
-  font-size: clamp(1.55rem, 2.4vw, 2.35rem);
+  font-size: clamp(1.4rem, 1.8vw, 2rem);
   line-height: 1.08;
 }
 
@@ -3608,6 +3622,23 @@ html:not([data-theme="dark"]) :is(
   color: #85818c;
   font-size: 0.88rem;
   line-height: 1.7;
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+.capability-grid .capability-expanded {
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: max-height 300ms ease, margin-top 300ms ease, opacity 220ms ease, transform 300ms ease;
+}
+
+.capability-grid article:hover .capability-expanded {
+  max-height: 120px;
+  margin-top: 14px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .capability-grid ul {
@@ -3617,6 +3648,7 @@ html:not([data-theme="dark"]) :is(
   margin: 26px 0 0;
   padding: 0;
   list-style: none;
+  transition: opacity 180ms ease, transform 220ms ease;
 }
 
 .capability-grid li {
@@ -4162,7 +4194,7 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
 
 .toolkit-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 14px;
   max-width: 1460px;
   margin: 0 auto;
@@ -4171,14 +4203,27 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
 .toolkit-grid > article {
   position: relative;
   overflow: hidden;
-  min-height: 330px;
-  padding: 30px;
+  grid-column: span 5;
+  min-height: 390px;
+  padding: 36px;
   border: 1px solid #2b2931;
   border-radius: 8px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 48%),
     #0e0e11;
-  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.025) inset;
+  transition: border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
+}
+
+.toolkit-grid > article::after {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 18% 8%, rgba(169, 156, 247, 0.12), transparent 35%);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
 }
 
 .toolkit-grid > article:hover {
@@ -4187,8 +4232,20 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   transform: translateY(-4px);
 }
 
+.toolkit-grid > article:hover::after {
+  opacity: 1;
+}
+
 .toolkit-grid > .toolkit-wide {
-  grid-column: span 2;
+  grid-column: span 7;
+}
+
+.toolkit-grid > article:nth-child(3) {
+  grid-column: span 5;
+}
+
+.toolkit-grid > article:nth-child(4) {
+  grid-column: span 7;
 }
 
 .toolkit-grid article > span {
@@ -4200,7 +4257,7 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
 }
 
 .toolkit-grid h3 {
-  margin: 58px 0 12px;
+  margin: 48px 0 14px;
   font-size: clamp(1.6rem, 2.4vw, 2.5rem);
 }
 
@@ -4256,8 +4313,8 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
   right: 26px;
   bottom: 26px;
   display: grid;
-  width: 116px;
-  padding: 18px;
+  width: 132px;
+  padding: 22px;
   border: 1px solid #3a3545;
   border-radius: 8px;
   background: #17151d;
@@ -4276,22 +4333,30 @@ html:not([data-theme="dark"]) .landing-page .landing-final-cta {
 
 .toolkit-access {
   position: absolute;
-  right: 22px;
-  bottom: 24px;
-  left: 22px;
+  right: 30px;
+  bottom: 30px;
+  left: 30px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 
 .toolkit-access button {
-  min-height: 40px;
+  min-height: 46px;
   padding: 8px 5px;
   border: 1px solid #34313a;
   border-radius: 7px;
   background: #141317;
   color: #77737e;
-  font-size: 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.toolkit-access button:hover {
+  border-color: #766ba2;
+  color: #d7d0ff;
+  transform: translateY(-1px);
 }
 
 .toolkit-access button.is-active {
@@ -4767,6 +4832,13 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
   .toolkit-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .toolkit-grid > article,
+  .toolkit-grid > .toolkit-wide,
+  .toolkit-grid > article:nth-child(3),
+  .toolkit-grid > article:nth-child(4) {
+    grid-column: span 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -5128,10 +5200,11 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
   }
 
   .toolkit-grid > .toolkit-wide {
-    grid-column: auto;
+    grid-column: 1;
   }
 
   .toolkit-grid > article {
+    grid-column: 1 !important;
     min-height: 350px;
     padding: 26px;
   }
