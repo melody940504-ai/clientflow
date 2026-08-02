@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260802-feature-reveal">
+  <link rel="stylesheet" href="/static/styles.css?v=20260802-menu-polish">
   <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="{{ body_class or '' }}" {% if branding %}style="--primary: {{ branding.brand_color }}; --primary-strong: color-mix(in srgb, {{ branding.brand_color }} 86%, white);"{% endif %}>
@@ -62,14 +62,17 @@
       <button class="theme-toggle menu-trigger" type="button" id="site-menu-toggle" aria-expanded="false">Menu</button>
       <div class="site-menu hidden" id="site-menu-panel">
       {% if user %}
+        <span class="menu-section-label">Workspace</span>
         <a href="/dashboard" class="ghost menu-row">Dashboard</a>
         {% if user.role in ['owner', 'admin'] %}
         <a href="/clients" class="ghost menu-row">Clients</a>
         {% if not is_demo %}
-        <a href="/projects/new" class="top-primary menu-row">New project</a>
+        <a href="/projects/new" class="ghost menu-row">New project</a>
         {% endif %}
         <a href="/analytics" class="ghost menu-row">Analytics</a>
         {% endif %}
+        <span class="menu-divider"></span>
+        <span class="menu-section-label">Settings</span>
         {% if user.role == 'owner' %}
         <a href="/settings" class="ghost menu-row">Studio settings</a>
         {% endif %}
@@ -81,6 +84,7 @@
         {% else %}
         <a href="/account" class="ghost menu-row">Account settings</a>
         {% endif %}
+        <span class="menu-divider"></span>
         <form class="menu-form" method="post" action="/logout">
           <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
           <button class="ghost menu-row danger-row" type="submit">Logout</button>

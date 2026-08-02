@@ -192,7 +192,7 @@
             width: min(22rem, calc(100vw - 2rem));
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260802-review-compact">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260802-menu-actions">
 </head>
 <body class="workspace-page project-page bg-gray-900 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
     
@@ -240,49 +240,33 @@
                     Menu
                 </button>
                 <div id="project-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2">
-                    <div class="grid gap-2">
+                    <div class="workspace-menu-stack">
+                        <p class="workspace-menu-section-label">Workspace</p>
                         {% if not is_public_link %}
-                        <a href="/dashboard" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                        <a href="/dashboard" class="nav-action-fix workspace-menu-row">
                             Dashboard
                         </a>
                         {% endif %}
                         {% if user and user.role in ['owner', 'admin'] and not is_public_link %}
-                        <a href="/clients" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                        <a href="/clients" class="nav-action-fix workspace-menu-row">
                             Clients
                         </a>
                         {% if not is_demo %}
-                        <a href="/projects/new" class="brand-bg-fix w-full justify-center text-center text-sm px-3 py-2 rounded-xl transition text-white font-semibold">
+                        <a href="/projects/new" class="nav-action-fix workspace-menu-row">
                             New project
                         </a>
                         {% endif %}
-                        <a href="/analytics" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                        <a href="/analytics" class="nav-action-fix workspace-menu-row">
                             Analytics
                         </a>
-                        <a href="/settings" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                        <div class="workspace-menu-divider"></div>
+                        <p class="workspace-menu-section-label">Settings</p>
+                        <a href="/settings" class="nav-action-fix workspace-menu-row">
                             Studio settings
                         </a>
-                        {% if not is_demo %}
-                            {% if project.archived_at %}
-                            <form method="post" action="/projects/{{ project.id }}/restore">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                                <button type="submit" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">Restore project</button>
-                            </form>
-                            {% else %}
-                                {% if project.status in ['Approved', 'Published'] %}
-                                <form method="post" action="/projects/{{ project.id }}/reopen">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                                    <button type="submit" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">Reopen review cycle</button>
-                                </form>
-                                {% endif %}
-                            <form method="post" action="/projects/{{ project.id }}/archive">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                                <button type="submit" class="project-archive-action w-full justify-center text-center text-sm px-3 py-2 rounded-xl transition font-semibold">Archive project</button>
-                            </form>
-                            {% endif %}
-                        {% endif %}
                         {% endif %}
                         {% if not is_public_link and not is_demo %}
-                        <a href="/account" class="nav-action-fix w-full justify-center text-center text-sm px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-white-fix font-semibold">
+                        <a href="/account" class="nav-action-fix workspace-menu-row">
                             Account settings
                         </a>
                         {% endif %}
@@ -719,6 +703,35 @@
                 </p>
                 {% endif %}
             </section>
+
+            {% if user.role in ['owner', 'admin'] and not is_public_link and not is_demo %}
+            <section class="project-actions-card bg-card-fix rounded-2xl border border-gray-800 bg-gray-800/20 p-4 sm:p-5">
+                <div>
+                    <p class="brand-text-fix text-[10px] font-black uppercase tracking-wider">Project controls</p>
+                    <h2 class="mt-1 text-sm font-semibold text-white-fix">Project actions</h2>
+                    <p class="mt-1 text-xs leading-relaxed text-gray-400-fix">Manage this project's lifecycle without changing its review history.</p>
+                </div>
+                <div class="project-actions-list mt-4">
+                    {% if project.archived_at %}
+                    <form method="post" action="/projects/{{ project.id }}/restore">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">Restore project</button>
+                    </form>
+                    {% else %}
+                    {% if project.status in ['Approved', 'Published'] %}
+                    <form method="post" action="/projects/{{ project.id }}/reopen">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="neutral-action-fix w-full rounded-xl border px-3 py-2 text-xs font-semibold transition">Reopen review cycle</button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="/projects/{{ project.id }}/archive">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                        <button type="submit" class="project-archive-action w-full rounded-xl px-3 py-2 text-xs font-semibold transition">Archive project</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
 
             <div class="activity-log-card bg-card-fix bg-gray-800/20 border border-gray-800 rounded-2xl p-4 sm:p-6 max-h-[650px] overflow-y-auto relative">
                 

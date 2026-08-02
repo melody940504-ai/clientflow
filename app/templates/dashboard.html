@@ -190,7 +190,7 @@
             border-color: #fca5a5 !important;
         }
     </style>
-    <link rel="stylesheet" href="/static/workspace.css?v=20260802-review-compact">
+    <link rel="stylesheet" href="/static/workspace.css?v=20260802-menu-actions">
     <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
 </head>
 <body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
@@ -276,26 +276,31 @@
                     Menu
                 </button>
                 <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
-                    <div class="grid gap-2">
+                    <div class="workspace-menu-stack">
+                    <p class="workspace-menu-section-label">Workspace</p>
                     {% if user.role in ['owner', 'admin'] %}
-                    <a href="/clients" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Clients</a>
+                    <a href="/clients" class="nav-action-fix menu-item-fix workspace-menu-row">Clients</a>
                     {% if not is_demo %}
-                    <a href="/projects/new" class="brand-bg-fix menu-item-fix text-center text-xs px-3 py-2 rounded-xl transition text-white font-semibold">New project</a>
+                    <a href="/projects/new" class="nav-action-fix menu-item-fix workspace-menu-row">New project</a>
                     {% endif %}
-                    <a href="/analytics" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Analytics</a>
-                    <a href="/team" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Team</a>
+                    <a href="/analytics" class="nav-action-fix menu-item-fix workspace-menu-row">Analytics</a>
+                    <a href="/team" class="nav-action-fix menu-item-fix workspace-menu-row">Team</a>
                     {% endif %}
+                    <div class="workspace-menu-divider"></div>
+                    <p class="workspace-menu-section-label">Settings</p>
                     {% if user.role == 'owner' %}
-                    <a href="/settings" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Settings</a>
+                    <a href="/settings" class="nav-action-fix menu-item-fix workspace-menu-row">Studio settings</a>
                     {% endif %}
                     {% if not is_demo %}
-                    <a href="/account" class="nav-action-fix menu-item-fix text-center text-xs px-3 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-xl transition text-white-fix font-semibold">Account settings</a>
+                    <a href="/account" class="nav-action-fix menu-item-fix workspace-menu-row">Account settings</a>
                     {% endif %}
+                    <div class="workspace-menu-divider"></div>
                     <form action="/logout" method="post" class="m-0">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <button type="submit" class="logout-action menu-item-fix w-full text-center text-xs px-3 py-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/30 font-semibold rounded-xl transition">Logout</button>
+                        <button type="submit" class="logout-action menu-item-fix workspace-menu-row w-full">Logout</button>
                     </form>
                 </div>
+            </div>
             </div>
         </div>
     </nav>

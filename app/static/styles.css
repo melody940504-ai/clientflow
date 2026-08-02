@@ -115,6 +115,33 @@ button, input, textarea, select { font: inherit; }
   border-color: var(--primary);
 }
 .menu-form { margin: 0; }
+.menu-section-label {
+  padding: 6px 8px 2px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.menu-divider {
+  display: block;
+  height: 1px;
+  margin: 4px;
+  background: var(--border);
+}
+.site-menu .menu-row {
+  justify-content: flex-start;
+  padding-inline: 12px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+.site-menu .menu-row:hover {
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-2));
+  transform: translateX(2px);
+}
 .demo-menu-label {
   display: block;
   padding: 5px 8px 2px;

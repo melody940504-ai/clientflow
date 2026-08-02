@@ -180,6 +180,61 @@ html {
   backdrop-filter: blur(28px) saturate(145%);
 }
 
+.workspace-menu-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-menu-section-label {
+  margin: 4px 8px 2px;
+  color: var(--workspace-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-menu-divider {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--workspace-border);
+}
+
+.workspace-nav .workspace-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--workspace-text) !important;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.workspace-nav .workspace-menu-row:hover {
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 26%, var(--workspace-border)) !important;
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 9%, var(--workspace-surface-raised)) !important;
+  transform: translateX(2px);
+}
+
+.project-actions-card {
+  border-color: var(--workspace-border) !important;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--brand-color, #9b8cf6) 5%, transparent), transparent 48%),
+    var(--workspace-surface) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+.project-actions-list {
+  display: grid;
+  gap: 8px;
+}
+
 .workspace-main,
 .project-main {
   width: min(1480px, 100%);
@@ -1178,6 +1233,29 @@ html {
   box-shadow:
     0 8px 22px rgba(0, 0, 0, 0.12),
     0 1px 0 rgba(255, 255, 255, 0.055) inset;
+}
+
+.workspace-page :is(
+  button.neutral-action-fix,
+  a.neutral-action-fix,
+  label.neutral-action-fix,
+  button.brand-bg-fix,
+  a.brand-bg-fix,
+  button.primary-action-fix,
+  a.primary-action-fix,
+  button.brand-soft-fix,
+  a.brand-soft-fix,
+  button.semantic-approve-fix,
+  button.semantic-reject-fix,
+  button.project-archive-action
+) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1.2;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .workspace-page :is(.nav-action-fix, .menu-item-fix, .neutral-action-fix, .brand-bg-fix):active {
