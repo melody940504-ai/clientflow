@@ -1388,7 +1388,24 @@ html {
 
 .review-plan-form {
   display: grid;
-  gap: 16px !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px !important;
+}
+
+.project-activity > .review-plan-card {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.review-plan-form > * {
+  margin-top: 0 !important;
+}
+
+.review-plan-form > .review-plan-options,
+.review-plan-form > .review-option,
+.review-plan-form > p,
+.review-plan-form > button {
+  grid-column: 1 / -1;
 }
 
 .review-plan-field {
@@ -1425,15 +1442,16 @@ html {
 }
 
 .review-plan-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px !important;
 }
 
 .review-option {
   display: flex;
-  min-height: 42px;
+  min-height: 38px;
   align-items: center;
-  gap: 11px;
-  padding: 9px 11px;
+  gap: 9px;
+  padding: 7px 9px;
   border: 1px solid var(--workspace-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--workspace-surface-raised) 62%, transparent);
@@ -1448,17 +1466,17 @@ html {
 }
 
 .review-option:has(.review-option-input:checked) {
-  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 38%, var(--workspace-border));
-  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 9%, var(--workspace-surface-raised));
+  border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 30%, var(--workspace-border));
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 6%, var(--workspace-surface-raised));
   color: var(--workspace-text);
 }
 
 .review-option-input {
   appearance: none;
   display: grid;
-  flex: 0 0 21px;
-  width: 21px;
-  height: 21px;
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
   place-content: center;
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--workspace-muted) 46%, var(--workspace-border));
@@ -1480,7 +1498,7 @@ html {
 .review-option-input:checked {
   border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 74%, #fff);
   background: var(--brand-color, #9b8cf6);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color, #9b8cf6) 13%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-color, #9b8cf6) 10%, transparent);
 }
 
 .review-option-input:checked::after {
@@ -1497,4 +1515,11 @@ html {
 .light-theme .review-plan-field :is(input, select),
 .light-theme .review-option {
   background: rgba(255, 255, 255, 0.88) !important;
+}
+
+@media (max-width: 640px) {
+  .review-plan-form,
+  .review-plan-options {
+    grid-template-columns: 1fr;
+  }
 }
