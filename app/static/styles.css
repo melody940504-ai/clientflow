@@ -6085,7 +6085,14 @@ html:not([data-theme="dark"]) .landing-page .capability-grid article:hover {
 }
 .plan-current { border: 1px solid var(--border); color: var(--muted); }
 .billing-primary { width: 100%; border: 1px solid color-mix(in srgb, var(--primary) 70%, white); background: var(--primary); color: #111018; }
-.billing-primary:disabled { cursor: not-allowed; opacity: .45; }
+.billing-primary:disabled {
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  opacity: 1;
+  box-shadow: none;
+}
 .billing-secondary { border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .billing-configuration-note { margin: 22px 0 0; color: var(--muted); text-align: center; }
 

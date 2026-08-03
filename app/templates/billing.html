@@ -20,7 +20,7 @@
 
   <section class="billing-current">
     <div>
-      <p class="billing-label">Current plan</p>
+      <p class="billing-label">{{ 'Current plan' if subscription.billing_enabled else 'Preview access' }}</p>
       <h2>{{ subscription.plan.name }}</h2>
       <p class="billing-status">Status: {{ subscription.status|replace('_', ' ')|title }}</p>
     </div>
@@ -65,7 +65,7 @@
         <li>{{ plan.versions_per_project if plan.versions_per_project is not none else 'Unlimited' }} versions per project</li>
       </ul>
       {% if plan_key == subscription.plan_key %}
-      <span class="plan-current">Current plan</span>
+      <span class="plan-current">{{ 'Current plan' if subscription.billing_enabled else 'Preview access' }}</span>
       {% elif plan_key in ['pro', 'business'] and not is_demo and subscription.has_paid_subscription %}
       <form action="/billing/portal" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
@@ -76,7 +76,7 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
         <input type="hidden" name="plan" value="{{ plan_key }}">
         <button class="billing-primary" type="submit" {% if not subscription.billing_enabled %}disabled{% endif %}>
-          Choose {{ plan.name }}
+          {{ ('Choose ' ~ plan.name) if subscription.billing_enabled else 'Stripe setup required' }}
         </button>
       </form>
       {% endif %}
@@ -85,7 +85,7 @@
   </div>
 
   {% if not subscription.billing_enabled and not is_demo %}
-  <p class="billing-configuration-note">Checkout stays disabled until the Stripe secret, webhook secret, and both recurring Price IDs are configured.</p>
+  <p class="billing-configuration-note">Billing preview is active. Connect Stripe to enable checkout and enforce plan limits.</p>
   {% endif %}
 </section>
 {% endblock %}
