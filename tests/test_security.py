@@ -116,6 +116,53 @@ class UserDB:
         raise AssertionError(f"Unexpected query: {query}")
 
 
+class BillingEntitlementTests(unittest.TestCase):
+    def test_free_is_default_without_an_active_paid_subscription(self):
+        self.assertEqual(
+            main.effective_plan_for(
+                {"subscription_plan": "pro", "subscription_status": "canceled"}
+            ),
+            "free",
+        )
+
+    def test_active_paid_subscription_uses_recorded_plan(self):
+        self.assertEqual(
+            main.effective_plan_for(
+                {"subscription_plan": "business", "subscription_status": "active"}
+            ),
+            "business",
+        )
+
+    def test_demo_receives_complete_entitlements(self):
+        self.assertEqual(main.effective_plan_for({}, demo=True), "business")
+
+    def test_plan_limit_allows_unlimited_and_blocks_at_limit(self):
+        free = {"plan": main.PLAN_CATALOG["free"]}
+        business = {"plan": main.PLAN_CATALOG["business"]}
+        self.assertTrue(main.plan_allows_more(free, "active_projects", 2))
+        self.assertFalse(main.plan_allows_more(free, "active_projects", 3))
+        self.assertTrue(main.plan_allows_more(business, "active_projects", 5000))
+
+    def test_price_ids_map_to_paid_plans(self):
+        with patch.object(main, "STRIPE_PRO_PRICE_ID", "price_pro"), patch.object(
+            main, "STRIPE_BUSINESS_PRICE_ID", "price_business"
+        ):
+            self.assertEqual(main.plan_for_price_id("price_pro"), "pro")
+            self.assertEqual(main.plan_for_price_id("price_business"), "business")
+            self.assertEqual(main.plan_for_price_id("price_unknown"), "free")
+
+    def test_billing_migration_follows_schema_baseline(self):
+        migration = (
+            Path(__file__).parents[1]
+            / "migrations"
+            / "versions"
+            / "20260803_0002_billing_entitlements.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('down_revision = "20260803_0001"', migration)
+        self.assertIn("subscription_plan", migration)
+        self.assertIn("stripe_subscription_id", migration)
+
+
 class PasswordSecurityTests(unittest.TestCase):
     def test_new_password_hash_round_trip(self):
         stored = main.hash_password("correct horse battery staple")

@@ -40,6 +40,10 @@ try:
     import redis
 except ImportError:  # Optional until REDIS_URL is configured.
     redis = None
+try:
+    import stripe
+except ImportError:  # Billing remains disabled until the optional SDK is installed.
+    stripe = None
 from authlib.integrations.starlette_client import OAuth
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
@@ -145,7 +149,55 @@ REDIS_URL = os.getenv("REDIS_URL", "").strip()
 RUN_DB_MIGRATIONS = os.getenv("RUN_DB_MIGRATIONS", "true").strip().lower() in {
     "1", "true", "yes", "on"
 }
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "").strip()
+STRIPE_BUSINESS_PRICE_ID = os.getenv("STRIPE_BUSINESS_PRICE_ID", "").strip()
+BILLING_ENABLED = bool(
+    stripe
+    and STRIPE_SECRET_KEY
+    and STRIPE_WEBHOOK_SECRET
+    and STRIPE_PRO_PRICE_ID
+    and STRIPE_BUSINESS_PRICE_ID
+)
+if stripe and STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 resend.api_key = os.getenv("RESEND_API_KEY")
+
+PLAN_CATALOG = {
+    "free": {
+        "name": "Free",
+        "active_projects": 3,
+        "clients": 3,
+        "seats": 1,
+        "versions_per_project": 3,
+        "features": {"review", "comments", "approvals", "public_links"},
+    },
+    "pro": {
+        "name": "Pro",
+        "active_projects": 50,
+        "clients": 100,
+        "seats": 5,
+        "versions_per_project": None,
+        "features": {
+            "review", "comments", "approvals", "public_links", "analytics",
+            "version_compare", "branding", "protected_links", "delivery",
+        },
+    },
+    "business": {
+        "name": "Business",
+        "active_projects": None,
+        "clients": None,
+        "seats": 25,
+        "versions_per_project": None,
+        "features": {
+            "review", "comments", "approvals", "public_links", "analytics",
+            "version_compare", "branding", "protected_links", "delivery",
+            "team_roles", "project_assignments",
+        },
+    },
+}
+PAID_ACCESS_STATUSES = {"trialing", "active", "past_due"}
 
 _rate_limit_events: dict[str, deque[float]] = defaultdict(deque)
 _rate_limit_lock = threading.Lock()
@@ -592,6 +644,13 @@ def init_db() -> None:
                 must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
                 invitation_token TEXT,
                 invitation_expires_at TEXT,
+                subscription_plan TEXT NOT NULL DEFAULT 'free',
+                subscription_status TEXT NOT NULL DEFAULT 'free',
+                stripe_customer_id TEXT,
+                stripe_subscription_id TEXT,
+                stripe_price_id TEXT,
+                subscription_current_period_end TEXT,
+                billing_updated_at TEXT,
                 created_at TEXT NOT NULL
             )
         """)
@@ -630,6 +689,15 @@ def init_db() -> None:
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE")
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invitation_token TEXT")
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invitation_expires_at TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan TEXT NOT NULL DEFAULT 'free'")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'free'")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_price_id TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_updated_at TEXT")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_customer_idx ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_subscription_idx ON users(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL")
         except Exception:
             logger.exception("User schema migration failed")
             raise
@@ -1734,6 +1802,109 @@ def workspace_id_for(user: object) -> int:
     if user["role"] == "owner":
         return int(user["id"])
     return int(user["workspace_owner_id"] or user["id"])
+
+
+def row_value(row: object, key: str, default=None):
+    if row is None:
+        return default
+    try:
+        value = row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+    return default if value is None else value
+
+
+def effective_plan_for(owner: object, demo: bool = False) -> str:
+    if demo:
+        return "business"
+    plan = str(row_value(owner, "subscription_plan", "free")).lower()
+    status = str(row_value(owner, "subscription_status", "free")).lower()
+    if plan not in {"pro", "business"} or status not in PAID_ACCESS_STATUSES:
+        return "free"
+    return plan
+
+
+def workspace_subscription(db, user: object) -> dict:
+    workspace_id = workspace_id_for(user)
+    owner = db.execute("SELECT * FROM users WHERE id = ?", (workspace_id,)).fetchone()
+    demo = is_demo_user(user)
+    # Keep existing deployments fully usable until Stripe is intentionally enabled.
+    plan_key = (
+        effective_plan_for(owner, demo)
+        if BILLING_ENABLED or demo
+        else "business"
+    )
+    return {
+        "workspace_id": workspace_id,
+        "owner": owner,
+        "plan_key": plan_key,
+        "plan": PLAN_CATALOG[plan_key],
+        "status": (
+            "demo"
+            if demo
+            else str(row_value(owner, "subscription_status", "free"))
+            if BILLING_ENABLED
+            else "billing preview"
+        ),
+        "billing_enabled": BILLING_ENABLED,
+        "stripe_customer_id": row_value(owner, "stripe_customer_id", ""),
+        "stripe_subscription_id": row_value(owner, "stripe_subscription_id", ""),
+        "has_paid_subscription": bool(
+            row_value(owner, "stripe_subscription_id", "")
+            and str(row_value(owner, "subscription_status", "")).lower()
+            in PAID_ACCESS_STATUSES
+        ),
+        "current_period_end": row_value(owner, "subscription_current_period_end", ""),
+    }
+
+
+def workspace_usage(db, workspace_id: int) -> dict[str, int]:
+    row = db.execute(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM projects WHERE user_id = ? AND archived_at IS NULL) AS active_projects,
+          (SELECT COUNT(*) FROM clients WHERE user_id = ? AND archived_at IS NULL) AS clients,
+          (SELECT COUNT(*) FROM users WHERE is_active = TRUE AND (id = ? OR workspace_owner_id = ?)) AS seats
+        """,
+        (workspace_id, workspace_id, workspace_id, workspace_id),
+    ).fetchone()
+    return {
+        "active_projects": int(row_value(row, "active_projects", 0)),
+        "clients": int(row_value(row, "clients", 0)),
+        "seats": int(row_value(row, "seats", 0)),
+    }
+
+
+def plan_allows_more(subscription: dict, resource: str, current: int) -> bool:
+    limit = subscription["plan"].get(resource)
+    return limit is None or current < int(limit)
+
+
+def plan_limit_message(subscription: dict, resource_label: str) -> str:
+    return (
+        f"Your+{subscription['plan']['name']}+plan+has+reached+its+"
+        f"{resource_label}+limit.+Review+plans+in+Billing."
+    )
+
+
+def plan_has_feature(subscription: dict, feature: str) -> bool:
+    return feature in subscription["plan"]["features"]
+
+
+def stripe_value(value: object, key: str, default=None):
+    if value is None:
+        return default
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
+def plan_for_price_id(price_id: str) -> str:
+    if price_id and price_id == STRIPE_BUSINESS_PRICE_ID:
+        return "business"
+    if price_id and price_id == STRIPE_PRO_PRICE_ID:
+        return "pro"
+    return "free"
 
 
 def studio_display_name(user: object) -> str:
@@ -3067,6 +3238,191 @@ def revoke_account_sessions(request: Request, csrf_token: str = Form(...)):
     return response
 
 
+def sync_stripe_subscription(subscription: object) -> None:
+    subscription_id = str(stripe_value(subscription, "id", ""))
+    customer = stripe_value(subscription, "customer", "")
+    customer_id = str(stripe_value(customer, "id", customer) or "")
+    status = str(stripe_value(subscription, "status", "canceled") or "canceled")
+    metadata = stripe_value(subscription, "metadata", {}) or {}
+    workspace_id = stripe_value(metadata, "workspace_id", "")
+    items = stripe_value(stripe_value(subscription, "items", {}), "data", []) or []
+    first_item = items[0] if items else {}
+    price = stripe_value(first_item, "price", {})
+    price_id = str(stripe_value(price, "id", "") or "")
+    plan_key = plan_for_price_id(price_id)
+    period_end = stripe_value(subscription, "current_period_end", None)
+    period_end_iso = (
+        datetime.fromtimestamp(int(period_end), tz=timezone.utc).isoformat()
+        if period_end
+        else None
+    )
+
+    with get_db() as db:
+        owner = None
+        if str(workspace_id).isdigit():
+            owner = db.execute(
+                "SELECT id, subscription_plan FROM users WHERE id = ? AND role = 'owner'",
+                (int(workspace_id),),
+            ).fetchone()
+        if not owner and customer_id:
+            owner = db.execute(
+                "SELECT id, subscription_plan FROM users WHERE stripe_customer_id = ? AND role = 'owner'",
+                (customer_id,),
+            ).fetchone()
+        if not owner:
+            logger.warning("Stripe subscription could not be matched to a workspace: %s", subscription_id)
+            return
+        if plan_key == "free" and status != "canceled":
+            plan_key = str(row_value(owner, "subscription_plan", "free"))
+        db.execute(
+            """
+            UPDATE users
+            SET subscription_plan = ?, subscription_status = ?,
+                stripe_customer_id = ?, stripe_subscription_id = ?,
+                stripe_price_id = ?, subscription_current_period_end = ?,
+                billing_updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                plan_key, status, customer_id or None, subscription_id or None,
+                price_id or None, period_end_iso, datetime.utcnow().isoformat(),
+                owner["id"],
+            ),
+        )
+
+
+@app.get("/billing", response_class=HTMLResponse)
+def billing_page(request: Request):
+    user = require_user(request)
+    if user["role"] != "owner":
+        return redirect("/dashboard")
+    with get_db() as db:
+        subscription = workspace_subscription(db, user)
+        usage = workspace_usage(db, subscription["workspace_id"])
+        branding = get_branding_for_user(db, user)
+    return templates.TemplateResponse(
+        "billing.html",
+        {
+            "request": request,
+            "user": user,
+            "branding": branding,
+            "is_demo": is_demo_user(user),
+            "subscription": subscription,
+            "usage": usage,
+            "plans": PLAN_CATALOG,
+            "checkout_result": request.query_params.get("checkout", ""),
+        },
+    )
+
+
+@app.post("/billing/checkout")
+def create_billing_checkout(
+    request: Request,
+    plan: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner" or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    if plan not in {"pro", "business"}:
+        raise HTTPException(status_code=400, detail="Invalid billing plan.")
+    if not BILLING_ENABLED:
+        return redirect("/billing?error=Stripe+billing+is+not+configured+for+this+deployment.")
+
+    price_id = STRIPE_PRO_PRICE_ID if plan == "pro" else STRIPE_BUSINESS_PRICE_ID
+    workspace_id = workspace_id_for(user)
+    with get_db() as db:
+        owner = db.execute("SELECT * FROM users WHERE id = ?", (workspace_id,)).fetchone()
+        if (
+            row_value(owner, "stripe_subscription_id", "")
+            and str(row_value(owner, "subscription_status", "")).lower()
+            in PAID_ACCESS_STATUSES
+        ):
+            return redirect(
+                "/billing?error=Use+Manage+billing+to+change+an+existing+subscription."
+            )
+        customer_id = str(row_value(owner, "stripe_customer_id", ""))
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=owner["email"],
+                name=row_value(owner, "studio_name", "Lumaire Studio"),
+                metadata={"workspace_id": str(workspace_id)},
+            )
+            customer_id = str(stripe_value(customer, "id", ""))
+            db.execute(
+                "UPDATE users SET stripe_customer_id = ?, billing_updated_at = ? WHERE id = ?",
+                (customer_id, datetime.utcnow().isoformat(), workspace_id),
+            )
+
+    billing_url = f"{request.base_url}billing"
+    checkout = stripe.checkout.Session.create(
+        customer=customer_id,
+        mode="subscription",
+        line_items=[{"price": price_id, "quantity": 1}],
+        allow_promotion_codes=True,
+        client_reference_id=str(workspace_id),
+        success_url=f"{billing_url}?checkout=success",
+        cancel_url=f"{billing_url}?checkout=canceled",
+        metadata={"workspace_id": str(workspace_id), "plan": plan},
+        subscription_data={"metadata": {"workspace_id": str(workspace_id), "plan": plan}},
+    )
+    checkout_url = str(stripe_value(checkout, "url", ""))
+    if not checkout_url:
+        raise HTTPException(status_code=502, detail="Stripe did not return a checkout URL.")
+    return redirect(checkout_url)
+
+
+@app.post("/billing/portal")
+def create_billing_portal(request: Request, csrf_token: str = Form(...)):
+    validate_csrf(request, csrf_token)
+    user = require_user(request)
+    if user["role"] != "owner" or is_demo_user(user):
+        raise HTTPException(status_code=403)
+    if not BILLING_ENABLED:
+        return redirect("/billing?error=Stripe+billing+is+not+configured+for+this+deployment.")
+    with get_db() as db:
+        subscription = workspace_subscription(db, user)
+    customer_id = subscription["stripe_customer_id"]
+    if not customer_id:
+        return redirect("/billing?error=No+billing+account+is+connected+yet.")
+    portal = stripe.billing_portal.Session.create(
+        customer=customer_id,
+        return_url=f"{request.base_url}billing",
+    )
+    portal_url = str(stripe_value(portal, "url", ""))
+    if not portal_url:
+        raise HTTPException(status_code=502, detail="Stripe did not return a portal URL.")
+    return redirect(portal_url)
+
+
+@app.post("/billing/webhook")
+async def stripe_billing_webhook(request: Request):
+    if not stripe or not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Stripe webhook is not configured.")
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature", "")
+    try:
+        event = stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
+    except Exception as exc:
+        logger.warning("Rejected Stripe webhook: %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid Stripe webhook.") from exc
+
+    event_type = str(stripe_value(event, "type", ""))
+    data_object = stripe_value(stripe_value(event, "data", {}), "object", {})
+    if event_type in {
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    }:
+        sync_stripe_subscription(data_object)
+    elif event_type == "checkout.session.completed":
+        subscription_id = stripe_value(data_object, "subscription", "")
+        if subscription_id:
+            sync_stripe_subscription(stripe.Subscription.retrieve(subscription_id))
+    return JSONResponse({"received": True})
+
+
 @app.post("/clients")
 def create_client(
     request: Request,
@@ -3097,6 +3453,12 @@ def create_client(
 
     try:
         with get_db() as db:
+            subscription = workspace_subscription(db, user)
+            usage = workspace_usage(db, workspace_id)
+            if not plan_allows_more(subscription, "clients", usage["clients"]):
+                return redirect(
+                    "/clients?error=" + plan_limit_message(subscription, "active+client")
+                )
             existing_user = db.execute(
                 "SELECT id FROM users WHERE email = ?",
                 (email_clean,)
@@ -3332,6 +3694,12 @@ def restore_client(request: Request, client_id: int, csrf_token: str = Form(...)
     if user["role"] not in {"owner", "admin"} or is_demo_user(user):
         raise HTTPException(status_code=403)
     with get_db() as db:
+        subscription = workspace_subscription(db, user)
+        usage = workspace_usage(db, workspace_id_for(user))
+        if not plan_allows_more(subscription, "clients", usage["clients"]):
+            return redirect(
+                "/clients?error=" + plan_limit_message(subscription, "active+client")
+            )
         client = db.execute(
             "SELECT id FROM clients WHERE id = ? AND user_id = ?",
             (client_id, workspace_id_for(user)),
@@ -3425,6 +3793,13 @@ def invite_team_member(
                 "SELECT id, workspace_owner_id, is_active FROM users WHERE email = ?",
                 (email,),
             ).fetchone()
+            subscription = workspace_subscription(db, user)
+            usage = workspace_usage(db, workspace_id)
+            needs_seat = not existing or not bool(existing["is_active"])
+            if needs_seat and not plan_allows_more(subscription, "seats", usage["seats"]):
+                return redirect(
+                    "/team?error=" + plan_limit_message(subscription, "studio+seat")
+                )
             member_name = display_name.strip() or email.split("@", 1)[0]
             if existing:
                 if bool(existing["is_active"]) or existing["workspace_owner_id"] != workspace_id:
@@ -3610,6 +3985,15 @@ def create_project(
     workspace_id = workspace_id_for(user)
 
     with get_db() as db:
+        subscription = workspace_subscription(db, user)
+        usage = workspace_usage(db, workspace_id)
+        if not plan_allows_more(
+            subscription, "active_projects", usage["active_projects"]
+        ):
+            return redirect(
+                "/projects/new?error="
+                + plan_limit_message(subscription, "active+project")
+            )
         client = db.execute(
             "SELECT id FROM clients WHERE id = ? AND user_id = ?",
             (client_id_int, workspace_id),
@@ -4068,6 +4452,15 @@ def restore_project(request: Request, project_id: int, csrf_token: str = Form(..
     if is_demo_user(user):
         return demo_read_only_redirect(f"/projects/{project_id}")
     with get_db() as db:
+        subscription = workspace_subscription(db, user)
+        usage = workspace_usage(db, workspace_id_for(user))
+        if not plan_allows_more(
+            subscription, "active_projects", usage["active_projects"]
+        ):
+            return redirect(
+                f"/projects/{project_id}?error="
+                + plan_limit_message(subscription, "active+project")
+            )
         project = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
         if not project or not can_access_project(db, user, project, manage=True):
             raise HTTPException(status_code=404, detail="Project not found.")
@@ -4106,6 +4499,20 @@ async def create_version(
             return redirect(f"/projects/{project_id}?error=Restore+this+project+before+uploading+a+version.")
         if project["status"] in {"Approved", "Published"}:
             return redirect(f"/projects/{project_id}?error=Reopen+this+project+before+uploading+a+new+version.")
+        subscription = workspace_subscription(db, user)
+        version_count = db.execute(
+            "SELECT COUNT(*) AS count FROM video_versions WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+        if not plan_allows_more(
+            subscription,
+            "versions_per_project",
+            int(row_value(version_count, "count", 0)),
+        ):
+            return redirect(
+                f"/projects/{project_id}?error="
+                + plan_limit_message(subscription, "version+per+project")
+            )
 
     final_video_url = video_url.strip() if video_url else ""
 

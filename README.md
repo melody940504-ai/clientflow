@@ -137,12 +137,22 @@ Open `http://127.0.0.1:8000` after filling in the required values from `.env.exa
 | `MAX_VIDEO_UPLOAD_MB` | No | Video upload limit; defaults to `250` MB |
 | `MAX_ATTACHMENT_UPLOAD_MB` | No | Attachment upload limit; defaults to `25` MB |
 | `REDIS_URL` | Multi-instance production | Shared rate-limit state across application instances |
+| `STRIPE_SECRET_KEY` | Paid plans | Server-side Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | Paid plans | Verifies subscription webhook events |
+| `STRIPE_PRO_PRICE_ID` | Paid plans | Recurring Stripe Price ID for Pro |
+| `STRIPE_BUSINESS_PRICE_ID` | Paid plans | Recurring Stripe Price ID for Business |
 | `DEMO_ENABLED` | No | Enables one-click shared demo access |
 | `DEMO_OWNER_EMAIL` | Demo | Seeded Studio demo identity |
 | `DEMO_CLIENT_EMAIL` | Demo | Seeded Client demo identity |
 | `ENABLE_DB_TEST` | No | Enables a diagnostic database route; keep off publicly |
 
 Never commit real secrets. `.env` files, local databases, virtual environments, backups, and Python caches are excluded by `.gitignore`.
+
+## Plans and Billing
+
+Lumaire keeps plan entitlements in the workspace owner record. Free workspaces can create up to 3 active projects, 3 active clients, 1 studio seat, and 3 versions per project. Pro raises those limits to 50 projects, 100 clients, 5 seats, and unlimited versions. Business supports unlimited projects and clients, 25 seats, and the complete team workflow. Existing resources remain readable when a workspace reaches a limit; only new or restored resources are blocked. Until Stripe is fully configured, billing stays in preview mode and existing deployments retain Business-level limits so setup cannot accidentally lock a workspace.
+
+Stripe Checkout and the Customer Portal remain disabled until all four Stripe variables are configured. Subscription access is updated only from verified Stripe webhooks at `/billing/webhook`, never from the checkout return URL. Configure Stripe to send `checkout.session.completed` and `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` events.
 
 ## Tests and Preflight
 

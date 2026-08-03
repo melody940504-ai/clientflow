@@ -75,6 +75,7 @@
         <span class="menu-section-label">Settings</span>
         {% if user.role == 'owner' %}
         <a href="/settings" class="ghost menu-row">Studio settings</a>
+        <a href="/billing" class="ghost menu-row">Billing</a>
         {% endif %}
         {% if user.role in ['owner', 'admin'] %}
         <a href="/team" class="ghost menu-row">Team access</a>

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="billing-page">
+  <header class="billing-heading">
+    <div>
+      <p class="billing-eyebrow">Workspace billing</p>
+      <h1>Plans and usage</h1>
+    </div>
+    <a class="billing-back" href="/dashboard">Back to dashboard</a>
+  </header>
+
+  {% if request.query_params.get('error') %}
+  <div class="billing-alert billing-alert-error">{{ request.query_params.get('error') }}</div>
+  {% elif checkout_result == 'success' %}
+  <div class="billing-alert">Payment received. Your plan will update as soon as Stripe confirms the subscription.</div>
+  {% elif checkout_result == 'canceled' %}
+  <div class="billing-alert">Checkout was canceled. Your current plan has not changed.</div>
+  {% endif %}
+
+  <section class="billing-current">
+    <div>
+      <p class="billing-label">Current plan</p>
+      <h2>{{ subscription.plan.name }}</h2>
+      <p class="billing-status">Status: {{ subscription.status|replace('_', ' ')|title }}</p>
+    </div>
+    {% if subscription.stripe_customer_id and not is_demo %}
+    <form action="/billing/portal" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+      <button class="billing-secondary" type="submit">Manage billing</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="billing-usage" aria-label="Workspace usage">
+    {% for key, label in [('active_projects', 'Active projects'), ('clients', 'Active clients'), ('seats', 'Studio seats')] %}
+    {% set limit = subscription.plan[key] %}
+    <article class="usage-item">
+      <span>{{ label }}</span>
+      <strong>{{ usage[key] }} / {{ limit if limit is not none else 'Unlimited' }}</strong>
+      {% if limit is not none %}
+      <div class="usage-track"><span style="width: {{ [usage[key] * 100 / limit, 100]|min }}%"></span></div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </section>
+
+  <div class="billing-plans">
+    {% for plan_key, plan in plans.items() %}
+    <article class="plan-panel {% if plan_key == subscription.plan_key %}is-current{% endif %}">
+      <div>
+        <p class="billing-label">{{ '%02d'|format(loop.index) }}</p>
+        <h2>{{ plan.name }}</h2>
+        <p class="plan-summary">
+          {% if plan_key == 'free' %}For trying the complete review loop with a small client list.
+          {% elif plan_key == 'pro' %}For independent studios running repeat client reviews.
+          {% else %}For teams that need shared ownership and project assignments.
+          {% endif %}
+        </p>
+      </div>
+      <ul>
+        <li>{{ plan.active_projects if plan.active_projects is not none else 'Unlimited' }} active projects</li>
+        <li>{{ plan.clients if plan.clients is not none else 'Unlimited' }} active clients</li>
+        <li>{{ plan.seats }} studio seat{{ '' if plan.seats == 1 else 's' }}</li>
+        <li>{{ plan.versions_per_project if plan.versions_per_project is not none else 'Unlimited' }} versions per project</li>
+      </ul>
+      {% if plan_key == subscription.plan_key %}
+      <span class="plan-current">Current plan</span>
+      {% elif plan_key in ['pro', 'business'] and not is_demo and subscription.has_paid_subscription %}
+      <form action="/billing/portal" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <button class="billing-primary" type="submit">Change plan</button>
+      </form>
+      {% elif plan_key in ['pro', 'business'] and not is_demo %}
+      <form action="/billing/checkout" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <input type="hidden" name="plan" value="{{ plan_key }}">
+        <button class="billing-primary" type="submit" {% if not subscription.billing_enabled %}disabled{% endif %}>
+          Choose {{ plan.name }}
+        </button>
+      </form>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+
+  {% if not subscription.billing_enabled and not is_demo %}
+  <p class="billing-configuration-note">Checkout stays disabled until the Stripe secret, webhook secret, and both recurring Price IDs are configured.</p>
+  {% endif %}
+</section>
+{% endblock %}
