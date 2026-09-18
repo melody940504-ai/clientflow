@@ -29,7 +29,7 @@
   });
   if (!steps.length) return;
 
-  const storageKey = `lumaire:onboarding:${config.userId || "shared"}:${config.key}:v2`;
+  const storageKey = `lumaire:onboarding:${config.userId || "shared"}:${config.key}:v3`;
   try {
     if (localStorage.getItem(storageKey) === "complete") return;
   } catch {
@@ -209,6 +209,23 @@
     positionFrame = requestAnimationFrame(positionTour);
   };
 
+  const positionMobileTarget = () => {
+    if (!currentTarget || window.innerWidth > 680) return;
+    const topChrome = Array.from(document.querySelectorAll("header, nav"))
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return ["fixed", "sticky"].includes(style.position)
+          && rect.top <= 12
+          && rect.bottom > 0;
+      })
+      .reduce((bottom, element) => Math.max(bottom, element.getBoundingClientRect().bottom), 0);
+    const safeTop = Math.max(88, Math.min(topChrome + 14, window.innerHeight * 0.24));
+    const rect = currentTarget.getBoundingClientRect();
+    const delta = rect.top - safeTop;
+    if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: "auto" });
+  };
+
   const finish = () => {
     try {
       localStorage.setItem(storageKey, "complete");
@@ -265,14 +282,19 @@
 
     const rect = currentTarget.getBoundingClientRect();
     const mobile = window.innerWidth <= 680;
-    const visibleTop = mobile ? 76 : 24;
+    const visibleTop = mobile ? 96 : 24;
     const visibleBottom = mobile ? window.innerHeight * 0.5 : window.innerHeight - 24;
     if (rect.top < visibleTop || rect.bottom > visibleBottom) {
       currentTarget.scrollIntoView({
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-        block: mobile ? "start" : "center",
+        block: "center",
       });
-      window.setTimeout(schedulePosition, 320);
+      window.setTimeout(() => {
+        positionMobileTarget();
+        schedulePosition();
+      }, 320);
+    } else if (mobile) {
+      positionMobileTarget();
     }
     schedulePosition();
     nextButton.focus({ preventScroll: true });

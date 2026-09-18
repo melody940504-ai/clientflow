@@ -191,7 +191,7 @@
         }
     </style>
     <link rel="stylesheet" href="/static/workspace.css?v=20260802-menu-actions">
-    <link rel="stylesheet" href="/static/onboarding.css?v=20260729">
+    <link rel="stylesheet" href="/static/onboarding.css?v=20260918-mobile-targets">
 </head>
 <body class="workspace-page bg-gray-950 text-gray-100 min-h-screen font-sans transition-colors duration-200" style="--brand-color: {{ branding.brand_color }}">
 
@@ -482,7 +482,7 @@
           "title": "{% if user.role == 'client' %}Projects ready for review{% else %}Your workspace at a glance{% endif %}",
           "body": "{% if user.role == 'client' %}Projects waiting for your review appear here with their current status and version history.{% else %}The status strip shows how work is moving from review through revision, approval, and delivery.{% endif %}",
           "target": "{% if user.role == 'client' %}.workspace-projects{% else %}.workspace-stats{% endif %}",
-          "mobileTarget": "{% if user.role == 'client' %}.workspace-projects h3{% else %}.workspace-stat{% endif %}",
+          "mobileTarget": ".workspace-heading h1",
           "placement": "bottom"
         },
         {
@@ -508,7 +508,7 @@
       ]
     }
     </script>
-    <script src="/static/onboarding.js?v=20260729"></script>
+    <script src="/static/onboarding.js?v=20260918-mobile-targets"></script>
     <script src="/static/app.js?v=20260730-unified-theme"></script>
     <script>
         function showToast(message, type = "success") {

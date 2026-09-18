@@ -986,7 +986,7 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn("/static/onboarding.css", dashboard_template)
         self.assertIn("/static/onboarding.js", dashboard_template)
         self.assertIn("${config.userId || \"shared\"}", onboarding_script)
-        self.assertIn("${config.key}:v2", onboarding_script)
+        self.assertIn("${config.key}:v3", onboarding_script)
         self.assertIn("localStorage.setItem(storageKey, \"complete\")", onboarding_script)
 
     def test_onboarding_uses_spotlight_targets_instead_of_centered_modal(self):
@@ -1004,6 +1004,8 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn("scrollIntoView", onboarding_script)
         self.assertIn("onboarding-close", onboarding_script)
         self.assertIn("step.advanceOnTarget", onboarding_script)
+        self.assertIn("positionMobileTarget", onboarding_script)
+        self.assertIn("topChrome + 14", onboarding_script)
         self.assertNotIn("onboarding-overlay", onboarding_script)
         self.assertIn(".onboarding-spotlight", onboarding_styles)
         self.assertIn('[data-placement="mobile"]', onboarding_styles)
