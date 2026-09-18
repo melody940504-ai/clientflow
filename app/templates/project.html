@@ -503,22 +503,31 @@
                 </div>
                 <form action="/projects/{{ project.id }}/delivery-checklist" method="post" class="space-y-4">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                    {% set delivery_is_read_only = project.status == 'Published' or project.archived_at or is_demo %}
+                    {% if delivery_is_read_only %}
+                    <p class="delivery-readiness-note text-xs text-gray-400-fix">
+                        {% if is_demo %}Demo preview · delivery status is view-only.{% else %}Final delivery is locked and view-only.{% endif %}
+                    </p>
+                    {% endif %}
                     <div class="delivery-check-grid grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {% for item_key, item_label in delivery_checklist_items %}
-                        <label class="delivery-check-item theme-surface-fix flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-950/20 px-3 py-3 text-xs text-white-fix">
+                        <{% if delivery_is_read_only %}div{% else %}label{% endif %} class="delivery-check-item{% if delivery_is_read_only %} delivery-check-item-readonly{% endif %} theme-surface-fix flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-950/20 px-3 py-3 text-xs text-white-fix">
+                            {% if delivery_is_read_only %}
+                            <span class="delivery-status-icon" aria-hidden="true">{% if item_key in delivery_completed %}✓{% else %}—{% endif %}</span>
+                            {% else %}
                             <input
                                 type="checkbox"
                                 name="delivery_items"
                                 value="{{ item_key }}"
                                 class="delivery-check-input"
                                 {% if item_key in delivery_completed %}checked{% endif %}
-                                {% if project.status == 'Published' or project.archived_at or is_demo %}disabled{% endif %}
                             >
+                            {% endif %}
                             <span class="delivery-check-copy">
                                 <strong>{{ item_label }}</strong>
                                 <small>{% if item_key in delivery_completed %}Ready{% else %}Required{% endif %}</small>
                             </span>
-                        </label>
+                        </{% if delivery_is_read_only %}div{% else %}label{% endif %}>
                         {% endfor %}
                     </div>
                     {% if project.status == 'Approved' and not project.archived_at and not is_demo %}

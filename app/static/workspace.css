@@ -1326,6 +1326,31 @@ html {
   box-shadow: 0 15px 34px rgba(0, 0, 0, 0.16);
 }
 
+.delivery-check-item-readonly {
+  cursor: default;
+}
+
+.delivery-check-item-readonly:hover {
+  z-index: auto;
+  transform: none;
+  border-color: var(--workspace-border) !important;
+  box-shadow: none;
+}
+
+.delivery-status-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  color: var(--brand-color, #9b8cf6);
+  background: color-mix(in srgb, var(--brand-color, #9b8cf6) 10%, transparent);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
 .delivery-check-item:has(.delivery-check-input:checked) {
   border-color: color-mix(in srgb, var(--brand-color, #9b8cf6) 46%, var(--workspace-border)) !important;
   background:
