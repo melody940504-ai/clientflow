@@ -87,7 +87,14 @@
         <span class="menu-section-label">Settings</span>
         {% if user.role == 'owner' %}
         <a href="/settings" class="ghost menu-row">Studio settings</a>
+        {% if billing_enabled %}
         <a href="/billing" class="ghost menu-row">Billing</a>
+        {% else %}
+        <span class="ghost menu-row menu-row-disabled" aria-disabled="true">
+          <span>Billing</span>
+          <small>Coming soon</small>
+        </span>
+        {% endif %}
         {% endif %}
         {% if user.role in ['owner', 'admin'] %}
         <a href="/team" class="ghost menu-row">Team access</a>

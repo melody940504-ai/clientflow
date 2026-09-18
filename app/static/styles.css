@@ -6052,6 +6052,22 @@ html:not([data-theme="dark"]) .landing-page .capability-grid article:hover {
 .team-invite input,.team-invite select{background:var(--bg)}
 .compare-notes{display:grid;gap:.65rem;padding:1rem 1.15rem;border-top:1px solid var(--border)}.compare-notes p{margin:0;padding:.7rem;border:1px solid var(--border);border-radius:8px;color:var(--muted)}.compare-notes p span{display:block;margin-bottom:.25rem;color:var(--text);font-weight:700}
 /* Billing */
+.menu-row-disabled {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.menu-row-disabled small {
+  color: var(--muted);
+  font-size: .58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .billing-page {
   max-width: 1180px;
   margin: 0 auto;

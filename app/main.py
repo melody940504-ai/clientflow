@@ -1739,6 +1739,7 @@ def load_project_attachments(db, project: object) -> tuple[str, list[dict]]:
 
 
 templates.env.globals["csrf_token"] = get_csrf_token
+templates.env.globals["billing_enabled"] = BILLING_ENABLED
 
 def get_user_from_session_token(token: Optional[str]) -> Optional[sqlite3.Row]:
     if not token:
@@ -3296,6 +3297,8 @@ def billing_page(request: Request):
     user = require_user(request)
     if user["role"] != "owner":
         return redirect("/dashboard")
+    if not BILLING_ENABLED:
+        return redirect("/dashboard?warning=Billing+is+coming+soon.")
     with get_db() as db:
         subscription = workspace_subscription(db, user)
         usage = workspace_usage(db, subscription["workspace_id"])
