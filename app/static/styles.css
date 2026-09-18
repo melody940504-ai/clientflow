@@ -2681,33 +2681,6 @@ html:not([data-theme="dark"]) :is(
   gap: 16px;
 }
 
-.landing-menu-toggle {
-  display: none;
-  place-items: center;
-  align-content: center;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.landing-menu-toggle span {
-  display: block;
-  width: 16px;
-  height: 1.5px;
-  margin: 2px 0;
-  border-radius: 2px;
-  background: currentColor;
-  transition: transform 160ms ease, opacity 160ms ease;
-}
-
-.landing-menu-toggle.is-open span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
-.landing-menu-toggle.is-open span:nth-child(2) { opacity: 0; }
-.landing-menu-toggle.is-open span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
-
 .landing-theme-toggle {
   position: relative;
   display: grid;
@@ -5150,10 +5123,6 @@ html:not([data-theme="dark"]) .landing-page .faq-list summary {
   .landing-theme-toggle {
     width: 38px;
     height: 38px;
-  }
-
-  .landing-menu-toggle {
-    display: grid;
   }
 
   .landing-page .container {

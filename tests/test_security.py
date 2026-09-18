@@ -849,9 +849,9 @@ class TemplateSecurityTests(unittest.TestCase):
             project_root / "app" / "static" / "app.js"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('id="landing-menu-toggle"', base_template)
-        self.assertIn('aria-controls="landing-product-nav"', base_template)
-        self.assertIn("landingProductNav.classList.toggle('is-open')", app_script)
+        self.assertNotIn('id="landing-menu-toggle"', base_template)
+        self.assertNotIn('aria-controls="landing-product-nav"', base_template)
+        self.assertNotIn("landingProductNav.classList.toggle('is-open')", app_script)
         self.assertIn(
             'href="/dashboard" class="nav-action-fix menu-item-fix workspace-menu-row"',
             dashboard_template,
