@@ -1166,18 +1166,19 @@ html {
   }
 
   .workspace-stats {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .workspace-stat,
   .workspace-stat:nth-child(2n) {
-    min-height: 108px;
-    border-right: 0 !important;
+    min-height: 88px;
+    padding: 14px !important;
+    border-right: 1px solid var(--workspace-border) !important;
     border-bottom: 1px solid var(--workspace-border) !important;
   }
 
   .workspace-stat:last-child {
-    grid-column: auto;
+    grid-column: 1 / -1;
     border-bottom: 0 !important;
   }
 
@@ -1190,8 +1191,17 @@ html {
   }
 
   .workspace-project-card {
-    min-height: 164px;
-    padding: 20px !important;
+    min-height: 132px;
+    padding: 16px !important;
+    gap: 12px !important;
+  }
+
+  .workspace-project-card h4 {
+    font-size: 1rem;
+  }
+
+  .workspace-project-card::before {
+    left: 16px;
   }
 }
 

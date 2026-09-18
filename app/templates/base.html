@@ -83,6 +83,7 @@
         {% endif %}
         <a href="/analytics" class="ghost menu-row">Analytics</a>
         {% endif %}
+        {% if not is_demo %}
         <span class="menu-divider"></span>
         <span class="menu-section-label">Settings</span>
         {% if user.role == 'owner' %}
@@ -99,15 +100,12 @@
         {% if user.role in ['owner', 'admin'] %}
         <a href="/team" class="ghost menu-row">Team access</a>
         {% endif %}
-        {% if is_demo %}
-        <span class="demo-menu-label">Read-only demo</span>
-        {% else %}
         <a href="/account" class="ghost menu-row">Account settings</a>
         {% endif %}
         <span class="menu-divider"></span>
         <form class="menu-form" method="post" action="/logout">
           <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-          <button class="ghost menu-row danger-row" type="submit">Logout</button>
+          <button class="ghost menu-row danger-row" type="submit">{% if is_demo %}Exit demo{% else %}Logout{% endif %}</button>
         </form>
       {% else %}
         {% if demo_enabled %}
@@ -130,8 +128,8 @@
     {% if is_demo %}
     <div class="demo-notice" role="status">
       <div>
-        <strong>Read-only shared demo</strong>
-        <span>Explore projects, versions, notifications, analytics, and both roles without changing the seeded data.</span>
+        <strong>{% if user and user.role == 'client' %}Client demo{% else %}Studio demo{% endif %} · Sample workspace</strong>
+        <span>Explore the workflow using sample data. Changes are not saved.</span>
       </div>
       {% if user and user.role != 'client' %}
       <a href="/analytics" class="demo-notice-action">View analytics</a>

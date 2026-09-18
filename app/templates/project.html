@@ -259,9 +259,12 @@
                         <a href="/analytics" class="nav-action-fix workspace-menu-row">
                             Analytics
                         </a>
+                        {% if not is_demo %}
                         <a href="/team" class="nav-action-fix workspace-menu-row">
                             Team
                         </a>
+                        {% endif %}
+                        {% if not is_demo %}
                         <div class="workspace-menu-divider"></div>
                         <p class="workspace-menu-section-label">Settings</p>
                         {% if user.role == 'owner' %}
@@ -280,6 +283,7 @@
                         {% endif %}
                         {% endif %}
                         {% endif %}
+                        {% endif %}
                         {% if not is_public_link and not is_demo %}
                         <a href="/account" class="nav-action-fix workspace-menu-row">
                             Account settings
@@ -289,7 +293,7 @@
                         <div class="workspace-menu-divider"></div>
                         <form action="/logout" method="post" class="m-0">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                            <button type="submit" class="logout-action workspace-menu-row w-full">Logout</button>
+                            <button type="submit" class="logout-action workspace-menu-row w-full">{% if is_demo %}Exit demo{% else %}Logout{% endif %}</button>
                         </form>
                         {% endif %}
                     </div>

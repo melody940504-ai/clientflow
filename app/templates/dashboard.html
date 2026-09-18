@@ -285,9 +285,12 @@
                     <a href="/projects/new" class="nav-action-fix menu-item-fix workspace-menu-row">New project</a>
                     {% endif %}
                     <a href="/analytics" class="nav-action-fix menu-item-fix workspace-menu-row">Analytics</a>
+                    {% if not is_demo %}
                     <a href="/team" class="nav-action-fix menu-item-fix workspace-menu-row">Team</a>
                     {% endif %}
+                    {% endif %}
                     {% if user.role == 'owner' or not is_demo %}
+                    {% if not is_demo %}
                     <div class="workspace-menu-divider"></div>
                     <p class="workspace-menu-section-label">Settings</p>
                     {% if user.role == 'owner' %}
@@ -305,10 +308,11 @@
                     <a href="/account" class="nav-action-fix menu-item-fix workspace-menu-row">Account settings</a>
                     {% endif %}
                     {% endif %}
+                    {% endif %}
                     <div class="workspace-menu-divider"></div>
                     <form action="/logout" method="post" class="m-0">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
-                        <button type="submit" class="logout-action menu-item-fix workspace-menu-row w-full">Logout</button>
+                        <button type="submit" class="logout-action menu-item-fix workspace-menu-row w-full">{% if is_demo %}Exit demo{% else %}Logout{% endif %}</button>
                     </form>
                 </div>
             </div>
@@ -321,8 +325,8 @@
         {% if is_demo %}
         <section class="demo-banner-fix flex flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <p class="demo-banner-title text-sm font-bold">Read-only shared demo</p>
-                <p class="mt-1 text-xs text-gray-400-fix">Explore projects, versions, notifications, analytics, and both roles without changing the seeded data.</p>
+                <p class="demo-banner-title text-sm font-bold">Studio demo · Sample workspace</p>
+                <p class="mt-1 text-xs text-gray-400-fix">Explore projects, versions, playback, and analytics. This is sample data; changes are not saved.</p>
             </div>
             {% if user.role != 'client' %}
             <a href="/analytics" class="demo-banner-action shrink-0 rounded-lg px-3 py-2 text-center text-xs font-bold transition">View analytics</a>
@@ -479,6 +483,7 @@
 
     </main>
 
+    {% if not is_demo %}
     <script id="lumaire-onboarding-data" type="application/json">
     {
       "userId": "{{ user.id }}",
@@ -516,6 +521,7 @@
     }
     </script>
     <script src="/static/onboarding.js?v=20260918-mobile-targets"></script>
+    {% endif %}
     <script src="/static/app.js?v=20260730-unified-theme"></script>
     <script>
         function showToast(message, type = "success") {
