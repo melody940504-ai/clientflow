@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d0b14">
     <title>Lumaire - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729-purple">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/tailwind.css?v=20260918">
     <script>
         const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme') || 'dark';
         document.documentElement.setAttribute('data-theme', storedTheme);
@@ -278,6 +278,7 @@
                 <div id="user-menu-panel" class="menu-panel-fix bg-card-fix hidden fixed left-4 right-4 top-24 z-40 rounded-2xl border border-gray-800 bg-gray-950 p-3 shadow-2xl shadow-black/40 md:absolute md:left-auto md:right-0 md:top-full md:mt-2">
                     <div class="workspace-menu-stack">
                     <p class="workspace-menu-section-label">Workspace</p>
+                    <a href="/dashboard" class="nav-action-fix menu-item-fix workspace-menu-row">Dashboard</a>
                     {% if user.role in ['owner', 'admin'] %}
                     <a href="/clients" class="nav-action-fix menu-item-fix workspace-menu-row">Clients</a>
                     {% if not is_demo %}
@@ -286,6 +287,7 @@
                     <a href="/analytics" class="nav-action-fix menu-item-fix workspace-menu-row">Analytics</a>
                     <a href="/team" class="nav-action-fix menu-item-fix workspace-menu-row">Team</a>
                     {% endif %}
+                    {% if user.role == 'owner' or not is_demo %}
                     <div class="workspace-menu-divider"></div>
                     <p class="workspace-menu-section-label">Settings</p>
                     {% if user.role == 'owner' %}
@@ -294,6 +296,7 @@
                     {% endif %}
                     {% if not is_demo %}
                     <a href="/account" class="nav-action-fix menu-item-fix workspace-menu-row">Account settings</a>
+                    {% endif %}
                     {% endif %}
                     <div class="workspace-menu-divider"></div>
                     <form action="/logout" method="post" class="m-0">

@@ -58,6 +58,39 @@
     });
   }
 
+  const landingMenuToggle = document.getElementById('landing-menu-toggle');
+  const landingProductNav = document.getElementById('landing-product-nav');
+
+  if (landingMenuToggle && landingProductNav) {
+    const closeLandingMenu = () => {
+      landingProductNav.classList.remove('is-open');
+      landingMenuToggle.classList.remove('is-open');
+      landingMenuToggle.setAttribute('aria-expanded', 'false');
+      landingMenuToggle.setAttribute('aria-label', 'Open navigation');
+    };
+
+    landingMenuToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const isOpen = landingProductNav.classList.toggle('is-open');
+      landingMenuToggle.classList.toggle('is-open', isOpen);
+      landingMenuToggle.setAttribute('aria-expanded', String(isOpen));
+      landingMenuToggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+    });
+
+    landingProductNav.addEventListener('click', (event) => {
+      if (event.target.closest('a')) closeLandingMenu();
+      event.stopPropagation();
+    });
+
+    document.addEventListener('click', closeLandingMenu);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeLandingMenu();
+    });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 640) closeLandingMenu();
+    });
+  }
+
   const parallaxStage = document.querySelector('[data-stage-parallax]');
   if (parallaxStage) {
     let parallaxFrame = null;

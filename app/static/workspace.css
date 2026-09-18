@@ -1129,6 +1129,23 @@ html {
   .workspace-nav {
     min-height: auto;
     padding: 13px 16px !important;
+    gap: 10px !important;
+  }
+
+  .workspace-nav > div:first-child {
+    gap: 8px !important;
+  }
+
+  .workspace-nav > div:first-child > span:last-child {
+    flex-shrink: 0;
+    max-width: 138px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-nav > div:nth-child(2) {
+    gap: 7px !important;
   }
 
   .workspace-main,

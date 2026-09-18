@@ -837,6 +837,43 @@ class TemplateSecurityTests(unittest.TestCase):
         self.assertIn('href="/clients"', base_template)
         self.assertIn('href="/projects/new"', base_template)
 
+    def test_mobile_navigation_and_demo_client_menu_are_complete(self):
+        project_root = Path(__file__).parents[1]
+        base_template = (
+            project_root / "app" / "templates" / "base.html"
+        ).read_text(encoding="utf-8")
+        dashboard_template = (
+            project_root / "app" / "templates" / "dashboard.html"
+        ).read_text(encoding="utf-8")
+        app_script = (
+            project_root / "app" / "static" / "app.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="landing-menu-toggle"', base_template)
+        self.assertIn('aria-controls="landing-product-nav"', base_template)
+        self.assertIn("landingProductNav.classList.toggle('is-open')", app_script)
+        self.assertIn(
+            'href="/dashboard" class="nav-action-fix menu-item-fix workspace-menu-row"',
+            dashboard_template,
+        )
+        self.assertIn("{% if user.role == 'owner' or not is_demo %}", dashboard_template)
+
+    def test_workspace_uses_compiled_tailwind(self):
+        project_root = Path(__file__).parents[1]
+        templates_dir = project_root / "app" / "templates"
+        dashboard_template = (templates_dir / "dashboard.html").read_text(
+            encoding="utf-8"
+        )
+        project_template = (templates_dir / "project.html").read_text(
+            encoding="utf-8"
+        )
+        compiled_css = project_root / "app" / "static" / "tailwind.css"
+
+        self.assertNotIn("cdn.tailwindcss.com", dashboard_template + project_template)
+        self.assertIn('/static/tailwind.css', dashboard_template)
+        self.assertIn('/static/tailwind.css', project_template)
+        self.assertTrue(compiled_css.exists())
+
     def test_dashboard_archives_only_published_projects(self):
         project_root = Path(__file__).parents[1]
         dashboard = (
