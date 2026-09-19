@@ -2,7 +2,7 @@
 
 Lumaire is a client review and delivery workspace for creative studios. It keeps video versions, contextual feedback, approvals, review access, delivery readiness, and project history in one focused portal instead of scattered email threads.
 
-[Open the live demo](https://clientflow-q250.onrender.com/) | [Follow the 2-minute demo](docs/DEMO_GUIDE.md)
+[Open the live demo](https://lumaireflow.com/) | [Follow the 2-minute demo](docs/DEMO_GUIDE.md)
 
 The landing page provides one-click access to seeded, read-only Studio and Client roles. No credentials are required, and server-side protection prevents visitors from changing demo data.
 

@@ -1,8 +1,7 @@
 (function () {
   const root = document.documentElement;
   const themeKey = 'theme';
-  const legacyThemeKey = 'clientflow-theme';
-  const stored = localStorage.getItem(themeKey) || localStorage.getItem(legacyThemeKey);
+  const stored = localStorage.getItem(themeKey);
   const initialTheme = stored || root.getAttribute('data-theme') || 'light';
 
   root.setAttribute('data-theme', initialTheme);
@@ -12,7 +11,6 @@
     root.setAttribute('data-theme', theme);
     root.classList.toggle('light-theme', theme === 'light');
     localStorage.setItem(themeKey, theme);
-    localStorage.setItem(legacyThemeKey, theme);
   };
 
   const themeButtons = Array.from(document.querySelectorAll('[data-theme-toggle], #themeToggle'));

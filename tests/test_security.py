@@ -117,6 +117,15 @@ class UserDB:
 
 
 class BillingEntitlementTests(unittest.TestCase):
+    def test_billing_is_not_exposed_in_workspace_menus(self):
+        root = Path(__file__).parents[1]
+        for template_name in ("base.html", "dashboard.html", "project.html"):
+            template = (root / "app" / "templates" / template_name).read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn('href="/billing"', template)
+            self.assertNotIn("Coming soon", template)
+
     def test_free_is_default_without_an_active_paid_subscription(self):
         self.assertEqual(
             main.effective_plan_for(
@@ -161,6 +170,22 @@ class BillingEntitlementTests(unittest.TestCase):
         self.assertIn('down_revision = "20260803_0001"', migration)
         self.assertIn("subscription_plan", migration)
         self.assertIn("stripe_subscription_id", migration)
+
+
+class BrandingTests(unittest.TestCase):
+    def test_legacy_workspace_brand_is_normalized(self):
+        branding = main.normalize_branding(
+            {
+                "studio_name": "Client Flow MVP",
+                "brand_color": "#9b8cf6",
+                "logo_url": "",
+                "email_sender_name": "Client Flow MVP",
+                "setup_completed": True,
+            }
+        )
+
+        self.assertEqual(branding["studio_name"], "Lumaire Studio")
+        self.assertEqual(branding["email_sender_name"], "Lumaire")
 
 
 class PasswordSecurityTests(unittest.TestCase):

@@ -109,6 +109,7 @@ CATEGORY_OPTIONS = ["Shorts", "Reels", "TikTok", "Ad", "YouTube", "Other"]
 DEFAULT_STUDIO_NAME = "Lumaire Studio"
 DEFAULT_BRAND_COLOR = "#9b8cf6"
 DEFAULT_EMAIL_SENDER_NAME = "Lumaire"
+LEGACY_STUDIO_NAMES = {"client flow mvp", "clientflow mvp", "clientflow"}
 EMAIL_TEST_RECIPIENT = os.getenv("EMAIL_TEST_RECIPIENT", "").strip()
 EMAIL_FROM_ADDRESS = os.getenv(
     "EMAIL_FROM_ADDRESS", "onboarding@resend.dev"
@@ -701,6 +702,19 @@ def init_db() -> None:
         except Exception:
             logger.exception("User schema migration failed")
             raise
+
+        db.execute(
+            """
+            UPDATE users
+            SET studio_name = ?, email_sender_name = ?
+            WHERE LOWER(TRIM(COALESCE(studio_name, ''))) IN (?, ?, ?)
+            """,
+            (
+                DEFAULT_STUDIO_NAME,
+                DEFAULT_EMAIL_SENDER_NAME,
+                *sorted(LEGACY_STUDIO_NAMES),
+            ),
+        )
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS clients (
@@ -2070,9 +2084,13 @@ def normalize_branding(row: Optional[sqlite3.Row]) -> dict:
 
     if row:
         studio_name = (row["studio_name"] or DEFAULT_STUDIO_NAME).strip() or DEFAULT_STUDIO_NAME
+        if studio_name.casefold() in LEGACY_STUDIO_NAMES:
+            studio_name = DEFAULT_STUDIO_NAME
         brand_color = (row["brand_color"] or DEFAULT_BRAND_COLOR).strip()
         logo_url = (row["logo_url"] or "").strip()
         email_sender_name = (row["email_sender_name"] or studio_name or DEFAULT_EMAIL_SENDER_NAME).strip()
+        if email_sender_name.casefold() in LEGACY_STUDIO_NAMES:
+            email_sender_name = DEFAULT_EMAIL_SENDER_NAME
         setup_completed = bool(row["setup_completed"])
 
     if not is_valid_hex_color(brand_color):

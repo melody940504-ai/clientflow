@@ -8,7 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729-purple">
     <link rel="stylesheet" href="/static/tailwind.css?v=20260918">
     <script>
-        const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme') || 'dark';
+        const storedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', storedTheme);
         document.documentElement.classList.toggle('light-theme', storedTheme === 'light');
     </script>
@@ -271,16 +271,6 @@
                         <a href="/settings" class="nav-action-fix workspace-menu-row">
                             Studio settings
                         </a>
-                        {% if billing_enabled %}
-                        <a href="/billing" class="nav-action-fix workspace-menu-row">
-                            Billing
-                        </a>
-                        {% else %}
-                        <span class="workspace-menu-row flex cursor-not-allowed items-center justify-between gap-3 opacity-45" aria-disabled="true">
-                            <span>Billing</span>
-                            <small class="whitespace-nowrap text-[9px] font-bold uppercase tracking-wider">Coming soon</small>
-                        </span>
-                        {% endif %}
                         {% endif %}
                         {% endif %}
                         {% endif %}

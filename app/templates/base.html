@@ -7,7 +7,7 @@
   <title>{{ title or 'Lumaire' }}</title>
   <link rel="icon" type="image/svg+xml" href="/static/lumaire-mark.svg?v=20260729-purple">
   <script>
-    const storedTheme = localStorage.getItem('theme') || localStorage.getItem('clientflow-theme');
+    const storedTheme = localStorage.getItem('theme');
     if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,14 +76,6 @@
         <span class="menu-section-label">Settings</span>
         {% if user.role == 'owner' %}
         <a href="/settings" class="ghost menu-row">Studio settings</a>
-        {% if billing_enabled %}
-        <a href="/billing" class="ghost menu-row">Billing</a>
-        {% else %}
-        <span class="ghost menu-row menu-row-disabled" aria-disabled="true">
-          <span>Billing</span>
-          <small>Coming soon</small>
-        </span>
-        {% endif %}
         {% endif %}
         {% if user.role in ['owner', 'admin'] %}
         <a href="/team" class="ghost menu-row">Team access</a>
