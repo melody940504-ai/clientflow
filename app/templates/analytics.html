@@ -12,10 +12,17 @@
       <p class="eyebrow">Studio analytics</p>
       <h1>Delivery insights</h1>
     </div>
-    <div class="analytics-hero-card">
-      <span>Approval rate</span>
-      <strong>{{ analytics.approval_rate }}%</strong>
-      <p class="muted small">{{ analytics.completed_projects }} of {{ analytics.total_projects }} projects approved or published.</p>
+    <div class="analytics-hero-card analytics-decision-summary">
+      <div>
+        <span>Client approved</span>
+        <strong>{{ analytics.approved_rate }}%</strong>
+        <p class="muted small">{{ analytics.approved_projects }} of {{ analytics.total_projects }} projects currently approved.</p>
+      </div>
+      <div>
+        <span>Published</span>
+        <strong>{{ analytics.published_rate }}%</strong>
+        <p class="muted small">{{ analytics.published_projects }} of {{ analytics.total_projects }} projects delivered and published.</p>
+      </div>
     </div>
   </div>
 

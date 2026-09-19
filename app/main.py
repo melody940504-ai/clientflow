@@ -2868,8 +2868,13 @@ def analytics_page(request: Request):
                 (
                     SELECT COUNT(*)
                     FROM projects
-                    WHERE user_id = ? AND archived_at IS NULL AND status IN ('Approved', 'Published')
-                ) AS completed_projects,
+                    WHERE user_id = ? AND archived_at IS NULL AND status = 'Approved'
+                ) AS approved_projects,
+                (
+                    SELECT COUNT(*)
+                    FROM projects
+                    WHERE user_id = ? AND archived_at IS NULL AND status = 'Published'
+                ) AS published_projects,
                 (
                     SELECT COUNT(*)
                     FROM comments cm
@@ -2878,7 +2883,7 @@ def analytics_page(request: Request):
                     WHERE p.user_id = ? AND p.archived_at IS NULL AND cm.type IN ('approve', 'reject')
                 ) AS decision_count
             """,
-            (user_id, user_id, user_id, user_id, user_id, user_id),
+            (user_id, user_id, user_id, user_id, user_id, user_id, user_id),
         ).fetchone()
 
         status_rows = db.execute(
@@ -2951,16 +2956,19 @@ def analytics_page(request: Request):
     total_projects = totals["total_projects"] or 0
     total_versions = totals["total_versions"] or 0
     total_comments = totals["total_comments"] or 0
-    completed_projects = totals["completed_projects"] or 0
+    approved_projects = totals["approved_projects"] or 0
+    published_projects = totals["published_projects"] or 0
 
     analytics = {
         "total_clients": totals["total_clients"] or 0,
         "total_projects": total_projects,
         "total_versions": total_versions,
         "total_comments": total_comments,
-        "completed_projects": completed_projects,
+        "approved_projects": approved_projects,
+        "published_projects": published_projects,
         "decision_count": totals["decision_count"] or 0,
-        "approval_rate": round((completed_projects / total_projects) * 100) if total_projects else 0,
+        "approved_rate": round((approved_projects / total_projects) * 100) if total_projects else 0,
+        "published_rate": round((published_projects / total_projects) * 100) if total_projects else 0,
         "avg_versions_per_project": round(total_versions / total_projects, 1) if total_projects else 0,
         "avg_comments_per_project": round(total_comments / total_projects, 1) if total_projects else 0,
     }

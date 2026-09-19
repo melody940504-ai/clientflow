@@ -1,10 +1,14 @@
 # Lumaire
 
-Lumaire is a client review and delivery workspace for creative studios. It keeps video versions, contextual feedback, approvals, review access, delivery readiness, and project history in one focused portal instead of scattered email threads.
+Lumaire is a full-stack client review and delivery workspace for creative studios. It keeps video versions, contextual feedback, access rules, client decisions, and final-delivery readiness in one traceable workflow instead of scattered email threads.
 
 [Open the live demo](https://lumaireflow.com/) | [Follow the 2-minute demo](docs/DEMO_GUIDE.md)
 
-The landing page provides one-click access to seeded, read-only Studio and Client roles. No credentials are required, and server-side protection prevents visitors from changing demo data.
+The public demo is designed for portfolio review: one click opens a seeded Studio or Client view, no credentials are required, and server-side guards prevent visitors from changing shared data. The production deployment uses a custom domain, HTTPS, PostgreSQL, private object storage, and verified transactional email.
+
+## Why This Project
+
+Lumaire was built around a product problem that appears simple but crosses several system boundaries: a creative team needs to share evolving work with the right people, preserve the context behind each decision, and know when a project is actually ready to deliver. The implementation therefore combines multi-role authorization, version history, review state, public-link permissions, private file delivery, notifications, analytics, and operational safeguards in one coherent application.
 
 ## Product Preview
 
@@ -22,7 +26,7 @@ The landing page provides one-click access to seeded, read-only Studio and Clien
 
 - Upload hosted or Supabase-backed video versions without losing earlier decisions.
 - Compare two versions side by side with synchronized playback controls.
-- Collect comments, frame references, attachments, revision requests, and approvals.
+- Collect comments, frame references, attachments, revision requests, and explicit client approvals.
 - Resolve and reopen feedback while preserving the activity trail.
 - Keep internal studio notes separate from client-visible discussion.
 - Set a review due date and track unresolved feedback from the project sidebar.
@@ -48,7 +52,7 @@ The landing page provides one-click access to seeded, read-only Studio and Clien
 - Create clients and projects from a dedicated workspace flow.
 - Assign owner, admin, reviewer, or viewer roles with project-level access.
 - Customize studio name, logo, sender label, and brand color.
-- Use notifications with per-project read state and workspace analytics.
+- Use notifications with per-project read state and workspace analytics that report approval and publication separately.
 - Manage email verification, password reset, Google OAuth, and account settings.
 
 ### Product experience
@@ -90,6 +94,15 @@ FastAPI renders Jinja templates. Small JavaScript modules handle theme persisten
 | Rate limiting | In-memory locally, Redis when `REDIS_URL` is configured |
 | Frontend | Server-rendered HTML, CSS, vanilla JavaScript |
 | Deployment | Render |
+
+## Production Readiness
+
+- Custom domain and managed HTTPS at [lumaireflow.com](https://lumaireflow.com/).
+- Verified Resend sender domain for account verification, password reset, invitations, and activity mail.
+- PostgreSQL migrations, startup preflight checks, private Supabase attachments, signed download URLs, and backup scripts.
+- CSRF protection, signed sessions, password hashing, workspace isolation, role checks, and backend-enforced read-only demos.
+- Automated coverage for authentication, permissions, review links, uploads, feedback state, delivery, archiving, and migration compatibility.
+- Billing code is intentionally not exposed in the current interface; the portfolio build focuses on the complete review and delivery workflow.
 
 ## Data Flow
 
@@ -148,12 +161,6 @@ Open `http://127.0.0.1:8000` after filling in the required values from `.env.exa
 
 Never commit real secrets. `.env` files, local databases, virtual environments, backups, and Python caches are excluded by `.gitignore`.
 
-## Plans and Billing
-
-Lumaire keeps plan entitlements in the workspace owner record. Free workspaces can create up to 3 active projects, 3 active clients, 1 studio seat, and 3 versions per project. Pro raises those limits to 50 projects, 100 clients, 5 seats, and unlimited versions. Business supports unlimited projects and clients, 25 seats, and the complete team workflow. Existing resources remain readable when a workspace reaches a limit; only new or restored resources are blocked. Until Stripe is fully configured, billing stays in preview mode and existing deployments retain Business-level limits so setup cannot accidentally lock a workspace.
-
-Stripe Checkout and the Customer Portal remain disabled until all four Stripe variables are configured. Subscription access is updated only from verified Stripe webhooks at `/billing/webhook`, never from the checkout return URL. Configure Stripe to send `checkout.session.completed` and `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` events.
-
 ## Tests and Preflight
 
 ```powershell
@@ -172,7 +179,8 @@ The suite covers password migration, CSRF, review tokens, workspace isolation, r
 4. Configure the environment variables in Render.
 5. Point `DATABASE_URL` to PostgreSQL and keep `RUN_DB_MIGRATIONS=true`.
 6. Configure the Supabase `attachments` bucket as private and use a server-side key.
-7. Add the Render callback URL to the Google OAuth client.
+7. Add `https://lumaireflow.com/auth/google/callback` to the Google OAuth client.
+8. Attach `lumaireflow.com` as the Render custom domain and point Cloudflare DNS to the Render service.
 
 ## Operations
 
@@ -196,4 +204,4 @@ python scripts/backup_attachments.py --output-dir backups
 
 Lumaire is a production-minded MVP, not a transcoding or DRM platform. It supports hosted video links and Supabase uploads, but disabling downloads only removes Lumaire's download entry points; it cannot prevent screen recording or direct media capture.
 
-The next milestone is subscription entitlements and Stripe billing for Free, Pro, and Business plans. Production email to arbitrary recipients still requires a verified Resend sender domain. Additional browser-level end-to-end coverage and external integrations remain useful follow-up work.
+The current public build deliberately leaves subscription checkout out of the navigation. Possible future work includes background video transcoding, expanded browser-level end-to-end coverage, richer reporting exports, and production billing if Lumaire moves from a portfolio project to a commercial service.
